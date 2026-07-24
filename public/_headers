@@ -1,0 +1,21 @@
+# Cloudflare Pages response headers.
+# Applied at the edge on top of Pages' automatic HTTPS/TLS.
+
+/*
+  # Force HTTPS for two years, including subdomains (HSTS).
+  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+  # Lock what the page may load. Scripts are self-only (the real XSS guard);
+  # fonts come from Google Fonts, images from Unsplash + inline data URIs.
+  Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://images.unsplash.com; connect-src 'self'; manifest-src 'self'; upgrade-insecure-requests
+  # No clickjacking, no MIME sniffing, minimal referrer leakage.
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  # Turn off powerful browser features the store never uses.
+  Permissions-Policy: geolocation=(), camera=(), microphone=(), payment=(), usb=(), interest-cohort=()
+  Cross-Origin-Opener-Policy: same-origin
+  X-DNS-Prefetch-Control: on
+
+# Hashed build assets never change under the same name — cache them hard.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
