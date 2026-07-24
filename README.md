@@ -1,6 +1,35 @@
 # IraqStore | عراق ستور
 
-متجر أزياء فاخرة بواجهة عربية (RTL) — React + Vite، بلا أي إطار CSS خارجي.
+**مباشر:** https://iraqstore.pages.dev — منشور على Cloudflare Pages.
+
+متجر أزياء بواجهة عربية (RTL) — React + Vite، بلا أي إطار CSS خارجي.
+
+## النشر على Cloudflare Pages
+
+الموقع ثابت (SPA)، مخرجاته في `dist`.
+
+| الإعداد | القيمة |
+| --- | --- |
+| أمر البناء | `npm run build` |
+| مجلد المخرجات | `dist` |
+| إصدار Node | `20` (من `.node-version`) |
+
+نشر يدوي عبر Wrangler:
+
+```bash
+npm run build
+npx wrangler pages deploy dist --project-name iraqstore --branch main
+```
+
+أو اربط مستودع GitHub من لوحة Cloudflare Pages ليُبنى تلقائيًا مع كل `push`.
+
+### الأمان
+
+- **HTTPS إجباري** عبر HSTS لمدة سنتين (`Strict-Transport-Security … preload`).
+- **CSP صارم**: `script-src 'self'` فقط (لا سكربتات خارجية أو inline)؛ الصور من Unsplash والخطوط من Google Fonts حصرًا.
+- `X-Frame-Options: DENY` و `frame-ancestors 'none'` — حماية من clickjacking.
+- `X-Content-Type-Options: nosniff` · `Referrer-Policy` · `Permissions-Policy` (تعطيل الموقع والكاميرا والميكروفون والدفع).
+- كل هذا في [public/_headers](public/_headers)، وتوجيه SPA في [public/_redirects](public/_redirects).
 
 ## التشغيل
 
