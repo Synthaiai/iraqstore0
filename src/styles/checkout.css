@@ -1,0 +1,456 @@
+/* ============================================================
+   Checkout, order confirmation, back-to-top, size validation
+   Loaded after global.css; reuses its tokens.
+   ============================================================ */
+
+.checkout {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: clamp(1.5rem, 3vw, 2.5rem);
+  align-items: start;
+  padding-bottom: clamp(3rem, 6vw, 5rem);
+}
+
+.checkout__form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.form-card {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: clamp(1.25rem, 2.5vw, 1.75rem);
+}
+
+.form-card__title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 1.25rem;
+}
+
+/* ---- Form fields ---- */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.field:last-child {
+  margin-bottom: 0;
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.field label {
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--ink-700);
+}
+
+.field input,
+.field textarea,
+.select--block {
+  width: 100%;
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--paper);
+  font-size: 0.95rem;
+  color: var(--ink-900);
+  transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+}
+
+.field textarea {
+  resize: vertical;
+  min-height: 3rem;
+  line-height: 1.7;
+}
+
+.field input::placeholder,
+.field textarea::placeholder {
+  color: var(--ink-300);
+}
+
+.field input:focus,
+.field textarea:focus,
+.select--block:focus {
+  outline: none;
+  border-color: var(--burgundy-700);
+  box-shadow: 0 0 0 3px rgba(107, 15, 26, 0.1);
+}
+
+.field input.is-invalid,
+.field textarea.is-invalid,
+.select--block.is-invalid {
+  border-color: #c0392b;
+  box-shadow: 0 0 0 3px rgba(192, 57, 43, 0.1);
+}
+
+.field__error {
+  font-size: 0.8rem;
+  color: #c0392b;
+  font-weight: 500;
+}
+
+.select--block {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236f6f76' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: left 1rem center;
+}
+
+/* ---- Payment method ---- */
+.pay-method {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 1rem 1.15rem;
+  border: 1.5px solid var(--line-strong);
+  border-radius: var(--radius);
+}
+
+.pay-method.is-active {
+  border-color: var(--burgundy-700);
+  background: var(--burgundy-100);
+}
+
+.pay-method svg {
+  width: 24px;
+  height: 24px;
+  color: var(--burgundy-700);
+  flex: none;
+}
+
+.pay-method strong {
+  display: block;
+  font-weight: 600;
+  color: var(--ink-900);
+}
+
+.pay-method span span {
+  font-size: 0.85rem;
+  color: var(--ink-400);
+}
+
+.pay-method__radio {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 5px solid var(--burgundy-700);
+  background: #fff;
+  flex: none;
+}
+
+/* ---- Order summary ---- */
+.checkout__summary {
+  position: sticky;
+  top: calc(var(--header-h) + 1rem);
+}
+
+.summary-card {
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: clamp(1.25rem, 2.5vw, 1.75rem);
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.summary-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.summary-line {
+  display: grid;
+  grid-template-columns: 48px 1fr auto;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.summary-line__img {
+  position: relative;
+  width: 48px;
+  height: 60px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--paper-tint);
+}
+
+.summary-line__img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.summary-line__qty {
+  position: absolute;
+  top: -6px;
+  inset-inline-start: -6px;
+  min-width: 20px;
+  height: 20px;
+  padding-inline: 5px;
+  border-radius: 99px;
+  background: var(--ink-900);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+}
+
+.summary-line__body {
+  min-width: 0;
+}
+
+.summary-line__name {
+  display: block;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--ink-900);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.summary-line__price {
+  font-weight: 700;
+  font-size: 0.88rem;
+  white-space: nowrap;
+}
+
+.summary-totals {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid var(--line);
+}
+
+/* ============================================================
+   Order confirmation
+   ============================================================ */
+
+.confirm {
+  max-width: 560px;
+  margin-inline: auto;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.confirm__badge {
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  background: var(--burgundy-700);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  animation: popBadge 500ms var(--ease-out-expo) both;
+}
+
+.confirm__badge svg {
+  width: 40px;
+  height: 40px;
+}
+
+@keyframes popBadge {
+  from {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+}
+
+.confirm__title {
+  font-size: clamp(1.6rem, 4vw, 2.2rem);
+  font-weight: 700;
+}
+
+.confirm__lead {
+  color: var(--ink-400);
+  line-height: 1.85;
+}
+
+.confirm__card {
+  width: 100%;
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  text-align: start;
+  margin-top: 0.5rem;
+}
+
+.confirm__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  font-size: 0.92rem;
+  color: var(--ink-400);
+}
+
+.confirm__row strong {
+  color: var(--ink-900);
+  font-weight: 600;
+}
+
+.confirm__row--total {
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--line);
+  font-size: 1.05rem;
+}
+
+.confirm__row--total strong {
+  color: var(--burgundy-700);
+  font-size: 1.2rem;
+}
+
+.confirm__note {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.9rem;
+  color: var(--ink-700);
+  background: var(--burgundy-100);
+  padding: 0.8rem 1.1rem;
+  border-radius: var(--radius);
+  width: 100%;
+}
+
+.confirm__note svg {
+  width: 20px;
+  height: 20px;
+  color: var(--burgundy-700);
+  flex: none;
+}
+
+.confirm__actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 0.5rem;
+}
+
+/* ============================================================
+   Size-required feedback
+   ============================================================ */
+
+.opt-group__req {
+  color: #c0392b;
+  font-weight: 500;
+  font-size: 0.85rem;
+}
+
+.opt-row--error {
+  animation: shake 420ms var(--ease);
+}
+
+.opt-row--error .opt {
+  border-color: #d98880;
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20%,
+  60% {
+    transform: translateX(-5px);
+  }
+  40%,
+  80% {
+    transform: translateX(5px);
+  }
+}
+
+/* ============================================================
+   Back to top
+   ============================================================ */
+
+.to-top {
+  position: fixed;
+  bottom: 1.5rem;
+  inset-inline-start: 1.5rem;
+  z-index: 70;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: var(--ink-900);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  transform: translateY(16px) scale(0.9);
+  pointer-events: none;
+  transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease-out-expo),
+    background var(--dur-fast) var(--ease);
+}
+
+.to-top.is-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+.to-top:hover {
+  background: var(--burgundy-700);
+}
+
+.to-top svg {
+  width: 22px;
+  height: 22px;
+}
+
+/* ============================================================
+   Responsive
+   ============================================================ */
+
+@media (max-width: 900px) {
+  .checkout {
+    grid-template-columns: 1fr;
+  }
+
+  /* Summary leads on mobile so the total is visible before the long form. */
+  .checkout__summary {
+    position: static;
+    order: -1;
+  }
+}
+
+@media (max-width: 480px) {
+  .field-row {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .confirm__actions .btn {
+    width: 100%;
+  }
+
+  .to-top {
+    bottom: 1rem;
+    inset-inline-start: 1rem;
+  }
+}
