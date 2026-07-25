@@ -31,6 +31,19 @@ export default function GenderPage() {
       </header>
 
       <section className="shell" style={{ paddingBottom: 'clamp(3rem, 6vw, 5rem)' }}>
+        {/* "كل المنتجات" leads as a wide banner, then the three categories. */}
+        <Reveal style={{ marginBottom: 'clamp(1rem, 2vw, 1.5rem)' }}>
+          <Tile
+            to={`/g/${gender}/all`}
+            className="tile--wide"
+            title={`كل المنتجات ${g.title === 'رجالي' ? 'الرجالية' : 'النسائية'}`}
+            latin="All Products"
+            meta={`${countProducts(gender)} منتج — تصفّح كل الأقسام معًا`}
+            cover={g.cover}
+            feature
+          />
+        </Reveal>
+
         <div className="tile-grid tile-grid--3">
           {categories.map((c, i) => (
             <Reveal key={c.slug} delay={i * 100}>

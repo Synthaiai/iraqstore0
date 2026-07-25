@@ -74,7 +74,8 @@ export const CATEGORIES = {
 export const SUBCATEGORIES = {
   'men/shoes': [
     { slug: 'all', title: 'كل الأحذية', latin: 'All Footwear', cover: POOLS.mFormal[2], feature: true },
-    { slug: 'sneakers', title: 'أحذية رياضية', latin: 'Sneakers', cover: POOLS.mSneakers[0] },
+    { slug: 'casual', title: 'أحذية كاجول (ترينرز)', latin: 'Trainers', cover: POOLS.mSneakers[5] },
+    { slug: 'sneakers', title: 'أحذية ركض (سنيكرز)', latin: 'Running', cover: POOLS.mSneakers[0] },
     { slug: 'formal', title: 'أحذية رسمية', latin: 'Formal', cover: POOLS.mFormal[1] },
     { slug: 'loafers', title: 'أحذية لوفرز', latin: 'Loafers', cover: POOLS.mLoafers[0] },
   ],

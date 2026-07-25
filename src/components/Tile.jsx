@@ -6,9 +6,9 @@ import { ChevronLeft } from './Icons';
 const TILE_SIZES = '(max-width: 560px) 92vw, (max-width: 900px) 46vw, 31vw';
 
 /** The category / subcategory card used across the browse pages. */
-export default function Tile({ to, title, latin, meta, cover, feature = false }) {
+export default function Tile({ to, title, latin, meta, cover, feature = false, className = '' }) {
   return (
-    <Link to={to} className={`tile ${feature ? 'tile--feature' : ''}`}>
+    <Link to={to} className={`tile ${feature ? 'tile--feature' : ''} ${className}`.trim()}>
       <Img
         className="tile__img"
         src={img(cover, 480, 640)}

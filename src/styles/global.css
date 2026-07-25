@@ -983,6 +983,28 @@ h4 {
   opacity: 0.32;
 }
 
+/* Wide banner variant — the "all products" entry on the gender page.
+   `.tile.tile--wide` outranks the responsive `.tile` aspect rules regardless
+   of source order, so the banner keeps its shape at every width. */
+.tile.tile--wide {
+  aspect-ratio: 16 / 5.5;
+  max-height: 300px;
+}
+
+.tile--wide .tile__title {
+  font-size: clamp(1.5rem, 3vw, 2.4rem);
+}
+
+.tile--wide .tile__body {
+  padding: clamp(1.5rem, 3vw, 2.5rem);
+}
+
+@media (max-width: 700px) {
+  .tile.tile--wide {
+    aspect-ratio: 16 / 9;
+  }
+}
+
 /* ============================================================
    Product card
    ============================================================ */

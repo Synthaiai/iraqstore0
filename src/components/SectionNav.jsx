@@ -1,4 +1,4 @@
-import { Link, useParams } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import { CATEGORIES, GENDERS, getSubcategories } from '../data/catalog';
 
 /**
@@ -19,6 +19,10 @@ export default function SectionNav(props) {
   const categories = CATEGORIES[gender] || [];
   const subs = category ? getSubcategories(gender, category) : [];
 
+  // "كل المنتجات" is active only on the gender-wide all page (/g/:gender/all).
+  const { pathname } = useLocation();
+  const onAll = pathname === `/g/${gender}/all`;
+
   return (
     <nav className="secnav" aria-label="تصفّح الأقسام">
       <div className="shell secnav__inner">
@@ -35,6 +39,13 @@ export default function SectionNav(props) {
         </div>
 
         <div className="secnav__row" role="list">
+          <Link
+            to={`/g/${gender}/all`}
+            className={`secnav__link ${onAll ? 'is-active' : ''}`}
+            role="listitem"
+          >
+            كل المنتجات
+          </Link>
           {categories.map((c) => (
             <Link
               key={c.slug}

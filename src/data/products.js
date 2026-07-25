@@ -125,6 +125,43 @@ const menSneakers = build('men', 'shoes', 'sneakers', POOLS.mSneakers, [
   ],
 ]);
 
+// Casual trainers draw from the same photo pool as the running set but rotated,
+// so the two shoe subcategories never show the same frame side by side.
+const CASUAL_POOL = [...POOLS.mSneakers.slice(6), ...POOLS.mSneakers.slice(0, 6)];
+
+const menCasual = build('men', 'shoes', 'casual', CASUAL_POOL, [
+  [
+    'ترينر كلاود اليومي',
+    'نسيج محبوك خفيف بنعل طري — رفيق المشاوير اليومية.',
+    39000, 0, 4.7, 176, 'best',
+    [C.white, C.grey, C.black], SIZES.shoeM, 'نسيج محبوك',
+  ],
+  [
+    'ترينر ريترو الجلدي',
+    'قَصّة كلاسيكية بلمسة رياضية وخطوط جانبية أنيقة.',
+    46000, 58000, 4.6, 142, 'sale',
+    [C.cream, C.navy, C.burgundy], SIZES.shoeM, 'جلد وشمواه',
+  ],
+  [
+    'ترينر سلِب-أون',
+    'بلا رباط — يُلبس بثانية ويناسب الجينز والشورت.',
+    33000, 0, 4.5, 98, null,
+    [C.black, C.olive, C.grey], SIZES.shoeM, 'قطن مطاطي',
+  ],
+  [
+    'ترينر كانفاس المغسول',
+    'قماش قطني مغسول حجريًا يزداد راحة مع الوقت.',
+    29000, 0, 4.4, 211, 'new',
+    [C.cream, C.navy, C.burgundy], SIZES.shoeM, 'كانفاس قطني',
+  ],
+  [
+    'ترينر شمواه كاجول',
+    'شمواه مطفي بنعل كريب — أناقة غير رسمية.',
+    52000, 0, 4.7, 87, null,
+    [C.tan, C.grey, C.olive], SIZES.shoeM, 'شمواه',
+  ],
+]);
+
 const menFormal = build('men', 'shoes', 'formal', POOLS.mFormal, [
   [
     'حذاء أكسفورد بغداد',
@@ -750,7 +787,7 @@ const womenEyewear = build('women', 'accessories', 'eyewear', POOLS.eyewear, [
    ============================================================ */
 
 export const PRODUCTS = [
-  ...menSneakers, ...menFormal, ...menLoafers,
+  ...menCasual, ...menSneakers, ...menFormal, ...menLoafers,
   ...menShirts, ...menSuits, ...menOuter, ...menTrousers,
   ...menWatches, ...menLeather, ...menEyewear,
   ...womenHeels, ...womenWSneakers, ...womenBoots, ...womenFlats,

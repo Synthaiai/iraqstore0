@@ -5,11 +5,11 @@ import { formatPrice, searchProducts } from '../data/products';
 import Logo from './Logo';
 import { Bag, Close, Heart, Menu, Search } from './Icons';
 
+// Entry to the store is a gender choice; categories live one level in, on the
+// gender page. Keeping the top bar to two doors matches how the shop is browsed.
 const NAV = [
   { to: '/g/men', label: 'رجالي' },
   { to: '/g/women', label: 'نسائي' },
-  { to: '/g/men/shoes/all', label: 'أحذية' },
-  { to: '/g/women/accessories/all', label: 'إكسسوارات' },
 ];
 
 export default function Header() {

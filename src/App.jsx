@@ -5,6 +5,7 @@ import Header from './components/Header';
 import ScrollToTop from './components/ScrollToTop';
 import Toasts from './components/Toasts';
 import BackToTop from './components/BackToTop';
+import AllProductsPage from './pages/AllProductsPage';
 import CategoryPage from './pages/CategoryPage';
 import CheckoutPage from './pages/CheckoutPage';
 import FavoritesPage from './pages/FavoritesPage';
@@ -28,6 +29,8 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/g/:gender" element={<GenderPage />} />
+          {/* Static "all" ranks above :category, so /g/men/all is the gender-wide list. */}
+          <Route path="/g/:gender/all" element={<AllProductsPage />} />
           <Route path="/g/:gender/:category" element={<CategoryPage />} />
           <Route path="/g/:gender/:category/:sub" element={<ListingPage />} />
           <Route path="/product/:id" element={<ProductPage />} />
