@@ -1,6 +1,7 @@
 import { Navigate, useParams } from 'react-router-dom';
 import { CATEGORIES, getGender } from '../data/catalog';
 import { countProducts, featuredProducts } from '../data/products';
+import { usePrefs } from '../store/PrefsContext';
 import Breadcrumbs from '../components/Breadcrumbs';
 import ProductCard from '../components/ProductCard';
 import Reveal from '../components/Reveal';
@@ -9,10 +10,12 @@ import Tile from '../components/Tile';
 
 export default function GenderPage() {
   const { gender } = useParams();
+  const { t, tf, lang } = usePrefs();
   const g = getGender(gender);
 
   if (!g) return <Navigate to="/" replace />;
 
+  const gName = lang === 'en' ? g.latin : g.title;
   const categories = CATEGORIES[gender];
   const picks = featuredProducts(20)
     .filter((p) => p.gender === gender)
@@ -22,12 +25,12 @@ export default function GenderPage() {
     <>
       <SectionNav />
 
-      <Breadcrumbs items={[{ label: g.title }]} />
+      <Breadcrumbs items={[{ label: gName }]} />
 
       <header className="shell page-head">
         <span className="eyebrow">{g.latin}</span>
-        <h1 className="page-head__title">{g.title}</h1>
-        <p className="page-head__sub">{g.tagline}</p>
+        <h1 className="page-head__title">{gName}</h1>
+        <p className="page-head__sub">{tf(g, 'tagline')}</p>
       </header>
 
       <section className="shell" style={{ paddingBottom: 'clamp(3rem, 6vw, 5rem)' }}>
@@ -36,9 +39,9 @@ export default function GenderPage() {
           <Tile
             to={`/g/${gender}/all`}
             className="tile--wide"
-            title={`كل المنتجات ${g.title === 'رجالي' ? 'الرجالية' : 'النسائية'}`}
+            title={gender === 'men' ? t('allProductsMen') : t('allProductsWomen')}
             latin="All Products"
-            meta={`${countProducts(gender)} منتج — تصفّح كل الأقسام معًا`}
+            meta={`${countProducts(gender)} ${t('product')} — ${t('browseAll')}`}
             cover={g.cover}
             feature
           />
@@ -49,9 +52,9 @@ export default function GenderPage() {
             <Reveal key={c.slug} delay={i * 100}>
               <Tile
                 to={`/g/${gender}/${c.slug}`}
-                title={c.title}
-                latin={c.latin}
-                meta={`${countProducts(gender, c.slug)} قطعة · ${c.blurb}`}
+                title={lang === 'en' ? c.latin : c.title}
+                latin={lang === 'en' ? undefined : c.latin}
+                meta={`${countProducts(gender, c.slug)} ${t('piece')} · ${tf(c, 'blurb')}`}
                 cover={c.cover}
               />
             </Reveal>
@@ -64,7 +67,9 @@ export default function GenderPage() {
           <Reveal className="section-head">
             <div>
               <span className="eyebrow">Top Rated</span>
-              <h2 className="section-head__title">الأعلى تقييمًا في {g.title}</h2>
+              <h2 className="section-head__title">
+                {t('topRatedIn')} {gName}
+              </h2>
             </div>
           </Reveal>
           <div className="product-grid">

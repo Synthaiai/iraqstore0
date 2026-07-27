@@ -2,19 +2,25 @@ import { Link } from 'react-router-dom';
 import { GENDERS } from '../data/catalog';
 import { POOLS, heroSrcSet, img, imgWide, srcSet } from '../data/images';
 import { countProducts, featuredProducts, newArrivals } from '../data/products';
+import { usePrefs } from '../store/PrefsContext';
 import Img from '../components/Img';
 import ProductCard from '../components/ProductCard';
 import Reveal from '../components/Reveal';
 import { ChevronLeft } from '../components/Icons';
 
-const PORTAL_META = {
-  men: 'أحذية · ملابس · إكسسوارات',
-  women: 'أحذية · ملابس · إكسسوارات',
-};
-
 export default function Home() {
+  const { t, lang } = usePrefs();
   const featured = featuredProducts(8);
   const arrivals = newArrivals(4);
+  const catName = (g) => (lang === 'en' ? g.latin : g.title);
+  const portalMeta = lang === 'en' ? 'Footwear · Clothing · Accessories' : 'أحذية · ملابس · إكسسوارات';
+
+  const strip = [
+    { to: '/g/men/shoes/formal', title: 'أحذية رسمية', titleEn: 'Formal shoes', cover: POOLS.mFormal[1], count: countProducts('men', 'shoes', 'formal') },
+    { to: '/g/women/clothing/dresses', title: 'فساتين', titleEn: 'Dresses', cover: POOLS.wDresses[2], count: countProducts('women', 'clothing', 'dresses') },
+    { to: '/g/men/accessories/watches', title: 'ساعات', titleEn: 'Watches', cover: POOLS.mWatches[1], count: countProducts('men', 'accessories', 'watches') },
+    { to: '/g/women/accessories/bags', title: 'حقائب', titleEn: 'Bags', cover: POOLS.wBags[1], count: countProducts('women', 'accessories', 'bags') },
+  ];
 
   return (
     <>
@@ -33,28 +39,26 @@ export default function Home() {
 
         <div className="shell hero__inner">
           <span className="eyebrow" style={{ justifyContent: 'center' }}>
-            IRAQI STORE
+            {t('heroKicker')}
           </span>
           <h1 className="hero__title">
-            ملابس وأحذية وإكسسوارات
+            {t('heroTitle1')}
             <br />
-            <em>للرجال والنساء</em>
+            <em>{t('heroTitle2')}</em>
           </h1>
-          <p className="hero__lede">
-            تشكيلة واسعة بأسعار واضحة. اختر القسم، تصفّح المنتجات، وأضف ما يعجبك إلى السلة.
-          </p>
+          <p className="hero__lede">{t('heroLede')}</p>
           <div className="hero__cta">
             <Link to="/g/men" className="btn btn--light">
-              تسوّق رجالي
+              {t('shopMen')}
             </Link>
             <Link to="/g/women" className="btn btn--ghost">
-              تسوّق نسائي
+              {t('shopWomen')}
             </Link>
           </div>
         </div>
 
         <span className="hero__hint" aria-hidden>
-          SCROLL
+          {t('scroll')}
         </span>
       </section>
 
@@ -62,11 +66,9 @@ export default function Home() {
       <section className="section shell">
         <Reveal className="section-head">
           <div>
-            <span className="eyebrow">Shop by</span>
-            <h2 className="section-head__title">من أين تحب أن تبدأ؟</h2>
-            <p className="section-head__sub">
-              اختر قسمك، ثم تنقّل بين الأحذية والملابس والإكسسوارات في خطوتين فقط.
-            </p>
+            <span className="eyebrow">{t('shopBy')}</span>
+            <h2 className="section-head__title">{t('whereStart')}</h2>
+            <p className="section-head__sub">{t('whereStartSub')}</p>
           </div>
         </Reveal>
 
@@ -79,7 +81,7 @@ export default function Home() {
                   src={img(g.cover, 640, 800)}
                   srcSet={srcSet(g.cover, [420, 640, 900, 1200], 5 / 4)}
                   sizes="(max-width: 760px) 94vw, 47vw"
-                  alt={g.title}
+                  alt={catName(g)}
                   eager
                 />
                 <span className="portal__scrim" />
@@ -87,10 +89,10 @@ export default function Home() {
 
                 <span className="portal__body">
                   <span className="portal__label">{g.latin}</span>
-                  <span className="portal__title">{g.title}</span>
-                  <span className="portal__meta">{PORTAL_META[g.slug]}</span>
+                  <span className="portal__title">{catName(g)}</span>
+                  <span className="portal__meta">{portalMeta}</span>
                   <span className="portal__enter">
-                    ادخل القسم
+                    {t('enterSection')}
                     <ChevronLeft />
                   </span>
                 </span>
@@ -105,11 +107,11 @@ export default function Home() {
         <Reveal className="section-head">
           <div>
             <span className="eyebrow">Best Sellers</span>
-            <h2 className="section-head__title">الأكثر مبيعًا</h2>
-            <p className="section-head__sub">المنتجات الأعلى طلبًا وتقييمًا في المتجر.</p>
+            <h2 className="section-head__title">{t('bestSellers')}</h2>
+            <p className="section-head__sub">{t('bestSellersSub')}</p>
           </div>
           <Link to="/g/men/shoes/all" className="link-underline">
-            استعرض الكل
+            {t('viewAll')}
           </Link>
         </Reveal>
 
@@ -125,11 +127,11 @@ export default function Home() {
         <Reveal className="section-head">
           <div>
             <span className="eyebrow">Just In</span>
-            <h2 className="section-head__title">وصل حديثًا</h2>
-            <p className="section-head__sub">أحدث ما دخل المستودع هذا الأسبوع.</p>
+            <h2 className="section-head__title">{t('newArrivals')}</h2>
+            <p className="section-head__sub">{t('newArrivalsSub')}</p>
           </div>
           <Link to="/g/women/clothing/all" className="link-underline">
-            استعرض الكل
+            {t('viewAll')}
           </Link>
         </Reveal>
 
@@ -143,17 +145,12 @@ export default function Home() {
       {/* ============ Quick category strip ============ */}
       <section className="section section--tight shell">
         <Reveal className="tile-grid tile-grid--4">
-          {[
-            { to: '/g/men/shoes/formal', title: 'أحذية رسمية', cover: POOLS.mFormal[1], count: countProducts('men', 'shoes', 'formal') },
-            { to: '/g/women/clothing/dresses', title: 'فساتين', cover: POOLS.wDresses[2], count: countProducts('women', 'clothing', 'dresses') },
-            { to: '/g/men/accessories/watches', title: 'ساعات', cover: POOLS.mWatches[1], count: countProducts('men', 'accessories', 'watches') },
-            { to: '/g/women/accessories/bags', title: 'حقائب', cover: POOLS.wBags[1], count: countProducts('women', 'accessories', 'bags') },
-          ].map((t) => (
-            <Link key={t.to} to={t.to} className="tile" style={{ aspectRatio: '1 / 1' }}>
+          {strip.map((item) => (
+            <Link key={item.to} to={item.to} className="tile" style={{ aspectRatio: '1 / 1' }}>
               <Img
                 className="tile__img"
-                src={img(t.cover, 400, 400)}
-                srcSet={srcSet(t.cover, [280, 400, 560], 1)}
+                src={img(item.cover, 400, 400)}
+                srcSet={srcSet(item.cover, [280, 400, 560], 1)}
                 sizes="(max-width: 560px) 92vw, (max-width: 1100px) 46vw, 23vw"
                 alt=""
               />
@@ -163,9 +160,11 @@ export default function Home() {
               </span>
               <span className="tile__body">
                 <span className="tile__title" style={{ fontSize: 'clamp(1.15rem, 1.8vw, 1.5rem)' }}>
-                  {t.title}
+                  {lang === 'en' ? item.titleEn : item.title}
                 </span>
-                <span className="tile__count">{t.count} قطعة</span>
+                <span className="tile__count">
+                  {item.count} {t('piece')}
+                </span>
               </span>
             </Link>
           ))}

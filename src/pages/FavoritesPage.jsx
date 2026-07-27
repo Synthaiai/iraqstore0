@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useStore } from '../store/StoreContext';
+import { usePrefs } from '../store/PrefsContext';
 import { getProduct } from '../data/products';
 import Breadcrumbs from '../components/Breadcrumbs';
 import ProductCard from '../components/ProductCard';
@@ -7,19 +8,18 @@ import { Heart } from '../components/Icons';
 
 export default function FavoritesPage() {
   const { favorites } = useStore();
+  const { t } = usePrefs();
   const items = favorites.map(getProduct).filter(Boolean);
 
   return (
     <>
-      <Breadcrumbs items={[{ label: 'المفضلة' }]} />
+      <Breadcrumbs items={[{ label: t('wishlist') }]} />
 
       <header className="shell page-head">
         <span className="eyebrow">Wishlist</span>
-        <h1 className="page-head__title">المفضلة</h1>
+        <h1 className="page-head__title">{t('wishlist')}</h1>
         <p className="page-head__sub">
-          {items.length > 0
-            ? `${items.length} قطعة محفوظة. تبقى هنا حتى بعد إغلاق المتصفح.`
-            : 'احفظ ما يعجبك هنا وقرّر لاحقًا على مهلك.'}
+          {items.length > 0 ? `${items.length} — ${t('wishlistSaved')}` : t('wishlistEmptySub')}
         </p>
       </header>
 
@@ -29,16 +29,14 @@ export default function FavoritesPage() {
             <span className="empty__icon">
               <Heart />
             </span>
-            <h2 className="empty__title">لا توجد قطع محفوظة</h2>
-            <p className="empty__text">
-              اضغط على أيقونة القلب في أي بطاقة منتج لحفظها هنا والعودة إليها لاحقًا.
-            </p>
+            <h2 className="empty__title">{t('noSaved')}</h2>
+            <p className="empty__text">{t('noSavedSub')}</p>
             <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem', flexWrap: 'wrap', justifyContent: 'center' }}>
               <Link to="/g/men" className="btn btn--burgundy btn--sm">
-                تسوّق رجالي
+                {t('shopMen')}
               </Link>
               <Link to="/g/women" className="btn btn--ghost btn--sm">
-                تسوّق نسائي
+                {t('shopWomen')}
               </Link>
             </div>
           </div>

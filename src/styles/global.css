@@ -448,21 +448,35 @@ h4 {
   justify-self: center;
 }
 
+/* The real logo artwork as a circular coin. The artwork's own dark backdrop
+   sits inside the clip, so it reads cleanly on both light and dark headers. */
 .logo__badge {
   flex: none;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #0b0b0c;
   display: grid;
   place-items: center;
-  color: var(--brand-red);
-  transition: transform var(--dur-slow) var(--ease-out-expo);
+  box-shadow: 0 0 0 1px var(--line-strong), var(--shadow-sm);
+  transition: transform var(--dur-slow) var(--ease-out-expo), box-shadow var(--dur) var(--ease);
+}
+
+.logo__badge img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .logo:hover .logo__badge {
-  transform: rotate(-8deg) scale(1.05);
+  transform: rotate(-6deg) scale(1.05);
+  box-shadow: 0 0 0 1px var(--brand-red), var(--shadow-md);
 }
 
-.logomark {
-  display: block;
-  overflow: visible;
+.logo--compact .logo__badge {
+  width: 38px;
+  height: 38px;
 }
 
 .logo__text {

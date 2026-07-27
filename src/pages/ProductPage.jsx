@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
 import { getCategory, getGender, getSubcategory } from '../data/catalog';
-import { BADGE_LABELS, formatPrice, getProduct, relatedProducts } from '../data/products';
+import { formatPrice, getProduct, relatedProducts } from '../data/products';
 import { useStore } from '../store/StoreContext';
+import { usePrefs } from '../store/PrefsContext';
 import Breadcrumbs from '../components/Breadcrumbs';
 import Img from '../components/Img';
 import ProductCard from '../components/ProductCard';
@@ -11,22 +12,22 @@ import SectionNav from '../components/SectionNav';
 import Stars from '../components/Stars';
 import { Bag, Heart, Minus, Plus } from '../components/Icons';
 
+const BADGE_KEY = { new: 'badgeNew', sale: 'badgeSale', best: 'badgeBest' };
+
 export default function ProductPage() {
   const { id } = useParams();
   const product = getProduct(id);
 
   const { addToCart, openCart, toast, isFavorite, toggleFavorite } = useStore();
+  const { t, tf, lang } = usePrefs();
   const [frame, setFrame] = useState(0);
   const [size, setSize] = useState(null);
   const [color, setColor] = useState(null);
   const [qty, setQty] = useState(1);
   const [sizeError, setSizeError] = useState(false);
 
-  // A one-size item ("مقاس واحد") has nothing to choose, so pre-select it.
-  // Everything else forces a deliberate size pick before adding to the cart.
   const singleSize = product?.sizes.length === 1;
 
-  // Reset every selection when navigating between products.
   useEffect(() => {
     setFrame(0);
     setQty(1);
@@ -43,11 +44,18 @@ export default function ProductPage() {
   const fav = isFavorite(product.id);
   const related = relatedProducts(product, 4);
   const discount = product.oldPrice ? Math.round((1 - product.price / product.oldPrice) * 100) : 0;
+  const pct = lang === 'en' ? '%' : '٪';
+  const name = tf(product, 'name');
+  const colorObj = product.colors.find((cl) => cl.name === color);
+  const localSize = (sz) => {
+    const i = product.sizes.indexOf(sz);
+    return lang === 'en' && i >= 0 ? product.sizesEn[i] : sz;
+  };
 
   const handleAdd = () => {
     if (!size) {
       setSizeError(true);
-      toast('اختر المقاس أولًا');
+      toast(t('pickSizeFirst'));
       document.getElementById('pdp-sizes')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
@@ -66,10 +74,13 @@ export default function ProductPage() {
 
       <Breadcrumbs
         items={[
-          { label: g.title, to: `/g/${product.gender}` },
-          { label: c.title, to: `/g/${product.gender}/${product.category}` },
-          { label: s?.title ?? c.title, to: `/g/${product.gender}/${product.category}/${product.sub}` },
-          { label: product.name },
+          { label: lang === 'en' ? g.latin : g.title, to: `/g/${product.gender}` },
+          { label: lang === 'en' ? c.latin : c.title, to: `/g/${product.gender}/${product.category}` },
+          {
+            label: lang === 'en' ? s?.latin ?? c.latin : s?.title ?? c.title,
+            to: `/g/${product.gender}/${product.category}/${product.sub}`,
+          },
+          { label: name },
         ]}
       />
 
@@ -83,21 +94,21 @@ export default function ProductPage() {
                 src={product.large[frame]}
                 srcSet={product.largeSet[frame]}
                 sizes="(max-width: 900px) 92vw, 48vw"
-                alt={product.name}
+                alt={name}
                 eager
               />
             </div>
             <div className="pdp__thumbs">
-              {product.thumbs.map((t, i) => (
+              {product.thumbs.map((thumb, i) => (
                 <button
-                  key={t}
+                  key={thumb}
                   type="button"
                   className={`pdp__thumb ${i === frame ? 'is-active' : ''}`}
                   onClick={() => setFrame(i)}
-                  aria-label={`عرض الصورة ${i + 1}`}
+                  aria-label={`${i + 1}`}
                   aria-pressed={i === frame}
                 >
-                  <img src={t} alt="" loading="lazy" decoding="async" />
+                  <img src={thumb} alt="" loading="lazy" decoding="async" />
                 </button>
               ))}
             </div>
@@ -108,23 +119,26 @@ export default function ProductPage() {
             <div>
               {product.badge && (
                 <span className={`badge badge--${product.badge}`} style={{ marginBottom: '0.75rem' }}>
-                  {BADGE_LABELS[product.badge]}
+                  {t(BADGE_KEY[product.badge])}
                 </span>
               )}
-              <h1 className="pdp__title">{product.name}</h1>
+              <h1 className="pdp__title">{name}</h1>
               <div style={{ marginTop: '0.6rem' }}>
                 <Stars rating={product.rating} reviews={product.reviews} />
               </div>
             </div>
 
-            <p className="pdp__desc">{product.blurb}</p>
+            <p className="pdp__desc">{tf(product, 'blurb')}</p>
 
             <div className="pdp__priceline">
-              <span className="price price--lg">{formatPrice(product.price)}</span>
+              <span className="price price--lg">{formatPrice(product.price, lang)}</span>
               {product.oldPrice && (
                 <>
-                  <span className="price price--old">{formatPrice(product.oldPrice)}</span>
-                  <span className="badge badge--sale">وفّر {discount}٪</span>
+                  <span className="price price--old">{formatPrice(product.oldPrice, lang)}</span>
+                  <span className="badge badge--sale">
+                    {t('save')} {discount}
+                    {pct}
+                  </span>
                 </>
               )}
             </div>
@@ -134,8 +148,8 @@ export default function ProductPage() {
             {/* Colour */}
             <div className="opt-group">
               <div className="opt-group__label">
-                <span>اللون</span>
-                <span className="opt-group__hint">{color}</span>
+                <span>{t('color')}</span>
+                <span className="opt-group__hint">{tf(colorObj, 'name')}</span>
               </div>
               <div className="opt-row">
                 {product.colors.map((cl) => (
@@ -145,9 +159,9 @@ export default function ProductPage() {
                     className={`opt opt-color ${cl.name === color ? 'is-active' : ''}`}
                     style={{ background: cl.hex }}
                     onClick={() => setColor(cl.name)}
-                    aria-label={cl.name}
+                    aria-label={tf(cl, 'name')}
                     aria-pressed={cl.name === color}
-                    title={cl.name}
+                    title={tf(cl, 'name')}
                   />
                 ))}
               </div>
@@ -158,10 +172,10 @@ export default function ProductPage() {
               <div className="opt-group" id="pdp-sizes">
                 <div className="opt-group__label">
                   <span>
-                    المقاس
-                    {sizeError && <span className="opt-group__req"> — الرجاء اختيار المقاس</span>}
+                    {t('size')}
+                    {sizeError && <span className="opt-group__req"> — {t('pleasePickSize')}</span>}
                   </span>
-                  <span className="opt-group__hint">دليل المقاسات</span>
+                  <span className="opt-group__hint">{t('sizeGuide')}</span>
                 </div>
                 <div className={`opt-row ${sizeError ? 'opt-row--error' : ''}`}>
                   {product.sizes.map((sz) => (
@@ -182,14 +196,14 @@ export default function ProductPage() {
             {/* Quantity + actions */}
             <div className="opt-group">
               <div className="opt-group__label">
-                <span>الكمية</span>
+                <span>{t('quantity')}</span>
               </div>
               <div className="qty">
-                <button type="button" onClick={() => setQty((q) => Math.max(1, q - 1))} aria-label="تقليل">
+                <button type="button" onClick={() => setQty((q) => Math.max(1, q - 1))} aria-label={t('decrease')}>
                   <Minus />
                 </button>
                 <span className="qty__val">{qty}</span>
-                <button type="button" onClick={() => setQty((q) => Math.min(99, q + 1))} aria-label="زيادة">
+                <button type="button" onClick={() => setQty((q) => Math.min(99, q + 1))} aria-label={t('increase')}>
                   <Plus />
                 </button>
               </div>
@@ -198,14 +212,14 @@ export default function ProductPage() {
             <div className="pdp__actions">
               <button type="button" className="btn btn--burgundy" onClick={handleAdd}>
                 <Bag />
-                إضافة إلى السلة — {formatPrice(product.price * qty)}
+                {t('addToCart')} — {formatPrice(product.price * qty, lang)}
               </button>
               <button
                 type="button"
                 className={`fav-btn-lg ${fav ? 'is-on' : ''}`}
                 onClick={() => toggleFavorite(product)}
                 aria-pressed={fav}
-                aria-label={fav ? 'إزالة من المفضلة' : 'إضافة إلى المفضلة'}
+                aria-label={fav ? t('removeFromFav') : t('addToFav')}
               >
                 <Heart filled={fav} />
               </button>
@@ -215,28 +229,28 @@ export default function ProductPage() {
 
             <dl className="specs">
               <div className="spec">
-                <dt>الخامة</dt>
-                <dd>{product.material}</dd>
+                <dt>{t('material')}</dt>
+                <dd>{tf(product, 'material')}</dd>
               </div>
               <div className="spec">
-                <dt>الألوان المتاحة</dt>
-                <dd>{product.colors.map((cl) => cl.name).join(' · ')}</dd>
+                <dt>{t('availableColors')}</dt>
+                <dd>{product.colors.map((cl) => tf(cl, 'name')).join(' · ')}</dd>
               </div>
               <div className="spec">
-                <dt>القسم</dt>
+                <dt>{t('section')}</dt>
                 <dd>
-                  {g.title} · {c.title}
+                  {lang === 'en' ? g.latin : g.title} · {lang === 'en' ? c.latin : c.title}
                 </dd>
               </div>
               <div className="spec">
-                <dt>رمز المنتج</dt>
+                <dt>{t('sku')}</dt>
                 <dd style={{ fontFamily: 'var(--font-latin)', letterSpacing: '0.08em' }}>
                   {product.id.toUpperCase()}
                 </dd>
               </div>
               <div className="spec">
-                <dt>المقاسات المتاحة</dt>
-                <dd>{product.sizes.join(' · ')}</dd>
+                <dt>{t('availableSizes')}</dt>
+                <dd>{(lang === 'en' ? product.sizesEn : product.sizes).join(' · ')}</dd>
               </div>
             </dl>
           </div>
@@ -247,8 +261,8 @@ export default function ProductPage() {
         <section className="section shell" style={{ borderTop: '1px solid var(--line)' }}>
           <Reveal className="section-head">
             <div>
-              <span className="eyebrow">You may also like</span>
-              <h2 className="section-head__title">قطع تكمّل الإطلالة</h2>
+              <span className="eyebrow">{t('youMayLike')}</span>
+              <h2 className="section-head__title">{t('completeLook')}</h2>
             </div>
           </Reveal>
           <div className="product-grid">

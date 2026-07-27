@@ -19,3 +19,7 @@
 # Hashed build assets never change under the same name — cache them hard.
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
+
+# The logo rarely changes; cache it for a month so it loads once per visitor.
+/logo.png
+  Cache-Control: public, max-age=2592000

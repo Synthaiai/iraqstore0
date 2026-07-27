@@ -5,25 +5,28 @@ import { POOLS, cardSrcSet, img, srcSet } from './images';
    ============================================================ */
 
 const C = {
-  black: { name: 'أسود', hex: '#141416' },
-  white: { name: 'أبيض', hex: '#F2F0EE' },
-  cream: { name: 'كريمي', hex: '#E8DFD2' },
-  grey: { name: 'رمادي', hex: '#8A8A90' },
-  charcoal: { name: 'فحمي', hex: '#3A3B3F' },
-  navy: { name: 'كحلي', hex: '#1E2A44' },
-  burgundy: { name: 'عنابي', hex: '#6B0F1A' },
-  brown: { name: 'بني', hex: '#6A4A32' },
-  tan: { name: 'جملي', hex: '#B08A5F' },
-  camel: { name: 'كاميل', hex: '#C4A075' },
-  olive: { name: 'زيتوني', hex: '#5B6045' },
-  gold: { name: 'ذهبي', hex: '#C8A24A' },
-  silver: { name: 'فضي', hex: '#C6C7CB' },
-  nude: { name: 'بيج فاتح', hex: '#D9C3B0' },
-  rose: { name: 'وردي باهت', hex: '#C9A0A0' },
-  emerald: { name: 'زمردي', hex: '#1F4D3D' },
-  sky: { name: 'سماوي', hex: '#A8C0D6' },
-  denim: { name: 'دينم', hex: '#4A6280' },
+  black: { name: 'أسود', nameEn: 'Black', hex: '#141416' },
+  white: { name: 'أبيض', nameEn: 'White', hex: '#F2F0EE' },
+  cream: { name: 'كريمي', nameEn: 'Cream', hex: '#E8DFD2' },
+  grey: { name: 'رمادي', nameEn: 'Grey', hex: '#8A8A90' },
+  charcoal: { name: 'فحمي', nameEn: 'Charcoal', hex: '#3A3B3F' },
+  navy: { name: 'كحلي', nameEn: 'Navy', hex: '#1E2A44' },
+  burgundy: { name: 'عنابي', nameEn: 'Burgundy', hex: '#6B0F1A' },
+  brown: { name: 'بني', nameEn: 'Brown', hex: '#6A4A32' },
+  tan: { name: 'جملي', nameEn: 'Tan', hex: '#B08A5F' },
+  camel: { name: 'كاميل', nameEn: 'Camel', hex: '#C4A075' },
+  olive: { name: 'زيتوني', nameEn: 'Olive', hex: '#5B6045' },
+  gold: { name: 'ذهبي', nameEn: 'Gold', hex: '#C8A24A' },
+  silver: { name: 'فضي', nameEn: 'Silver', hex: '#C6C7CB' },
+  nude: { name: 'بيج فاتح', nameEn: 'Nude', hex: '#D9C3B0' },
+  rose: { name: 'وردي باهت', nameEn: 'Dusty Rose', hex: '#C9A0A0' },
+  emerald: { name: 'زمردي', nameEn: 'Emerald', hex: '#1F4D3D' },
+  sky: { name: 'سماوي', nameEn: 'Sky Blue', hex: '#A8C0D6' },
+  denim: { name: 'دينم', nameEn: 'Denim', hex: '#4A6280' },
 };
+
+const ONE = 'مقاس واحد';
+const ONE_EN = 'One size';
 
 const SIZES = {
   shoeM: ['40', '41', '42', '43', '44', '45'],
@@ -31,7 +34,191 @@ const SIZES = {
   apparel: ['S', 'M', 'L', 'XL', 'XXL'],
   apparelW: ['XS', 'S', 'M', 'L', 'XL'],
   shirt: ['38', '39', '40', '41', '42', '43'],
-  one: ['مقاس واحد'],
+  one: [ONE],
+};
+
+/* Material terms repeat across products, so translate them once here. */
+const MATERIALS = {
+  'جلد صناعي فاخر': 'Premium synthetic leather',
+  'جلد وشمواه': 'Leather & suede',
+  'شبك تقني': 'Technical mesh',
+  'جلد مقلوب': 'Nubuck leather',
+  'جلد مصقول': 'Polished leather',
+  'قطن مغسول': 'Washed cotton',
+  'نسيج محبوك': 'Knit fabric',
+  'قطن مطاطي': 'Stretch cotton',
+  'كانفاس قطني': 'Cotton canvas',
+  شمواه: 'Suede',
+  'جلد طبيعي': 'Genuine leather',
+  'جلد مدبوغ': 'Tanned leather',
+  'جلد مصبوغ': 'Hand-dyed leather',
+  'جلد ناعم': 'Soft leather',
+  'جلد ومعدن مصقول': 'Leather & polished metal',
+  'جلد طري': 'Supple leather',
+  'مخمل قطني': 'Cotton velvet',
+  'قطن ١٠٠٪': '100% cotton',
+  'قطن أوكسفورد': 'Oxford cotton',
+  كتان: 'Linen',
+  'قطن مفرشى': 'Brushed cotton',
+  ساتان: 'Satin',
+  'صوف مخلوط': 'Wool blend',
+  'كتان وقطن': 'Linen & cotton',
+  'مخمل وساتان': 'Velvet & satin',
+  غبردين: 'Gabardine',
+  'غبردين قطني': 'Cotton gabardine',
+  جلد: 'Leather',
+  'قطن مقاوم للريح': 'Windproof cotton',
+  صوف: 'Wool',
+  'قطن ثقيل': 'Heavy cotton',
+  'دينم قطني': 'Cotton denim',
+  'كتان مغسول': 'Washed linen',
+  'ستانلس ستيل': 'Stainless steel',
+  'ستيل وزجاج معدني': 'Steel & mineral glass',
+  'جلد وستيل': 'Leather & steel',
+  'ستيل مقاوم': 'Corrosion-resistant steel',
+  'جلد مطبّع': 'Embossed leather',
+  'معدن وعدسات مستقطبة': 'Metal & polarized lenses',
+  أسيتات: 'Acetate',
+  'أسيتات وعدسات متدرّجة': 'Acetate & gradient lenses',
+  'معدن خفيف': 'Lightweight metal',
+  'جلد مطفي': 'Matte leather',
+  'ساتان ومعدن': 'Satin & metal',
+  'جلد مقاوم للماء': 'Water-resistant leather',
+  'شبك وجلد': 'Mesh & leather',
+  'شمواه وقماش': 'Suede & textile',
+  'فيسكوز مخلوط': 'Viscose blend',
+  'حياكة ناعمة': 'Fine knit',
+  'تول مطرّز': 'Embroidered tulle',
+  كريب: 'Crêpe',
+  'قماش مزركش': 'Brocade',
+  'شيفون مبطّن': 'Lined chiffon',
+  'جلد ساڤيانو': 'Saffiano leather',
+  معدن: 'Metal',
+  'فضة مطلية بالذهب': 'Gold-plated silver',
+  'لؤلؤ مستزرع': 'Cultured pearl',
+  'فضة مطلية': 'Plated silver',
+  'فضة مطلية وحجر': 'Plated silver & stone',
+  'معدن وساتان': 'Metal & satin',
+  'أسيتات ومعدن': 'Acetate & metal',
+};
+
+const materialEn = (m) => MATERIALS[m] || m;
+
+/* English overlay, keyed by the Arabic product name. A missing entry falls back
+   to Arabic, so the store never renders an empty string. */
+const PRODUCT_EN = {
+  // Men · footwear
+  'حذاء أفينيو الجلدي الأبيض': { name: 'Avenue White Leather Sneaker', blurb: 'Soft leather with hidden stitching and a light rubber sole — goes with everything.' },
+  'حذاء كوبر الرياضي الكلاسيكي': { name: 'Cooper Classic Sneaker', blurb: 'A low cut with a padded tongue and a grippy, slip-resistant sole.' },
+  'حذاء نورث ران التقني': { name: 'North Run Technical', blurb: 'Airy mesh and a cushioned ride for long walks.' },
+  'حذاء ميريديان المرتفع': { name: 'Meridian High-Top', blurb: 'A raised nubuck collar with a warm lining for winter.' },
+  'حذاء أطلس المينيمال': { name: 'Atlas Minimal', blurb: 'A smooth logo-free leather upper — all the detail is in the cut.' },
+  'حذاء ريتريت الكاجوال': { name: 'Retreat Casual', blurb: 'Washed cotton canvas on a comfy sole for the weekend.' },
+  'ترينر كلاود اليومي': { name: 'Cloud Everyday Trainer', blurb: 'A light knit upper on a soft sole — your daily companion.' },
+  'ترينر ريترو الجلدي': { name: 'Retro Leather Trainer', blurb: 'A classic cut with a sporty touch and clean side stripes.' },
+  'ترينر سلِب-أون': { name: 'Slip-On Trainer', blurb: 'No laces — on in a second, and easy with jeans or shorts.' },
+  'ترينر كانفاس المغسول': { name: 'Washed Canvas Trainer', blurb: 'Stone-washed cotton canvas that grows more comfortable over time.' },
+  'ترينر شمواه كاجول': { name: 'Casual Suede Trainer', blurb: 'Matte suede on a crepe sole — relaxed elegance.' },
+  'حذاء أكسفورد بغداد': { name: 'Baghdad Oxford', blurb: 'A classic Oxford cut on a fixed leather sole.' },
+  'حذاء ديربي كرادة': { name: 'Karrada Derby', blurb: 'An open lacing that rests easier on the foot — for long days.' },
+  'حذاء بروغ الكحلي': { name: 'Navy Brogue', blurb: 'Brogue perforation on hand-dyed leather with a vintage finish.' },
+  'حذاء مونك ستراب': { name: 'Monk Strap', blurb: 'A single elegant buckle — no laces at all.' },
+  'حذاء تشيلسي الجلدي': { name: 'Leather Chelsea Boot', blurb: 'Flexible elastic sides that suit a suit and jeans alike.' },
+  'لوفر بيني الكلاسيكي': { name: 'Classic Penny Loafer', blurb: 'The original shape that never changed — in a softer leather.' },
+  'لوفر تاسل الشمواه': { name: 'Suede Tassel Loafer', blurb: 'Leather tassels on matte suede.' },
+  'لوفر هورس بيت': { name: 'Horsebit Loafer', blurb: 'A polished metal bit gives the shoe its signature.' },
+  'لوفر درايفينغ الطري': { name: 'Soft Driving Loafer', blurb: 'A pebbled rubber sole for easy driving and a light summer look.' },
+  'لوفر فيلفت المسائي': { name: 'Evening Velvet Loafer', blurb: 'Deep velvet with an embroidered trim for occasions.' },
+
+  // Men · clothing
+  'قميص بوبلين الأبيض': { name: 'White Poplin Shirt', blurb: 'Cotton with a half-fused collar and a straight cut.' },
+  'قميص أوكسفورد الأزرق': { name: 'Blue Oxford Shirt', blurb: 'Oxford weave that softens with every wash.' },
+  'قميص كتان صيفي': { name: 'Summer Linen Shirt', blurb: 'Linen that breathes in the July heat and stays sharp.' },
+  'قميص فانيلا منقوش': { name: 'Checked Flannel Shirt', blurb: 'Brushed cotton flannel with a quiet check and light warmth.' },
+  'قميص ساتان مسائي': { name: 'Evening Satin Shirt', blurb: 'Heavy drape and a soft sheen — a shirt for occasions.' },
+  'بدلة ميريديان الكحلية': { name: 'Meridian Navy Suit', blurb: 'Wool blend with a natural shoulder and a light lining.' },
+  'بدلة الفحمي الرسمية': { name: 'Charcoal Formal Suit', blurb: 'A classic straight cut with a padded chest.' },
+  'بليزر الكتان غير المبطّن': { name: 'Unlined Linen Blazer', blurb: 'No lining at all — the lightest blazer for summer.' },
+  'بدلة توكسيدو المخملية': { name: 'Velvet Tuxedo', blurb: 'A satin lapel and deep burgundy velvet for big occasions.' },
+  'بليزر مزدوج الصدر': { name: 'Double-Breasted Blazer', blurb: 'Six buttons and a sharp cut that draws the shoulder.' },
+  'معطف الصوف الطويل': { name: 'Long Wool Coat', blurb: 'Heavy wool cut to the knee.' },
+  'ترنش كوت كلاسيكي': { name: 'Classic Trench Coat', blurb: 'Water-resistant cotton with a waist belt and epaulettes.' },
+  'جاكيت جلد بومبر': { name: 'Leather Bomber Jacket', blurb: 'Supple leather with a soft lining and ribbed cuffs.' },
+  'جاكيت هارينغتون': { name: 'Harrington Jacket', blurb: 'A short collar and a check-patterned lining.' },
+  'سترة صوف بياقة عالية': { name: 'High-Neck Wool Sweater', blurb: 'A ribbed knit with a collar that folds twice.' },
+  'بنطال الصوف المستقيم': { name: 'Straight Wool Trousers', blurb: 'A single front pleat and a clean drape to the ankle.' },
+  'بنطال تشينو مغسول': { name: 'Washed Chino', blurb: 'Heavy cotton, washed to soften more each time.' },
+  'جينز سليم': { name: 'Slim Jeans', blurb: 'Mid-weight denim that shapes to the wearer over time.' },
+  'بنطال كتان واسع': { name: 'Wide Linen Trousers', blurb: 'A relaxed cut with a hidden elastic waist.' },
+
+  // Men · accessories
+  'ساعة ميريديان أوتوماتيك': { name: 'Meridian Automatic Watch', blurb: 'An automatic movement and scratch-resistant glass.' },
+  'ساعة أطلس الكرونوغراف': { name: 'Atlas Chronograph', blurb: 'Three sub-dials and a tachymeter ring on the bezel.' },
+  'ساعة كلاسيك الجلدية': { name: 'Classic Leather Watch', blurb: 'A clean matte dial and a stitched leather strap.' },
+  'ساعة الغوّاص': { name: 'Diver Watch', blurb: 'A rotating bezel and water resistance for daily wear.' },
+  'حزام الجلد الطبيعي': { name: 'Full-Grain Leather Belt', blurb: 'A single piece of leather with a polished metal buckle.' },
+  'محفظة بيفولد النحيفة': { name: 'Slim Bifold Wallet', blurb: 'Six card slots and barely any thickness in the pocket.' },
+  'حقيبة مستندات جلدية': { name: 'Leather Document Bag', blurb: 'A padded laptop compartment and a detachable shoulder strap.' },
+  'حامل بطاقات مينيمال': { name: 'Minimal Card Holder', blurb: 'Four slots and a back pocket — all you actually need.' },
+  'نظارة أفياتور الكلاسيكية': { name: 'Classic Aviator Sunglasses', blurb: 'A light metal frame with UV400-protected lenses.' },
+  'نظارة ويفارر الأسيتات': { name: 'Acetate Wayfarer Sunglasses', blurb: 'Polished acetate with hidden metal hinges.' },
+  'نظارة مربعة عريضة': { name: 'Wide Square Sunglasses', blurb: 'A bold frame with gradient lenses that suit longer faces.' },
+  'نظارة مستديرة معدنية': { name: 'Round Metal Sunglasses', blurb: 'Very thin lines and a light weight.' },
+
+  // Women · footwear
+  'حذاء ستيليتو الجلدي': { name: 'Leather Stiletto', blurb: 'A 10 cm heel with a padded insole that eases the evening.' },
+  'حذاء سلينغ باك المدبب': { name: 'Pointed Slingback', blurb: 'A thin back strap and a 7 cm heel for everyday elegance.' },
+  'حذاء الكعب المربّع': { name: 'Block Heel', blurb: 'A wide, steady 6 cm heel — elegance that doesn’t tire.' },
+  'صندل مسائي بحزام رفيع': { name: 'Thin-Strap Evening Sandal', blurb: 'Delicate satin straps and a 9 cm heel with a soft sheen.' },
+  'حذاء كيتن هيل المخملي': { name: 'Velvet Kitten Heel', blurb: 'A low 4.5 cm heel in deep velvet.' },
+  'حذاء رياضي أبيض مينيمال': { name: 'Minimal White Sneaker', blurb: 'A smooth logo-free leather with a slim sole.' },
+  'حذاء بلاتفورم مرتفع': { name: 'Platform Sneaker', blurb: 'A 4 cm sole that lifts your height with no heel.' },
+  'حذاء ريترو مخطّط': { name: 'Striped Retro Sneaker', blurb: 'Nubuck side stripes on a classic base.' },
+  'حذاء نيت الخفيف': { name: 'Light Knit Sneaker', blurb: 'A one-piece knit that wraps the foot like a sock.' },
+  'بوت الركبة الجلدي': { name: 'Leather Knee Boot', blurb: 'Supple leather with a full-length inner zip.' },
+  'بوت أنكل بكعب مربّع': { name: 'Block-Heel Ankle Boot', blurb: 'An ankle cut with a steady 5 cm heel.' },
+  'بوت تشيلسي المطاطي': { name: 'Elastic Chelsea Boot', blurb: 'Flexible sides and a ribbed sole that handles the rain.' },
+  'بوت الشمواه فوق الركبة': { name: 'Over-the-Knee Suede Boot', blurb: 'Suede with an 8 cm cone heel for a full winter look.' },
+  'باليرينا الجلد الطري': { name: 'Soft Leather Ballet Flat', blurb: 'A flexible sole that folds into a bag, fully lined.' },
+  'باليرينا بحزام ميري جين': { name: 'Mary-Jane Ballet Flat', blurb: 'A front strap with a small buckle for a classic feel.' },
+  'لوفر نسائي مسطّح': { name: 'Flat Women’s Loafer', blurb: 'A soft cut on a stitched sole.' },
+  'باليرينا مدبّبة بشبك': { name: 'Pointed Mesh Flat', blurb: 'Sheer mesh with a leather trim — the lightest in the closet.' },
+
+  // Women · clothing
+  'فستان الساتان الطويل': { name: 'Long Satin Dress', blurb: 'A bias cut that flows with movement effortlessly.' },
+  'فستان ميدي بحزام خصر': { name: 'Belted Midi Dress', blurb: 'Long sleeves and a self-fabric belt that defines the waist.' },
+  'فستان قميص من الكتان': { name: 'Linen Shirt Dress', blurb: 'A comfortable straight cut with a full button front.' },
+  'فستان محبوك': { name: 'Knit Dress', blurb: 'Excellent weight and a feel that stays soft after washing.' },
+  'فستان مطرّز بخيوط ذهبية': { name: 'Gold-Embroidered Dress', blurb: 'Embroidery on sheer tulle over a satin lining.' },
+  'عباية الكريب المطرّزة': { name: 'Embroidered Crêpe Abaya', blurb: 'Crêpe with a perfect drape and side embroidery.' },
+  'قفطان مزركش': { name: 'Brocade Kaftan', blurb: 'Wide sleeves and a gilded trim — an occasion piece.' },
+  'عباية كتان يومية': { name: 'Everyday Linen Abaya', blurb: 'Breathable linen in a wide cut for the Iraqi summer.' },
+  'عباية بقَصّة معطف': { name: 'Coat-Cut Abaya', blurb: 'A button front and waist belt — coat and abaya at once.' },
+  'طقم قفطان وحزام مطرّز': { name: 'Kaftan & Embroidered Belt Set', blurb: 'Two coordinated pieces with a glass-beaded embroidered belt.' },
+  'معطف الكاميل الطويل': { name: 'Long Camel Coat', blurb: 'Wool in the camel tone that never leaves fashion.' },
+  'ترنش كوت نسائي': { name: 'Women’s Trench Coat', blurb: 'Gabardine with a waist belt and a below-the-knee cut.' },
+  'بليزر أوفرسايز': { name: 'Oversized Blazer', blurb: 'A built shoulder and a wide cut worn over everything.' },
+  'جاكيت جلد نسائي': { name: 'Women’s Leather Jacket', blurb: 'Supple leather with a diagonal zip and a full lining.' },
+  'بلوزة الساتان الكلاسيكية': { name: 'Classic Satin Blouse', blurb: 'A soft collar and shell buttons.' },
+  'سترة محبوكة بياقة دائرية': { name: 'Crew-Neck Knit Sweater', blurb: 'A fine knit with two levels of softness and a perfect weight.' },
+  'تيشيرت قطن مُمشّط': { name: 'Combed Cotton Tee', blurb: 'Long-staple cotton in a cut that keeps its shape.' },
+  'بلوزة شيفون بأكمام منفوخة': { name: 'Puff-Sleeve Chiffon Blouse', blurb: 'Light chiffon with elastic cuffs and a full lining.' },
+  'سترة محبوكة بياقة عالية': { name: 'High-Neck Knit Sweater', blurb: 'A wide ribbed knit with a collar that folds twice.' },
+
+  // Women · accessories
+  'حقيبة توت الجلدية الكبيرة': { name: 'Large Leather Tote', blurb: 'Fits a 13-inch laptop with an inner zip pocket.' },
+  'حقيبة كتف صغيرة بسلسلة': { name: 'Small Chain Shoulder Bag', blurb: 'A detachable chain turns it into a clutch in a second.' },
+  'حقيبة باكيت': { name: 'Bucket Bag', blurb: 'The classic bucket shape with a braided leather drawstring.' },
+  'كلتش السهرة المعدني': { name: 'Metal Evening Clutch', blurb: 'A polished frame with a one-press clasp and a satin lining.' },
+  'حقيبة كروس بودي صغيرة': { name: 'Small Crossbody Bag', blurb: 'An adjustable strap and three tidy compartments.' },
+  'عقد مطلي بالذهب': { name: 'Gold-Plated Necklace', blurb: 'A fine chain worn alone or layered.' },
+  'أقراط اللؤلؤ المتدلّية': { name: 'Pearl Drop Earrings', blurb: 'Cultured pearls on a polished base.' },
+  'إسوارة مجدولة': { name: 'Braided Bracelet', blurb: 'Braided strands with a double safety clasp.' },
+  'خاتم الحجر الملوّن': { name: 'Coloured Stone Ring', blurb: 'An angle-cut stone on a matte base.' },
+  'نظارة كات آي الأنيقة': { name: 'Elegant Cat-Eye Sunglasses', blurb: 'Acetate in a cat-eye shape with gradient lenses.' },
+  'نظارة أوفرسايز مربّعة': { name: 'Oversized Square Sunglasses', blurb: 'A wide frame with full coverage and UV400 protection.' },
+  'نظارة مستديرة ذهبية': { name: 'Round Gold Sunglasses', blurb: 'Thin metal in a warm gold tone and a barely-there weight.' },
+  'نظارة شيلد عصرية': { name: 'Modern Shield Sunglasses', blurb: 'A single wrapping lens in a minimal frame.' },
 };
 
 /* ============================================================
@@ -53,6 +240,7 @@ function build(gender, category, sub, pool, rows) {
     // Each product owns a 4-photo gallery drawn from its category pool,
     // so the hover cross-fade and the PDP thumbs always have distinct frames.
     const gallery = [0, 1, 2, 3].map((k) => pool[(i * 2 + k) % pool.length]);
+    const en = PRODUCT_EN[name] || {};
     seq += 1;
     return {
       id: `${gender[0]}${category[0]}-${sub}-${String(seq).padStart(3, '0')}`,
@@ -60,7 +248,9 @@ function build(gender, category, sub, pool, rows) {
       category,
       sub,
       name,
+      nameEn: en.name || name,
       blurb,
+      blurbEn: en.blurb || blurb,
       price,
       oldPrice: oldPrice || null,
       rating,
@@ -68,7 +258,10 @@ function build(gender, category, sub, pool, rows) {
       badge: badge || null,
       colors,
       sizes,
+      // One-size becomes "One size" in English; numeric/letter sizes are universal.
+      sizesEn: sizes.map((s) => (s === ONE ? ONE_EN : s)),
       material,
+      materialEn: materialEn(material),
       gallery,
       // Card art is small by default; `srcSet` lets the browser pick smaller still.
       image: img(gallery[0], 420, 560),
@@ -843,8 +1036,15 @@ export function newArrivals(limit = 8) {
 export function searchProducts(term, limit = 8) {
   const q = term.trim();
   if (q.length < 2) return [];
+  const lower = q.toLowerCase();
   return PRODUCTS.filter(
-    (p) => p.name.includes(q) || p.blurb.includes(q) || p.material.includes(q)
+    (p) =>
+      p.name.includes(q) ||
+      p.blurb.includes(q) ||
+      p.material.includes(q) ||
+      p.nameEn.toLowerCase().includes(lower) ||
+      p.blurbEn.toLowerCase().includes(lower) ||
+      p.materialEn.toLowerCase().includes(lower)
   ).slice(0, limit);
 }
 
@@ -884,7 +1084,10 @@ export function availableSizes(list) {
   });
 }
 
-/** Iraqi dinar, Arabic-Indic grouping via the browser's own formatter. */
-export function formatPrice(value) {
+/** Iraqi dinar. Arabic-Indic numerals in Arabic, Western numerals + "IQD" in English. */
+export function formatPrice(value, lang = 'ar') {
+  if (lang === 'en') {
+    return `${new Intl.NumberFormat('en-US').format(value)} IQD`;
+  }
   return `${new Intl.NumberFormat('ar-IQ').format(value)} د.ع`;
 }

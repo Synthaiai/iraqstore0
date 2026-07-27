@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
+import { usePrefs } from '../store/PrefsContext';
 
 /** Appears after a screenful of scrolling; returns the page to the top. */
 export default function BackToTop() {
+  const { t } = usePrefs();
   const [show, setShow] = useState(false);
 
   useEffect(() => {
@@ -16,7 +18,7 @@ export default function BackToTop() {
       type="button"
       className={`to-top ${show ? 'is-visible' : ''}`}
       onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-      aria-label="العودة إلى الأعلى"
+      aria-label={t('backHome')}
       tabIndex={show ? 0 : -1}
     >
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>

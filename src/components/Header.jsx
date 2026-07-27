@@ -1,25 +1,25 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useStore } from '../store/StoreContext';
+import { usePrefs } from '../store/PrefsContext';
 import { formatPrice, searchProducts } from '../data/products';
 import Logo from './Logo';
-import { Bag, Close, Heart, Menu, Search } from './Icons';
-
-// Entry to the store is a gender choice; categories live one level in, on the
-// gender page. Keeping the top bar to two doors matches how the shop is browsed.
-const NAV = [
-  { to: '/g/men', label: 'رجالي' },
-  { to: '/g/women', label: 'نسائي' },
-];
+import { Bag, Close, Heart, Menu, Moon, Search, Sun } from './Icons';
 
 export default function Header() {
   const { cartCount, openCart, favorites } = useStore();
+  const { t, tf, theme, lang, toggleTheme, toggleLang } = usePrefs();
   const [stuck, setStuck] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [term, setTerm] = useState('');
   const inputRef = useRef(null);
   const navigate = useNavigate();
+
+  const NAV = [
+    { to: '/g/men', label: t('men') },
+    { to: '/g/women', label: t('women') },
+  ];
 
   useEffect(() => {
     const onScroll = () => setStuck(window.scrollY > 12);
@@ -30,9 +30,8 @@ export default function Header() {
 
   useEffect(() => {
     if (searchOpen) {
-      // Wait a frame so the panel has finished sliding before we steal focus.
-      const t = setTimeout(() => inputRef.current?.focus(), 260);
-      return () => clearTimeout(t);
+      const t2 = setTimeout(() => inputRef.current?.focus(), 260);
+      return () => clearTimeout(t2);
     }
     setTerm('');
   }, [searchOpen]);
@@ -56,11 +55,35 @@ export default function Header() {
     navigate(to);
   };
 
+  const ThemeToggle = ({ className = 'pref-btn' }) => (
+    <button
+      type="button"
+      className={className}
+      onClick={toggleTheme}
+      aria-label={t('toggleTheme')}
+      title={t('toggleTheme')}
+    >
+      {theme === 'dark' ? <Sun /> : <Moon />}
+    </button>
+  );
+
+  const LangToggle = ({ className = 'pref-btn pref-btn--lang' }) => (
+    <button
+      type="button"
+      className={className}
+      onClick={toggleLang}
+      aria-label={t('toggleLang')}
+      title={t('toggleLang')}
+    >
+      {t('langShort')}
+    </button>
+  );
+
   return (
     <>
       <header className={`header ${stuck ? 'is-stuck' : ''}`}>
         <div className="shell header__bar">
-          <nav className="header__nav" aria-label="التنقل الرئيسي">
+          <nav className="header__nav" aria-label={t('menu')}>
             {NAV.map((item) => (
               <NavLink
                 key={item.to}
@@ -76,7 +99,7 @@ export default function Header() {
             type="button"
             className="icon-btn burger"
             onClick={() => setMenuOpen(true)}
-            aria-label="فتح القائمة"
+            aria-label={t('menu')}
           >
             <Menu />
           </button>
@@ -84,22 +107,25 @@ export default function Header() {
           <Logo />
 
           <div className="header__actions">
+            <LangToggle className="pref-btn pref-btn--lang header__pref" />
+            <ThemeToggle className="pref-btn header__pref" />
+
             <button
               type="button"
               className="icon-btn"
               onClick={() => setSearchOpen((v) => !v)}
-              aria-label="بحث"
+              aria-label={t('search')}
               aria-expanded={searchOpen}
             >
               {searchOpen ? <Close /> : <Search />}
             </button>
 
-            <Link to="/favorites" className="icon-btn" aria-label="المفضلة">
+            <Link to="/favorites" className="icon-btn" aria-label={t('favorites')}>
               <Heart />
               {favorites.length > 0 && <span className="icon-btn__count">{favorites.length}</span>}
             </Link>
 
-            <button type="button" className="icon-btn" onClick={openCart} aria-label="السلة">
+            <button type="button" className="icon-btn" onClick={openCart} aria-label={t('cart')}>
               <Bag />
               {cartCount > 0 && <span className="icon-btn__count">{cartCount}</span>}
             </button>
@@ -117,10 +143,10 @@ export default function Header() {
               type="search"
               value={term}
               onChange={(e) => setTerm(e.target.value)}
-              placeholder="ابحث عن حذاء، معطف، ساعة…"
-              aria-label="البحث في المنتجات"
+              placeholder={t('searchPlaceholder')}
+              aria-label={t('search')}
             />
-            <button type="button" className="icon-btn" onClick={() => setSearchOpen(false)} aria-label="إغلاق البحث">
+            <button type="button" className="icon-btn" onClick={() => setSearchOpen(false)} aria-label={t('close')}>
               <Close />
             </button>
           </div>
@@ -129,7 +155,7 @@ export default function Header() {
             <>
               {hits.length === 0 ? (
                 <p style={{ marginTop: '1.5rem', color: 'var(--ink-400)' }}>
-                  لا توجد نتائج لـ «{term}». جرّب كلمة أعمّ مثل «جلد» أو «كشمير».
+                  {t('searchNoResults')} «{term}». {t('searchHint')}
                 </p>
               ) : (
                 <div className="search-results">
@@ -142,9 +168,9 @@ export default function Header() {
                     >
                       <img src={p.thumbs[0]} alt="" loading="lazy" />
                       <span style={{ textAlign: 'start' }}>
-                        <span className="search-hit__name">{p.name}</span>
+                        <span className="search-hit__name">{tf(p, 'name')}</span>
                         <br />
-                        <span className="search-hit__price">{formatPrice(p.price)}</span>
+                        <span className="search-hit__price">{formatPrice(p.price, lang)}</span>
                       </span>
                     </button>
                   ))}
@@ -160,7 +186,7 @@ export default function Header() {
       <div className={`mobile-nav ${menuOpen ? 'is-open' : ''}`} aria-hidden={!menuOpen}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
           <Logo />
-          <button type="button" className="icon-btn" onClick={() => setMenuOpen(false)} aria-label="إغلاق القائمة">
+          <button type="button" className="icon-btn" onClick={() => setMenuOpen(false)} aria-label={t('close')}>
             <Close />
           </button>
         </div>
@@ -170,8 +196,13 @@ export default function Header() {
           </Link>
         ))}
         <Link to="/favorites" className="mobile-nav__link" onClick={() => setMenuOpen(false)}>
-          المفضلة
+          {t('favorites')}
         </Link>
+
+        <div className="mobile-nav__prefs">
+          <ThemeToggle className="pref-btn pref-btn--wide" />
+          <LangToggle className="pref-btn pref-btn--lang pref-btn--wide" />
+        </div>
       </div>
     </>
   );

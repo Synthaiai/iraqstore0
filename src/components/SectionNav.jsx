@@ -1,5 +1,6 @@
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { CATEGORIES, GENDERS, getSubcategories } from '../data/catalog';
+import { usePrefs } from '../store/PrefsContext';
 
 /**
  * Always-on browse bar for the section pages.
@@ -9,6 +10,8 @@ import { CATEGORIES, GENDERS, getSubcategories } from '../data/catalog';
  * one click away from wherever you already are.
  */
 export default function SectionNav(props) {
+  const { t, lang } = usePrefs();
+  const name = (item) => (lang === 'en' ? item.latin : item.title);
   // Routes that carry the section in the URL get it from params; the product
   // page has only an id, so it passes the product's own section in explicitly.
   const params = useParams();
@@ -33,7 +36,7 @@ export default function SectionNav(props) {
               to={`/g/${g.slug}`}
               className={`secnav__gender ${g.slug === gender ? 'is-active' : ''}`}
             >
-              {g.title}
+              {name(g)}
             </Link>
           ))}
         </div>
@@ -44,7 +47,7 @@ export default function SectionNav(props) {
             className={`secnav__link ${onAll ? 'is-active' : ''}`}
             role="listitem"
           >
-            كل المنتجات
+            {t('allProducts')}
           </Link>
           {categories.map((c) => (
             <Link
@@ -53,7 +56,7 @@ export default function SectionNav(props) {
               className={`secnav__link ${c.slug === category ? 'is-active' : ''}`}
               role="listitem"
             >
-              {c.title}
+              {name(c)}
             </Link>
           ))}
         </div>
@@ -67,7 +70,7 @@ export default function SectionNav(props) {
                 className={`chip ${s.slug === sub ? 'is-active' : ''}`}
                 role="listitem"
               >
-                {s.title}
+                {name(s)}
               </Link>
             ))}
           </div>

@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { getProduct } from '../data/products';
+import { rt } from '../i18n/strings';
 
 const StoreContext = createContext(null);
 
@@ -73,7 +74,7 @@ export function StoreProvider({ children }) {
         color: color || product.colors[0].name,
         qty,
       });
-      if (!silent) toast(`أُضيف «${product.name}» إلى السلة`);
+      if (!silent) toast(rt('addedToCart'));
     },
     [toast]
   );
@@ -82,7 +83,7 @@ export function StoreProvider({ children }) {
     (product) => {
       setFavorites((prev) => {
         const on = prev.includes(product.id);
-        toast(on ? 'أُزيل من المفضلة' : `أُضيف «${product.name}» إلى المفضلة`);
+        toast(on ? rt('removedFromFav') : rt('addedToFav'));
         return on ? prev.filter((id) => id !== product.id) : [...prev, product.id];
       });
     },

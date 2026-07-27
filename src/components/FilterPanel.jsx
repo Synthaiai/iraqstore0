@@ -1,5 +1,6 @@
 import { createPortal } from 'react-dom';
 import { formatPrice } from '../data/products';
+import { usePrefs } from '../store/PrefsContext';
 import { Close } from './Icons';
 
 /**
@@ -20,6 +21,7 @@ export default function FilterPanel({
   resultCount,
   activeCount,
 }) {
+  const { t, tf, lang } = usePrefs();
   const set = (patch) => onChange({ ...value, ...patch });
 
   const toggle = (key, item) => {
@@ -33,10 +35,10 @@ export default function FilterPanel({
     <>
       <div className={`sheet-overlay ${open ? 'is-open' : ''}`} onClick={onClose} aria-hidden />
 
-      <aside className={`filters ${open ? 'is-open' : ''}`} aria-label="تصفية المنتجات">
+      <aside className={`filters ${open ? 'is-open' : ''}`} aria-label={t('filter')}>
         <header className="filters__head">
-          <h2 className="filters__title">تصفية</h2>
-          <button type="button" className="icon-btn" onClick={onClose} aria-label="إغلاق التصفية">
+          <h2 className="filters__title">{t('filter')}</h2>
+          <button type="button" className="icon-btn" onClick={onClose} aria-label={t('close')}>
             <Close />
           </button>
         </header>
@@ -44,7 +46,7 @@ export default function FilterPanel({
         <div className="filters__body">
           {/* ---- Price ---- */}
           <section className="filter-group">
-            <h3 className="filter-group__title">السعر</h3>
+            <h3 className="filter-group__title">{t('price')}</h3>
             <div className="range">
               <input
                 type="range"
@@ -53,11 +55,13 @@ export default function FilterPanel({
                 step={5000}
                 value={value.maxPrice}
                 onChange={(e) => set({ maxPrice: Number(e.target.value) })}
-                aria-label="أعلى سعر"
+                aria-label={t('price')}
               />
               <div className="range__labels">
-                <span>{formatPrice(bounds.min)}</span>
-                <span className="range__current">حتى {formatPrice(value.maxPrice)}</span>
+                <span>{formatPrice(bounds.min, lang)}</span>
+                <span className="range__current">
+                  {t('upTo')} {formatPrice(value.maxPrice, lang)}
+                </span>
               </div>
             </div>
           </section>
@@ -65,7 +69,7 @@ export default function FilterPanel({
           {/* ---- Colour ---- */}
           {colors.length > 1 && (
             <section className="filter-group">
-              <h3 className="filter-group__title">اللون</h3>
+              <h3 className="filter-group__title">{t('color')}</h3>
               <div className="filter-colors">
                 {colors.map((c) => {
                   const on = value.colors.includes(c.name);
@@ -76,10 +80,10 @@ export default function FilterPanel({
                       className={`filter-color ${on ? 'is-active' : ''}`}
                       onClick={() => toggle('colors', c.name)}
                       aria-pressed={on}
-                      title={c.name}
+                      title={tf(c, 'name')}
                     >
                       <span className="filter-color__dot" style={{ background: c.hex }} />
-                      <span className="filter-color__name">{c.name}</span>
+                      <span className="filter-color__name">{tf(c, 'name')}</span>
                     </button>
                   );
                 })}
@@ -90,7 +94,7 @@ export default function FilterPanel({
           {/* ---- Size ---- */}
           {sizes.length > 1 && (
             <section className="filter-group">
-              <h3 className="filter-group__title">المقاس</h3>
+              <h3 className="filter-group__title">{t('size')}</h3>
               <div className="opt-row">
                 {sizes.map((s) => {
                   const on = value.sizes.includes(s);
@@ -112,7 +116,7 @@ export default function FilterPanel({
 
           {/* ---- Offers ---- */}
           <section className="filter-group">
-            <h3 className="filter-group__title">العروض</h3>
+            <h3 className="filter-group__title">{t('offers')}</h3>
             <label className="check">
               <input
                 type="checkbox"
@@ -120,7 +124,7 @@ export default function FilterPanel({
                 onChange={(e) => set({ onSale: e.target.checked })}
               />
               <span className="check__box" aria-hidden />
-              <span>المخفّضة فقط</span>
+              <span>{t('onSaleOnly')}</span>
             </label>
             <label className="check">
               <input
@@ -129,17 +133,17 @@ export default function FilterPanel({
                 onChange={(e) => set({ isNew: e.target.checked })}
               />
               <span className="check__box" aria-hidden />
-              <span>الجديد فقط</span>
+              <span>{t('newOnly')}</span>
             </label>
           </section>
         </div>
 
         <footer className="filters__foot">
           <button type="button" className="btn btn--ghost btn--sm" onClick={onReset} disabled={!activeCount}>
-            مسح ({activeCount})
+            {t('clear')} ({activeCount})
           </button>
           <button type="button" className="btn btn--burgundy btn--sm" onClick={onClose}>
-            عرض {resultCount} منتج
+            {t('show')} {resultCount} {t('products')}
           </button>
         </footer>
       </aside>

@@ -1,0 +1,202 @@
+/* ============================================================
+   Dark theme + preference toggles
+   Loaded after global.css / checkout.css.
+
+   The token flip below turns every semantic surface (--paper*) dark and every
+   text token (--ink*) light. Components that use --ink as a *surface* (buttons,
+   badges, active chips, footer, toasts) would invert wrongly, so each gets an
+   explicit override to stay a dark chip with light text.
+   ============================================================ */
+
+:root[data-theme='dark'] {
+  --paper: #0e0e11;
+  --paper-soft: #17171b;
+  --paper-tint: #1f1f26;
+  --line: #2c2c34;
+  --line-strong: #3d3d46;
+
+  --ink-900: #f4f3f1;
+  --ink-800: #e7e5e2;
+  --ink-700: #ceccc9;
+  --ink-600: #a8a6a3;
+  --ink-400: #8c8a88;
+  --ink-300: #6a6866;
+
+  /* Burgundy-100 is used as a light tinted surface (active filter, payment) —
+     remap to a dark burgundy tint so text stays readable. */
+  --burgundy-100: #2a1015;
+  --brand-red: #e23b42;
+}
+
+/* ---- Buttons ---- */
+:root[data-theme='dark'] .btn {
+  --btn-bg: #26262d;
+  --btn-fg: #fff;
+}
+:root[data-theme='dark'] .btn--burgundy {
+  --btn-bg: var(--burgundy-600);
+}
+:root[data-theme='dark'] .btn--light {
+  --btn-bg: #f4f3f1;
+  --btn-fg: #141416;
+}
+:root[data-theme='dark'] .btn--ghost {
+  --btn-bg: transparent;
+  --btn-fg: var(--ink-900);
+}
+
+/* ---- Badges & chips that are dark surfaces ---- */
+:root[data-theme='dark'] .badge {
+  background: #2a2a31;
+  color: #fff;
+}
+:root[data-theme='dark'] .badge--new {
+  background: #f4f3f1;
+  color: #141416;
+}
+:root[data-theme='dark'] .opt.is-active {
+  background: var(--burgundy-600);
+  border-color: var(--burgundy-600);
+  color: #fff;
+}
+:root[data-theme='dark'] .secnav__link.is-active {
+  background: var(--burgundy-700);
+  color: #fff;
+}
+:root[data-theme='dark'] .chip.is-active {
+  background: var(--burgundy-700);
+  border-color: var(--burgundy-700);
+  color: #fff;
+}
+:root[data-theme='dark'] .summary-line__qty {
+  background: #f4f3f1;
+  color: #141416;
+}
+
+/* ---- Header / search / toast surfaces ---- */
+:root[data-theme='dark'] .header {
+  background: rgba(14, 14, 17, 0.85);
+}
+:root[data-theme='dark'] .header.is-stuck {
+  box-shadow: 0 1px 24px rgba(0, 0, 0, 0.45);
+}
+:root[data-theme='dark'] .search-panel {
+  background: rgba(14, 14, 17, 0.97);
+}
+:root[data-theme='dark'] .toast {
+  background: #26262d;
+  color: #fff;
+}
+:root[data-theme='dark'] .select {
+  background: var(--paper-soft);
+}
+
+/* ---- Product card white pills → dark ---- */
+:root[data-theme='dark'] .pcard__fav {
+  background: rgba(30, 30, 36, 0.9);
+  color: var(--ink-700);
+}
+:root[data-theme='dark'] .pcard__fav:hover,
+:root[data-theme='dark'] .pcard__fav.is-on {
+  color: var(--brand-red);
+}
+:root[data-theme='dark'] .pcard__add {
+  background: rgba(30, 30, 36, 0.94);
+  color: var(--ink-900);
+}
+:root[data-theme='dark'] .pcard__add:hover {
+  background: var(--burgundy-700);
+  color: #fff;
+}
+
+/* ---- Footer / back-to-top stay deep dark ---- */
+:root[data-theme='dark'] .footer {
+  background: #08080a;
+}
+:root[data-theme='dark'] .to-top {
+  background: #26262d;
+}
+:root[data-theme='dark'] .to-top:hover {
+  background: var(--burgundy-600);
+}
+
+/* ---- Image skeleton shimmer: no white flash on dark ---- */
+:root[data-theme='dark'] .imgw {
+  background: var(--paper-tint);
+}
+:root[data-theme='dark'] .imgw.is-loading::after {
+  background: linear-gradient(100deg, #1f1f26 30%, #2b2b33 50%, #1f1f26 70%);
+  background-size: 220% 100%;
+}
+
+/* ---- Filter colour swatch active keeps light text ---- */
+:root[data-theme='dark'] .filter-color.is-active {
+  color: var(--ink-900);
+}
+
+/* ============================================================
+   Preference toggles (theme + language) in the header
+   ============================================================ */
+
+.pref-btn {
+  position: relative;
+  height: 42px;
+  min-width: 42px;
+  padding-inline: 0;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius);
+  color: var(--ink-800);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 0.8rem;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+
+.pref-btn:hover {
+  background: var(--paper-tint);
+  color: var(--burgundy-700);
+}
+
+.pref-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Language button shows the *other* language's short label. */
+.pref-btn--lang {
+  border: 1px solid var(--line-strong);
+  padding-inline: 0.6rem;
+  letter-spacing: 0.02em;
+}
+
+.pref-btn--lang:hover {
+  border-color: var(--burgundy-700);
+}
+
+/* Prefs inside the mobile drawer */
+.mobile-nav__prefs {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 1.5rem;
+}
+
+.pref-btn--wide {
+  flex: 1;
+  height: 48px;
+  border: 1px solid var(--line-strong);
+  gap: 0.5rem;
+  font-size: 0.95rem;
+}
+
+.pref-btn--wide:hover {
+  border-color: var(--burgundy-700);
+}
+
+/* On the tightest phones the two header pref buttons move into the drawer only,
+   so the top bar keeps room for search / favorites / cart. */
+@media (max-width: 560px) {
+  .header__pref {
+    display: none;
+  }
+}

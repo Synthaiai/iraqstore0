@@ -1,54 +1,50 @@
 import { Link } from 'react-router-dom';
+import { usePrefs } from '../store/PrefsContext';
 import Logo from './Logo';
 import { Facebook, Instagram, Whatsapp } from './Icons';
 
-const COLUMNS = [
-  {
-    title: 'رجالي',
-    links: [
-      { label: 'أحذية', to: '/g/men/shoes/all' },
-      { label: 'ملابس', to: '/g/men/clothing/all' },
-      { label: 'إكسسوارات', to: '/g/men/accessories/all' },
-      { label: 'بدلات', to: '/g/men/clothing/suits' },
-      { label: 'ساعات', to: '/g/men/accessories/watches' },
-    ],
-  },
-  {
-    title: 'نسائي',
-    links: [
-      { label: 'أحذية', to: '/g/women/shoes/all' },
-      { label: 'ملابس', to: '/g/women/clothing/all' },
-      { label: 'إكسسوارات', to: '/g/women/accessories/all' },
-      { label: 'فساتين', to: '/g/women/clothing/dresses' },
-      { label: 'حقائب', to: '/g/women/accessories/bags' },
-    ],
-  },
-  {
-    title: 'روابط',
-    links: [
-      { label: 'المفضلة', to: '/favorites' },
-      { label: 'كل الأحذية', to: '/g/men/shoes/all' },
-      { label: 'عبايات وقفاطين', to: '/g/women/clothing/modest' },
-      { label: 'نظارات شمسية', to: '/g/women/accessories/eyewear' },
-      { label: 'مجوهرات', to: '/g/women/accessories/jewelry' },
-    ],
-  },
-];
-
 export default function Footer() {
+  const { t } = usePrefs();
+
+  const columns = [
+    {
+      title: t('men'),
+      links: [
+        { label: t('allProducts'), to: '/g/men/all' },
+        { label: t('allShoes'), to: '/g/men/shoes/all' },
+        { label: t('suits'), to: '/g/men/clothing/suits' },
+        { label: t('watches'), to: '/g/men/accessories/watches' },
+      ],
+    },
+    {
+      title: t('women'),
+      links: [
+        { label: t('allProducts'), to: '/g/women/all' },
+        { label: t('dresses'), to: '/g/women/clothing/dresses' },
+        { label: t('modest'), to: '/g/women/clothing/modest' },
+        { label: t('bags'), to: '/g/women/accessories/bags' },
+      ],
+    },
+    {
+      title: t('footerLinks'),
+      links: [
+        { label: t('favorites'), to: '/favorites' },
+        { label: t('jewelry'), to: '/g/women/accessories/jewelry' },
+        { label: t('eyewear'), to: '/g/women/accessories/eyewear' },
+      ],
+    },
+  ];
+
   return (
     <footer className="footer">
       <div className="shell">
         <div className="footer__grid">
           <div className="footer__brand">
             <Logo />
-            <p className="footer__about">
-              متجر إلكتروني لبيع الملابس والأحذية والإكسسوارات الرجالية والنسائية.
-              تصفّح الأقسام واختر ما يناسبك.
-            </p>
+            <p className="footer__about">{t('footerAbout')}</p>
           </div>
 
-          {COLUMNS.map((col) => (
+          {columns.map((col) => (
             <nav key={col.title} aria-label={col.title}>
               <div className="footer__col-title">{col.title}</div>
               <div className="footer__links">
@@ -63,15 +59,17 @@ export default function Footer() {
         </div>
 
         <div className="footer__bar">
-          <span>© {new Date().getFullYear()} IraqStore · عراق ستور. جميع الحقوق محفوظة.</span>
+          <span>
+            © {new Date().getFullYear()} IRAQI STORE. {t('rightsReserved')}
+          </span>
           <div className="footer__socials">
-            <a href="#" aria-label="إنستغرام">
+            <a href="#" aria-label="Instagram">
               <Instagram />
             </a>
-            <a href="#" aria-label="فيسبوك">
+            <a href="#" aria-label="Facebook">
               <Facebook />
             </a>
-            <a href="#" aria-label="واتساب">
+            <a href="#" aria-label="WhatsApp">
               <Whatsapp />
             </a>
           </div>

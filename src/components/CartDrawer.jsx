@@ -1,11 +1,13 @@
 import { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useStore } from '../store/StoreContext';
+import { usePrefs } from '../store/PrefsContext';
 import { formatPrice } from '../data/products';
 import { Bag, Close, Minus, Plus } from './Icons';
 
 export default function CartDrawer() {
   const { cart, cartOpen, closeCart, setQty, removeLine, total } = useStore();
+  const { t, tf, lang } = usePrefs();
   const navigate = useNavigate();
 
   const goToCheckout = () => {
@@ -38,12 +40,12 @@ export default function CartDrawer() {
         className={`drawer ${cartOpen ? 'is-open' : ''}`}
         role="dialog"
         aria-modal="true"
-        aria-label="سلة التسوّق"
+        aria-label={t('cart')}
         aria-hidden={!cartOpen}
       >
         <header className="drawer__head">
-          <h2 className="drawer__title">السلة</h2>
-          <button type="button" className="icon-btn" onClick={closeCart} aria-label="إغلاق السلة">
+          <h2 className="drawer__title">{t('cart')}</h2>
+          <button type="button" className="icon-btn" onClick={closeCart} aria-label={t('close')}>
             <Close />
           </button>
         </header>
@@ -54,64 +56,69 @@ export default function CartDrawer() {
               <span className="empty__icon">
                 <Bag />
               </span>
-              <h3 className="empty__title">سلّتك فارغة</h3>
-              <p className="empty__text">ابدأ من الأقسام واختر ما يناسب أسلوبك.</p>
+              <h3 className="empty__title">{t('cartEmpty')}</h3>
+              <p className="empty__text">{t('cartEmptySub')}</p>
               <Link to="/" className="btn btn--burgundy btn--sm" onClick={closeCart}>
-                تصفّح المتجر
+                {t('browseStore')}
               </Link>
             </div>
           ) : (
             <>
-              {cart.map((line) => (
-                <div className="cart-line" key={line.key}>
-                  <Link to={`/product/${line.product.id}`} className="cart-line__img" onClick={closeCart}>
-                    <img src={line.product.thumbs[0]} alt={line.product.name} loading="lazy" />
-                  </Link>
-
-                  <div className="cart-line__body">
-                    <Link
-                      to={`/product/${line.product.id}`}
-                      className="cart-line__name"
-                      onClick={closeCart}
-                    >
-                      {line.product.name}
+              {cart.map((line) => {
+                const cObj = line.product.colors.find((c) => c.name === line.color);
+                const si = line.product.sizes.indexOf(line.size);
+                const sizeText = lang === 'en' && si >= 0 ? line.product.sizesEn[si] : line.size;
+                return (
+                  <div className="cart-line" key={line.key}>
+                    <Link to={`/product/${line.product.id}`} className="cart-line__img" onClick={closeCart}>
+                      <img src={line.product.thumbs[0]} alt={tf(line.product, 'name')} loading="lazy" />
                     </Link>
-                    <span className="cart-line__meta">
-                      {line.color} · مقاس {line.size}
-                    </span>
-                    <span className="price" style={{ fontSize: '0.95rem' }}>
-                      {formatPrice(line.product.price * line.qty)}
-                    </span>
 
-                    <div className="cart-line__foot">
-                      <div className="qty qty--sm">
+                    <div className="cart-line__body">
+                      <Link
+                        to={`/product/${line.product.id}`}
+                        className="cart-line__name"
+                        onClick={closeCart}
+                      >
+                        {tf(line.product, 'name')}
+                      </Link>
+                      <span className="cart-line__meta">
+                        {tf(cObj, 'name') || line.color} · {t('sizeLabel')} {sizeText}
+                      </span>
+                      <span className="price" style={{ fontSize: '0.95rem' }}>
+                        {formatPrice(line.product.price * line.qty, lang)}
+                      </span>
+
+                      <div className="cart-line__foot">
+                        <div className="qty qty--sm">
+                          <button
+                            type="button"
+                            onClick={() => setQty(line.key, line.qty - 1)}
+                            aria-label={t('decrease')}
+                          >
+                            <Minus />
+                          </button>
+                          <span className="qty__val">{line.qty}</span>
+                          <button
+                            type="button"
+                            onClick={() => setQty(line.key, line.qty + 1)}
+                            aria-label={t('increase')}
+                          >
+                            <Plus />
+                          </button>
+                        </div>
                         <button
                           type="button"
-                          onClick={() => setQty(line.key, line.qty - 1)}
-                          aria-label="تقليل الكمية"
+                          className="cart-line__remove"
+                          onClick={() => removeLine(line.key)}
                         >
-                          <Minus />
-                        </button>
-                        <span className="qty__val">{line.qty}</span>
-                        <button
-                          type="button"
-                          onClick={() => setQty(line.key, line.qty + 1)}
-                          aria-label="زيادة الكمية"
-                        >
-                          <Plus />
+                          {t('remove')}
                         </button>
                       </div>
-                      <button
-                        type="button"
-                        className="cart-line__remove"
-                        onClick={() => removeLine(line.key)}
-                      >
-                        إزالة
-                      </button>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </>
           )}
         </div>
@@ -119,14 +126,14 @@ export default function CartDrawer() {
         {cart.length > 0 && (
           <footer className="drawer__foot">
             <div className="total-row total-row--grand">
-              <span>الإجمالي</span>
-              <span>{formatPrice(total)}</span>
+              <span>{t('total')}</span>
+              <span>{formatPrice(total, lang)}</span>
             </div>
             <button type="button" className="btn btn--burgundy btn--block" onClick={goToCheckout}>
-              إتمام الشراء
+              {t('checkout')}
             </button>
             <button type="button" className="link-underline" style={{ alignSelf: 'center' }} onClick={closeCart}>
-              متابعة التسوّق
+              {t('continueShopping')}
             </button>
           </footer>
         )}

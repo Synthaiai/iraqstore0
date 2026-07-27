@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useStore } from '../store/StoreContext';
+import { usePrefs } from '../store/PrefsContext';
 import { formatPrice } from '../data/products';
 import { GOVERNORATES, deliveryFee, isValidIraqiPhone } from '../data/iraq';
 import Breadcrumbs from '../components/Breadcrumbs';
@@ -10,14 +11,13 @@ const EMPTY = { name: '', phone: '', governorate: '', city: '', address: '', not
 
 export default function CheckoutPage() {
   const { cart, subtotal, clearCart } = useStore();
+  const { t, tf, lang } = usePrefs();
   const navigate = useNavigate();
 
   const [form, setForm] = useState(EMPTY);
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
 
-  // Fee depends on the chosen governorate, so it stays out of the total until
-  // one is picked — otherwise the total would include a charge shown as "TBD".
   const fee = useMemo(() => deliveryFee(form.governorate), [form.governorate]);
   const total = subtotal + (form.governorate ? fee : 0);
 
@@ -26,20 +26,28 @@ export default function CheckoutPage() {
     setErrors((prev) => (prev[key] ? { ...prev, [key]: undefined } : prev));
   };
 
-  // Empty cart — nothing to check out.
+  const sizeText = (line) => {
+    const i = line.product.sizes.indexOf(line.size);
+    return lang === 'en' && i >= 0 ? line.product.sizesEn[i] : line.size;
+  };
+  const colorText = (line) => {
+    const cObj = line.product.colors.find((c) => c.name === line.color);
+    return tf(cObj, 'name') || line.color;
+  };
+
   if (cart.length === 0) {
     return (
       <>
-        <Breadcrumbs items={[{ label: 'إتمام الطلب' }]} />
+        <Breadcrumbs items={[{ label: t('checkoutTitle') }]} />
         <section className="shell section">
           <div className="empty">
             <span className="empty__icon">
               <Bag />
             </span>
-            <h1 className="empty__title">سلّتك فارغة</h1>
-            <p className="empty__text">أضف بعض المنتجات قبل إتمام الطلب.</p>
+            <h1 className="empty__title">{t('cartEmpty')}</h1>
+            <p className="empty__text">{t('cartEmptyCheckout')}</p>
             <Link to="/" className="btn btn--burgundy btn--sm">
-              تصفّح المتجر
+              {t('browseStore')}
             </Link>
           </div>
         </section>
@@ -49,11 +57,11 @@ export default function CheckoutPage() {
 
   const validate = () => {
     const next = {};
-    if (form.name.trim().length < 3) next.name = 'الاسم الكامل مطلوب';
-    if (!isValidIraqiPhone(form.phone)) next.phone = 'رقم هاتف عراقي صحيح يبدأ بـ 07';
-    if (!form.governorate) next.governorate = 'اختر المحافظة';
-    if (form.city.trim().length < 2) next.city = 'المدينة أو المنطقة مطلوبة';
-    if (form.address.trim().length < 5) next.address = 'أضف عنوانًا تفصيليًا';
+    if (form.name.trim().length < 3) next.name = t('errName');
+    if (!isValidIraqiPhone(form.phone)) next.phone = t('errPhone');
+    if (!form.governorate) next.governorate = t('errGov');
+    if (form.city.trim().length < 2) next.city = t('errCity');
+    if (form.address.trim().length < 5) next.address = t('errAddress');
     return next;
   };
 
@@ -62,14 +70,12 @@ export default function CheckoutPage() {
     const next = validate();
     if (Object.keys(next).length) {
       setErrors(next);
-      // Focus the first field with an error so keyboard users land on it.
       const first = document.querySelector(`[data-field="${Object.keys(next)[0]}"]`);
       first?.focus();
       return;
     }
 
     setSubmitting(true);
-    // No backend — simulate order placement, then hand off to the confirmation.
     const orderNo = `IQ${Date.now().toString().slice(-6)}`;
     const summary = {
       orderNo,
@@ -89,28 +95,28 @@ export default function CheckoutPage() {
 
   return (
     <>
-      <Breadcrumbs items={[{ label: 'إتمام الطلب' }]} />
+      <Breadcrumbs items={[{ label: t('checkoutTitle') }]} />
 
       <header className="shell page-head">
-        <h1 className="page-head__title">إتمام الطلب</h1>
-        <p className="page-head__sub">الدفع عند الاستلام — تصلك الطلبية وتدفع نقدًا للمندوب.</p>
+        <h1 className="page-head__title">{t('checkoutTitle')}</h1>
+        <p className="page-head__sub">{t('checkoutSub')}</p>
       </header>
 
       <div className="shell checkout">
         {/* ---- Address form ---- */}
         <form className="checkout__form" onSubmit={submit} noValidate>
           <section className="form-card">
-            <h2 className="form-card__title">معلومات التوصيل</h2>
+            <h2 className="form-card__title">{t('deliveryInfo')}</h2>
 
             <div className="field">
-              <label htmlFor="ck-name">الاسم الكامل</label>
+              <label htmlFor="ck-name">{t('fullName')}</label>
               <input
                 id="ck-name"
                 data-field="name"
                 type="text"
                 value={form.name}
                 onChange={set('name')}
-                placeholder="مثال: أحمد علي"
+                placeholder={t('fullNamePh')}
                 autoComplete="name"
                 aria-invalid={!!errors.name}
                 className={errors.name ? 'is-invalid' : ''}
@@ -119,7 +125,7 @@ export default function CheckoutPage() {
             </div>
 
             <div className="field">
-              <label htmlFor="ck-phone">رقم الهاتف</label>
+              <label htmlFor="ck-phone">{t('phone')}</label>
               <input
                 id="ck-phone"
                 data-field="phone"
@@ -130,7 +136,7 @@ export default function CheckoutPage() {
                 placeholder="07XXXXXXXXX"
                 autoComplete="tel"
                 dir="ltr"
-                style={{ textAlign: 'right' }}
+                style={{ textAlign: lang === 'en' ? 'left' : 'right' }}
                 aria-invalid={!!errors.phone}
                 className={errors.phone ? 'is-invalid' : ''}
               />
@@ -139,7 +145,7 @@ export default function CheckoutPage() {
 
             <div className="field-row">
               <div className="field">
-                <label htmlFor="ck-gov">المحافظة</label>
+                <label htmlFor="ck-gov">{t('governorate')}</label>
                 <select
                   id="ck-gov"
                   data-field="governorate"
@@ -149,7 +155,7 @@ export default function CheckoutPage() {
                   aria-invalid={!!errors.governorate}
                 >
                   <option value="" disabled>
-                    اختر المحافظة
+                    {t('pickGovernorate')}
                   </option>
                   {GOVERNORATES.map((g) => (
                     <option key={g} value={g}>
@@ -161,14 +167,14 @@ export default function CheckoutPage() {
               </div>
 
               <div className="field">
-                <label htmlFor="ck-city">المدينة / المنطقة</label>
+                <label htmlFor="ck-city">{t('cityArea')}</label>
                 <input
                   id="ck-city"
                   data-field="city"
                   type="text"
                   value={form.city}
                   onChange={set('city')}
-                  placeholder="مثال: الكرادة"
+                  placeholder={t('cityPh')}
                   aria-invalid={!!errors.city}
                   className={errors.city ? 'is-invalid' : ''}
                 />
@@ -177,14 +183,14 @@ export default function CheckoutPage() {
             </div>
 
             <div className="field">
-              <label htmlFor="ck-address">العنوان التفصيلي</label>
+              <label htmlFor="ck-address">{t('address')}</label>
               <textarea
                 id="ck-address"
                 data-field="address"
                 rows={3}
                 value={form.address}
                 onChange={set('address')}
-                placeholder="أقرب نقطة دالة، اسم الشارع، رقم الدار…"
+                placeholder={t('addressPh')}
                 aria-invalid={!!errors.address}
                 className={errors.address ? 'is-invalid' : ''}
               />
@@ -192,25 +198,25 @@ export default function CheckoutPage() {
             </div>
 
             <div className="field">
-              <label htmlFor="ck-notes">ملاحظات (اختياري)</label>
+              <label htmlFor="ck-notes">{t('notes')}</label>
               <textarea
                 id="ck-notes"
                 rows={2}
                 value={form.notes}
                 onChange={set('notes')}
-                placeholder="أي تفاصيل تساعد المندوب على الوصول"
+                placeholder={t('notesPh')}
               />
             </div>
           </section>
 
           <section className="form-card">
-            <h2 className="form-card__title">طريقة الدفع</h2>
+            <h2 className="form-card__title">{t('paymentMethod')}</h2>
             <div className="pay-method is-active">
               <span className="pay-method__radio" aria-hidden />
               <Truck />
               <span>
-                <strong>الدفع عند الاستلام</strong>
-                <span>ادفع نقدًا للمندوب عند وصول الطلب</span>
+                <strong>{t('cod')}</strong>
+                <span>{t('codSub')}</span>
               </span>
             </div>
           </section>
@@ -219,7 +225,7 @@ export default function CheckoutPage() {
         {/* ---- Order summary ---- */}
         <aside className="checkout__summary">
           <div className="summary-card">
-            <h2 className="form-card__title">ملخّص الطلب</h2>
+            <h2 className="form-card__title">{t('orderSummary')}</h2>
 
             <div className="summary-lines">
               {cart.map((line) => (
@@ -229,13 +235,13 @@ export default function CheckoutPage() {
                     <span className="summary-line__qty">{line.qty}</span>
                   </span>
                   <span className="summary-line__body">
-                    <span className="summary-line__name">{line.product.name}</span>
+                    <span className="summary-line__name">{tf(line.product, 'name')}</span>
                     <span className="cart-line__meta">
-                      {line.color} · مقاس {line.size}
+                      {colorText(line)} · {t('sizeLabel')} {sizeText(line)}
                     </span>
                   </span>
                   <span className="summary-line__price">
-                    {formatPrice(line.product.price * line.qty)}
+                    {formatPrice(line.product.price * line.qty, lang)}
                   </span>
                 </div>
               ))}
@@ -243,16 +249,16 @@ export default function CheckoutPage() {
 
             <div className="summary-totals">
               <div className="total-row">
-                <span>المجموع الفرعي</span>
-                <span>{formatPrice(subtotal)}</span>
+                <span>{t('subtotal')}</span>
+                <span>{formatPrice(subtotal, lang)}</span>
               </div>
               <div className="total-row">
-                <span>رسوم التوصيل</span>
-                <span>{form.governorate ? formatPrice(fee) : 'تُحدَّد بالمحافظة'}</span>
+                <span>{t('deliveryFee')}</span>
+                <span>{form.governorate ? formatPrice(fee, lang) : t('feeByGov')}</span>
               </div>
               <div className="total-row total-row--grand">
-                <span>الإجمالي</span>
-                <span>{formatPrice(total)}</span>
+                <span>{t('total')}</span>
+                <span>{formatPrice(total, lang)}</span>
               </div>
             </div>
 
@@ -263,17 +269,17 @@ export default function CheckoutPage() {
               disabled={submitting}
             >
               {submitting ? (
-                'جارٍ تأكيد الطلب…'
+                t('confirming')
               ) : (
                 <>
                   <Check />
-                  تأكيد الطلب — {formatPrice(total)}
+                  {t('confirmOrder')} — {formatPrice(total, lang)}
                 </>
               )}
             </button>
 
             <Link to="/" className="link-underline" style={{ alignSelf: 'center' }}>
-              متابعة التسوّق
+              {t('continueShopping')}
             </Link>
           </div>
         </aside>

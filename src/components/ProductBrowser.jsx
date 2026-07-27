@@ -1,15 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
-import { availableColors, availableSizes, priceBounds } from '../data/products';
+import { availableColors, availableSizes, formatPrice, priceBounds } from '../data/products';
+import { usePrefs } from '../store/PrefsContext';
 import FilterPanel from './FilterPanel';
 import ProductCard from './ProductCard';
 import { Close, Search, Sliders } from './Icons';
 
 const SORTS = [
-  { value: 'featured', label: 'المختارة' },
-  { value: 'price-asc', label: 'السعر: من الأقل' },
-  { value: 'price-desc', label: 'السعر: من الأعلى' },
-  { value: 'rating', label: 'الأعلى تقييمًا' },
-  { value: 'new', label: 'الأحدث' },
+  { value: 'featured', key: 'sortFeatured' },
+  { value: 'price-asc', key: 'sortPriceAsc' },
+  { value: 'price-desc', key: 'sortPriceDesc' },
+  { value: 'rating', key: 'sortRating' },
+  { value: 'new', key: 'sortNew' },
 ];
 
 const BADGE_ORDER = { best: 0, new: 1, sale: 2 };
@@ -25,6 +26,7 @@ const emptyFilters = (max) => ({ maxPrice: max, colors: [], sizes: [], onSale: f
  * re-seeds the price ceiling and clears any active filters.
  */
 export default function ProductBrowser({ pool, resetKey }) {
+  const { t, tf, lang } = usePrefs();
   const bounds = useMemo(() => priceBounds(pool), [pool]);
   const colors = useMemo(() => availableColors(pool), [pool]);
   const sizes = useMemo(() => availableSizes(pool), [pool]);
@@ -97,7 +99,7 @@ export default function ProductBrowser({ pool, resetKey }) {
               onClick={() => setPanelOpen(true)}
             >
               <Sliders />
-              تصفية
+              {t('filter')}
               {activeCount > 0 && <span className="chip__badge">{activeCount}</span>}
             </button>
 
@@ -105,18 +107,18 @@ export default function ProductBrowser({ pool, resetKey }) {
               className="select"
               value={sort}
               onChange={(e) => setSort(e.target.value)}
-              aria-label="ترتيب حسب"
+              aria-label={t('sortBy')}
             >
               {SORTS.map((o) => (
                 <option key={o.value} value={o.value}>
-                  ترتيب: {o.label}
+                  {t('sortBy')}: {t(o.key)}
                 </option>
               ))}
             </select>
           </div>
 
           <span className="toolbar__count">
-            <b>{products.length}</b> منتج
+            <b>{products.length}</b> {t('products')}
           </span>
         </div>
 
@@ -129,7 +131,7 @@ export default function ProductBrowser({ pool, resetKey }) {
                 className="pill"
                 onClick={() => setFilters((f) => ({ ...f, maxPrice: bounds.max }))}
               >
-                حتى {filters.maxPrice.toLocaleString('ar-IQ')} د.ع <Close />
+                {t('upTo')} {formatPrice(filters.maxPrice, lang)} <Close />
               </button>
             )}
             {filters.colors.map((name) => (
@@ -139,7 +141,7 @@ export default function ProductBrowser({ pool, resetKey }) {
                 className="pill"
                 onClick={() => setFilters((f) => ({ ...f, colors: f.colors.filter((x) => x !== name) }))}
               >
-                {name} <Close />
+                {tf(colors.find((c) => c.name === name), 'name') || name} <Close />
               </button>
             ))}
             {filters.sizes.map((sz) => (
@@ -149,21 +151,21 @@ export default function ProductBrowser({ pool, resetKey }) {
                 className="pill"
                 onClick={() => setFilters((f) => ({ ...f, sizes: f.sizes.filter((x) => x !== sz) }))}
               >
-                مقاس {sz} <Close />
+                {t('sizeLabel')} {sz} <Close />
               </button>
             ))}
             {filters.onSale && (
               <button type="button" className="pill" onClick={() => setFilters((f) => ({ ...f, onSale: false }))}>
-                مخفّضة <Close />
+                {t('onSale')} <Close />
               </button>
             )}
             {filters.isNew && (
               <button type="button" className="pill" onClick={() => setFilters((f) => ({ ...f, isNew: false }))}>
-                جديد <Close />
+                {t('isNew')} <Close />
               </button>
             )}
             <button type="button" className="pill pill--clear" onClick={reset}>
-              مسح الكل
+              {t('clearAll')}
             </button>
           </div>
         )}
@@ -173,10 +175,10 @@ export default function ProductBrowser({ pool, resetKey }) {
             <span className="empty__icon">
               <Search />
             </span>
-            <h2 className="empty__title">لا توجد نتائج</h2>
-            <p className="empty__text">جرّب توسيع نطاق السعر أو إزالة بعض الفلاتر.</p>
+            <h2 className="empty__title">{t('noResults')}</h2>
+            <p className="empty__text">{t('noResultsSub')}</p>
             <button type="button" className="btn btn--burgundy btn--sm" onClick={reset}>
-              مسح الفلاتر
+              {t('clearFilters')}
             </button>
           </div>
         ) : (

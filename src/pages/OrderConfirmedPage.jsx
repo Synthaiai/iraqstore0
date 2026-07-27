@@ -1,9 +1,11 @@
 import { Link, Navigate, useLocation } from 'react-router-dom';
 import { formatPrice } from '../data/products';
+import { usePrefs } from '../store/PrefsContext';
 import { Check, Truck } from '../components/Icons';
 
 export default function OrderConfirmedPage() {
   const { state } = useLocation();
+  const { t, lang } = usePrefs();
 
   // Reached without placing an order (refresh, direct link) — send home.
   if (!state?.orderNo) return <Navigate to="/" replace />;
@@ -14,51 +16,51 @@ export default function OrderConfirmedPage() {
         <Check />
       </div>
 
-      <h1 className="confirm__title">تمّ استلام طلبك</h1>
+      <h1 className="confirm__title">{t('orderReceived')}</h1>
       <p className="confirm__lead">
-        شكرًا {state.name}. سنتصل بك على {state.phone} لتأكيد الطلب وموعد التوصيل.
+        {t('thanks')} {state.name}. {t('willCall')} {state.phone} {t('toConfirm')}
       </p>
 
       <div className="confirm__card">
         <div className="confirm__row">
-          <span>رقم الطلب</span>
+          <span>{t('orderNo')}</span>
           <strong style={{ fontVariantNumeric: 'tabular-nums', letterSpacing: '0.05em' }}>
             {state.orderNo}
           </strong>
         </div>
         <div className="confirm__row">
-          <span>عدد القطع</span>
+          <span>{t('itemCount')}</span>
           <strong>{state.itemCount}</strong>
         </div>
         <div className="confirm__row">
-          <span>المحافظة</span>
+          <span>{t('governorate')}</span>
           <strong>{state.governorate}</strong>
         </div>
         <div className="confirm__row">
-          <span>المجموع الفرعي</span>
-          <strong>{formatPrice(state.subtotal)}</strong>
+          <span>{t('subtotal')}</span>
+          <strong>{formatPrice(state.subtotal, lang)}</strong>
         </div>
         <div className="confirm__row">
-          <span>رسوم التوصيل</span>
-          <strong>{formatPrice(state.fee)}</strong>
+          <span>{t('deliveryFee')}</span>
+          <strong>{formatPrice(state.fee, lang)}</strong>
         </div>
         <div className="confirm__row confirm__row--total">
-          <span>الإجمالي (يُدفع للمندوب)</span>
-          <strong>{formatPrice(state.total)}</strong>
+          <span>{t('totalToPay')}</span>
+          <strong>{formatPrice(state.total, lang)}</strong>
         </div>
       </div>
 
       <div className="confirm__note">
         <Truck />
-        <span>الدفع عند الاستلام — جهّز المبلغ نقدًا عند وصول المندوب.</span>
+        <span>{t('codNote')}</span>
       </div>
 
       <div className="confirm__actions">
         <Link to="/" className="btn btn--burgundy">
-          العودة إلى المتجر
+          {t('backToStore')}
         </Link>
         <Link to="/g/men" className="btn btn--ghost">
-          تسوّق المزيد
+          {t('shopMore')}
         </Link>
       </div>
     </section>
