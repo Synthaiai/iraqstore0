@@ -3,6 +3,7 @@ import { GENDERS } from '../data/catalog';
 import { POOLS, heroSrcSet, img, imgWide, srcSet } from '../data/images';
 import { countProducts, featuredProducts, newArrivals } from '../data/products';
 import { usePrefs } from '../store/PrefsContext';
+import { useLiveData } from '../store/LiveDataContext';
 import Img from '../components/Img';
 import ProductCard from '../components/ProductCard';
 import Reveal from '../components/Reveal';
@@ -10,6 +11,7 @@ import { ChevronLeft } from '../components/Icons';
 
 export default function Home() {
   const { t, lang } = usePrefs();
+  useLiveData(); // re-render when the live catalogue changes
   const featured = featuredProducts(8);
   const arrivals = newArrivals(4);
   const catName = (g) => (lang === 'en' ? g.latin : g.title);
@@ -36,10 +38,12 @@ export default function Home() {
           />
         </div>
         <div className="hero__scrim" />
+        <div className="hero__glow" aria-hidden />
 
         <div className="shell hero__inner">
-          <span className="eyebrow" style={{ justifyContent: 'center' }}>
-            {t('heroKicker')}
+          <span className="hero__badge">
+            <span className="hero__badge-dot" aria-hidden />
+            {t('newSeason')}
           </span>
           <h1 className="hero__title">
             {t('heroTitle1')}
@@ -48,12 +52,9 @@ export default function Home() {
           </h1>
           <p className="hero__lede">{t('heroLede')}</p>
           <div className="hero__cta">
-            <Link to="/g/men" className="btn btn--light">
-              {t('shopMen')}
-            </Link>
-            <Link to="/g/women" className="btn btn--ghost">
-              {t('shopWomen')}
-            </Link>
+            <a href="#shop" className="btn btn--light btn--lg">
+              {t('shopNow')}
+            </a>
           </div>
         </div>
 
@@ -63,7 +64,7 @@ export default function Home() {
       </section>
 
       {/* ============ The two doors ============ */}
-      <section className="section shell">
+      <section id="shop" className="section shell" style={{ scrollMarginTop: '90px' }}>
         <Reveal className="section-head">
           <div>
             <span className="eyebrow">{t('shopBy')}</span>

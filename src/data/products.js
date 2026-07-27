@@ -979,7 +979,8 @@ const womenEyewear = build('women', 'accessories', 'eyewear', POOLS.eyewear, [
    Exports & queries
    ============================================================ */
 
-export const PRODUCTS = [
+/** The bundled seed catalogue — also the fallback when the database is empty. */
+export const SEED_PRODUCTS = [
   ...menCasual, ...menSneakers, ...menFormal, ...menLoafers,
   ...menShirts, ...menSuits, ...menOuter, ...menTrousers,
   ...menWatches, ...menLeather, ...menEyewear,
@@ -987,6 +988,111 @@ export const PRODUCTS = [
   ...womenDresses, ...womenModest, ...womenOuter, ...womenTops,
   ...womenBags, ...womenJewelry, ...womenEyewear,
 ];
+
+/**
+ * The live catalogue. Starts as the seed; the LiveData provider swaps it for
+ * the Realtime Database contents when those exist. ES module bindings are live,
+ * so every query function below sees the updated array automatically.
+ */
+export let PRODUCTS = SEED_PRODUCTS;
+
+export function setLiveProducts(list) {
+  PRODUCTS = list && list.length ? list : SEED_PRODUCTS;
+}
+
+/**
+ * Turn a raw record (from the admin form / database) into a full storefront
+ * product: fills the image fields from uploaded URLs, and the English/size
+ * fallbacks. Products that still carry a `gallery` of Unsplash slugs (the seed)
+ * are passed through untouched.
+ */
+export function normalizeProduct(raw) {
+  if (!raw) return null;
+  if (raw.image && raw.thumbs) return raw; // already a full in-memory seed product
+
+  const colors = (raw.colors || []).map((c) =>
+    typeof c === 'string' ? { name: c, nameEn: c, hex: '#888' } : c
+  );
+  const sizes = raw.sizes && raw.sizes.length ? raw.sizes : [ONE];
+
+  const base = {
+    id: raw.id,
+    gender: raw.gender,
+    category: raw.category,
+    sub: raw.sub,
+    name: raw.name || '',
+    nameEn: raw.nameEn || raw.name || '',
+    blurb: raw.blurb || '',
+    blurbEn: raw.blurbEn || raw.blurb || '',
+    price: Number(raw.price) || 0,
+    oldPrice: raw.oldPrice ? Number(raw.oldPrice) : null,
+    rating: raw.rating != null ? Number(raw.rating) : 4.7,
+    reviews: raw.reviews != null ? Number(raw.reviews) : 0,
+    badge: raw.badge || null,
+    colors,
+    sizes,
+    sizesEn: sizes.map((s) => (s === ONE ? ONE_EN : s)),
+    material: raw.material || '',
+    materialEn: raw.materialEn || materialEn(raw.material || ''),
+  };
+
+  // Seeded product read back from the DB: rebuild image fields from the slugs.
+  const gallery = Array.isArray(raw.gallery) ? raw.gallery.filter(Boolean) : [];
+  if (gallery.length) {
+    return {
+      ...base,
+      gallery,
+      image: img(gallery[0], 420, 560),
+      imageSet: cardSrcSet(gallery[0]),
+      imageAlt: img(gallery[1] || gallery[0], 420, 560),
+      imageAltSet: cardSrcSet(gallery[1] || gallery[0]),
+      thumbs: gallery.map((g) => img(g, 140, 140, 45)),
+      large: gallery.map((g) => img(g, 720, 900, 58)),
+      largeSet: gallery.map((g) => srcSet(g, [420, 640, 900, 1200], 5 / 4, 58)),
+    };
+  }
+
+  // Admin product with uploaded image URLs.
+  const urls = Array.isArray(raw.images) ? raw.images.filter(Boolean) : [];
+  const pad = urls.length ? urls : [img(POOLS.mShirts[0], 420, 560)];
+  return {
+    ...base,
+    images: urls,
+    image: pad[0],
+    imageSet: undefined,
+    imageAlt: pad[1] || pad[0],
+    imageAltSet: undefined,
+    thumbs: pad.slice(0, 4),
+    large: pad,
+    largeSet: pad.map(() => undefined),
+  };
+}
+
+/** Strip a storefront product down to the fields we persist to the database. */
+export function toRecord(p) {
+  return {
+    id: p.id,
+    gender: p.gender,
+    category: p.category,
+    sub: p.sub,
+    name: p.name,
+    nameEn: p.nameEn,
+    blurb: p.blurb,
+    blurbEn: p.blurbEn,
+    price: p.price,
+    oldPrice: p.oldPrice || null,
+    rating: p.rating,
+    reviews: p.reviews,
+    badge: p.badge || null,
+    colors: p.colors,
+    sizes: p.sizes,
+    material: p.material,
+    materialEn: p.materialEn,
+    // Seed products keep their Unsplash gallery; admin products carry image URLs.
+    gallery: p.gallery || null,
+    images: p.images || null,
+  };
+}
 
 export const BADGE_LABELS = {
   new: 'جديد',

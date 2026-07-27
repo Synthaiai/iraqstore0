@@ -3,6 +3,7 @@ import { Navigate, useParams } from 'react-router-dom';
 import { getGender } from '../data/catalog';
 import { queryProducts } from '../data/products';
 import { usePrefs } from '../store/PrefsContext';
+import { useLiveData } from '../store/LiveDataContext';
 import Breadcrumbs from '../components/Breadcrumbs';
 import ProductBrowser from '../components/ProductBrowser';
 import SectionNav from '../components/SectionNav';
@@ -11,9 +12,10 @@ import SectionNav from '../components/SectionNav';
 export default function AllProductsPage() {
   const { gender } = useParams();
   const { t, lang } = usePrefs();
+  const { version } = useLiveData();
   const g = getGender(gender);
 
-  const pool = useMemo(() => queryProducts({ gender }), [gender]);
+  const pool = useMemo(() => queryProducts({ gender }), [gender, version]);
 
   if (!g) return <Navigate to="/" replace />;
 

@@ -1,18 +1,19 @@
 import { Link } from 'react-router-dom';
 import { usePrefs } from '../store/PrefsContext';
+import { useLiveData } from '../store/LiveDataContext';
 
 /**
- * Brand lockup: the real logo artwork (public/logo.png) as a circular coin,
- * plus the store name. The emblem already contains "IRAQI STORE", so the text
- * beside it just carries the localized name.
+ * Brand lockup: the logo artwork as a circular coin, plus the store name.
+ * Uses the admin-uploaded logo when one exists, else the bundled /logo.png.
  */
 export default function Logo({ to = '/', compact = false }) {
   const { t } = usePrefs();
+  const { logoUrl } = useLiveData();
   return (
     <Link to={to} className={`logo ${compact ? 'logo--compact' : ''}`} aria-label="IRAQI STORE">
       <span className="logo__badge">
         <img
-          src="/logo.png"
+          src={logoUrl || '/logo.png'}
           alt="IRAQI STORE"
           width={compact ? 36 : 46}
           height={compact ? 36 : 46}

@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useStore } from '../store/StoreContext';
 import { usePrefs } from '../store/PrefsContext';
+import { useLiveData } from '../store/LiveDataContext';
 import { getProduct } from '../data/products';
 import Breadcrumbs from '../components/Breadcrumbs';
 import ProductCard from '../components/ProductCard';
@@ -9,6 +10,7 @@ import { Heart } from '../components/Icons';
 export default function FavoritesPage() {
   const { favorites } = useStore();
   const { t } = usePrefs();
+  useLiveData(); // re-render when the live catalogue changes
   const items = favorites.map(getProduct).filter(Boolean);
 
   return (

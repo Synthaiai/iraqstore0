@@ -1,3 +1,4 @@
+import { Suspense, lazy } from 'react';
 import { Route, Routes, useLocation } from 'react-router-dom';
 import CartDrawer from './components/CartDrawer';
 import Footer from './components/Footer';
@@ -16,8 +17,24 @@ import NotFound from './pages/NotFound';
 import OrderConfirmedPage from './pages/OrderConfirmedPage';
 import ProductPage from './pages/ProductPage';
 
+// Admin (with Firebase auth + storage) is a separate lazy chunk — the storefront
+// never downloads it.
+const AdminApp = lazy(() => import('./admin/AdminApp'));
+
 export default function App() {
   const location = useLocation();
+
+  // The admin panel is a full-screen surface with its own chrome.
+  if (location.pathname.startsWith('/admin')) {
+    return (
+      <>
+        <ScrollToTop />
+        <Suspense fallback={<div className="admin-auth"><div className="admin-spinner" /></div>}>
+          <AdminApp />
+        </Suspense>
+      </>
+    );
+  }
 
   return (
     <>

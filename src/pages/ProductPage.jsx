@@ -4,6 +4,7 @@ import { getCategory, getGender, getSubcategory } from '../data/catalog';
 import { formatPrice, getProduct, relatedProducts } from '../data/products';
 import { useStore } from '../store/StoreContext';
 import { usePrefs } from '../store/PrefsContext';
+import { useLiveData } from '../store/LiveDataContext';
 import Breadcrumbs from '../components/Breadcrumbs';
 import Img from '../components/Img';
 import ProductCard from '../components/ProductCard';
@@ -16,6 +17,7 @@ const BADGE_KEY = { new: 'badgeNew', sale: 'badgeSale', best: 'badgeBest' };
 
 export default function ProductPage() {
   const { id } = useParams();
+  useLiveData(); // re-render when the live catalogue changes
   const product = getProduct(id);
 
   const { addToCart, openCart, toast, isFavorite, toggleFavorite } = useStore();

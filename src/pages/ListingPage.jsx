@@ -3,6 +3,7 @@ import { Navigate, useParams } from 'react-router-dom';
 import { getCategory, getGender, getSubcategory } from '../data/catalog';
 import { queryProducts } from '../data/products';
 import { usePrefs } from '../store/PrefsContext';
+import { useLiveData } from '../store/LiveDataContext';
 import Breadcrumbs from '../components/Breadcrumbs';
 import ProductBrowser from '../components/ProductBrowser';
 import SectionNav from '../components/SectionNav';
@@ -10,11 +11,13 @@ import SectionNav from '../components/SectionNav';
 export default function ListingPage() {
   const { gender, category, sub } = useParams();
   const { t, tf, lang } = usePrefs();
+  const { version } = useLiveData();
   const g = getGender(gender);
   const c = getCategory(gender, category);
   const s = getSubcategory(gender, category, sub);
 
-  const pool = useMemo(() => queryProducts({ gender, category, sub }), [gender, category, sub]);
+  // `version` bumps whenever the live catalogue changes, so the pool recomputes.
+  const pool = useMemo(() => queryProducts({ gender, category, sub }), [gender, category, sub, version]);
 
   if (!g || !c || !s) return <Navigate to="/" replace />;
 

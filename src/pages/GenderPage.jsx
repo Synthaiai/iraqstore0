@@ -2,6 +2,7 @@ import { Navigate, useParams } from 'react-router-dom';
 import { CATEGORIES, getGender } from '../data/catalog';
 import { countProducts, featuredProducts } from '../data/products';
 import { usePrefs } from '../store/PrefsContext';
+import { useLiveData } from '../store/LiveDataContext';
 import Breadcrumbs from '../components/Breadcrumbs';
 import ProductCard from '../components/ProductCard';
 import Reveal from '../components/Reveal';
@@ -11,6 +12,7 @@ import Tile from '../components/Tile';
 export default function GenderPage() {
   const { gender } = useParams();
   const { t, tf, lang } = usePrefs();
+  useLiveData(); // re-render when the live catalogue changes
   const g = getGender(gender);
 
   if (!g) return <Navigate to="/" replace />;

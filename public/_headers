@@ -6,7 +6,7 @@
   Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
   # Lock what the page may load. Scripts are self-only (the real XSS guard);
   # fonts come from Google Fonts, images from Unsplash + inline data URIs.
-  Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://images.unsplash.com; connect-src 'self'; manifest-src 'self'; upgrade-insecure-requests
+  Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://images.unsplash.com https://firebasestorage.googleapis.com https://*.firebasestorage.app https://lh3.googleusercontent.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.firebasedatabase.app wss://*.firebasedatabase.app https://*.firebasestorage.app; manifest-src 'self'; upgrade-insecure-requests
   # No clickjacking, no MIME sniffing, minimal referrer leakage.
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff

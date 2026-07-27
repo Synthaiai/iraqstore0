@@ -32,11 +32,12 @@
   --brand-red: #d81f26;
 
   /* ---- Type ----
-     A single family everywhere. The three tokens stay so intent is still
-     readable at the call site, but they all resolve to IBM Plex Sans Arabic. */
-  --font-body: 'IBM Plex Sans Arabic', system-ui, sans-serif;
-  --font-display: 'IBM Plex Sans Arabic', system-ui, sans-serif;
-  --font-latin: 'IBM Plex Sans Arabic', system-ui, sans-serif;
+     One bilingual stack: Latin glyphs render in Plus Jakarta Sans, Arabic glyphs
+     fall through to IBM Plex Sans Arabic (per-glyph font fallback). So English
+     gets a modern rounded grotesque while Arabic keeps its dedicated face. */
+  --font-body: 'Plus Jakarta Sans', 'IBM Plex Sans Arabic', system-ui, sans-serif;
+  --font-display: 'Plus Jakarta Sans', 'IBM Plex Sans Arabic', system-ui, sans-serif;
+  --font-latin: 'Plus Jakarta Sans', 'IBM Plex Sans Arabic', system-ui, sans-serif;
 
   /* Arabic sits tall and carries diacritics — anything under ~1.5 clips the
      glyph box, especially inside `-webkit-line-clamp`. These are the floors. */
@@ -45,13 +46,16 @@
 
   /* ---- Space & shape ---- */
   --page: min(1440px, 100% - 3rem);
-  --radius-sm: 2px;
-  --radius: 4px;
-  --radius-lg: 6px;
+  /* Soft, rounded scale — no sharp boxes anywhere. */
+  --radius-sm: 8px;
+  --radius: 14px;
+  --radius-lg: 22px;
+  --radius-xl: 32px;
+  --radius-pill: 999px;
 
-  --shadow-sm: 0 1px 2px rgba(11, 11, 12, 0.04), 0 2px 8px rgba(11, 11, 12, 0.04);
-  --shadow-md: 0 4px 12px rgba(11, 11, 12, 0.06), 0 16px 40px rgba(11, 11, 12, 0.07);
-  --shadow-lg: 0 8px 24px rgba(11, 11, 12, 0.09), 0 32px 72px rgba(11, 11, 12, 0.12);
+  --shadow-sm: 0 1px 2px rgba(11, 11, 12, 0.04), 0 4px 12px rgba(11, 11, 12, 0.05);
+  --shadow-md: 0 6px 18px rgba(11, 11, 12, 0.07), 0 20px 48px rgba(11, 11, 12, 0.08);
+  --shadow-lg: 0 12px 32px rgba(11, 11, 12, 0.1), 0 40px 90px rgba(11, 11, 12, 0.14);
 
   /* ---- Motion ---- */
   --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
@@ -251,13 +255,13 @@ h4 {
   align-items: center;
   justify-content: center;
   gap: 0.6rem;
-  padding: 0.95rem 2rem;
+  padding: 0.95rem 2.1rem;
   font-family: var(--font-display);
   font-size: 0.95rem;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--btn-fg);
   background: var(--btn-bg);
-  border-radius: var(--radius);
+  border-radius: var(--radius-pill);
   overflow: hidden;
   isolation: isolate;
   transition: transform var(--dur-fast) var(--ease), box-shadow var(--dur) var(--ease),
@@ -597,12 +601,26 @@ h4 {
 
 .hero {
   position: relative;
-  min-height: clamp(520px, 76vh, 780px);
+  min-height: clamp(560px, 82vh, 820px);
   display: grid;
   place-items: center;
   overflow: hidden;
   background: var(--ink-900);
   isolation: isolate;
+}
+
+/* Soft burgundy glow rising from the bottom — atmosphere, not a flat scrim. */
+.hero__glow {
+  position: absolute;
+  z-index: -1;
+  bottom: -30%;
+  left: 50%;
+  width: 120%;
+  height: 80%;
+  transform: translateX(-50%);
+  background: radial-gradient(closest-side, rgba(132, 20, 38, 0.55), transparent 72%);
+  filter: blur(30px);
+  pointer-events: none;
 }
 
 .hero__media {
@@ -646,37 +664,75 @@ h4 {
   text-align: center;
   color: #fff;
   padding-block: clamp(4rem, 10vw, 7rem);
-  max-width: 62ch;
+  max-width: 64ch;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
-.hero .eyebrow {
-  justify-content: center;
-  color: #e9c6cc;
+/* Frosted status pill with a pulsing dot */
+.hero__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.5rem 1.1rem;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(8px);
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
 }
-.hero .eyebrow::before {
+
+.hero__badge-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
   background: #e9c6cc;
+  box-shadow: 0 0 0 0 rgba(233, 198, 204, 0.7);
+  animation: dotPulse 2.2s var(--ease) infinite;
+}
+
+@keyframes dotPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(233, 198, 204, 0.6);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(233, 198, 204, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(233, 198, 204, 0);
+  }
 }
 
 .hero__title {
-  font-size: clamp(1.85rem, 5.6vw, 4.4rem);
-  font-weight: 700;
+  font-size: clamp(2rem, 6vw, 4.6rem);
+  font-weight: 800;
   color: #fff;
-  line-height: 1.42;
-  margin-block: 1.2rem 1.25rem;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  margin-block: 1.4rem 1.25rem;
   text-wrap: balance;
 }
 
 .hero__title em {
   font-style: normal;
-  color: #e9c6cc;
+  background: linear-gradient(120deg, #f4d9dd, #e9c6cc 40%, #d78d97);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .hero__lede {
-  font-size: clamp(1rem, 1.6vw, 1.15rem);
+  font-size: clamp(1rem, 1.6vw, 1.18rem);
   font-weight: 400;
   color: rgba(255, 255, 255, 0.82);
   max-width: 52ch;
   margin-inline: auto;
+  line-height: 1.75;
 }
 
 .hero__cta {
@@ -684,12 +740,12 @@ h4 {
   gap: 0.9rem;
   justify-content: center;
   flex-wrap: wrap;
-  margin-top: 2.4rem;
+  margin-top: 2.6rem;
 }
 
-.hero__cta .btn--ghost {
-  --btn-fg: #fff;
-  border-color: rgba(255, 255, 255, 0.35);
+.btn--lg {
+  padding: 1.15rem 2.8rem;
+  font-size: 1.05rem;
 }
 
 /* Scroll hint */
