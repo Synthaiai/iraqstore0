@@ -930,15 +930,44 @@
   }
   .admin-header {
     flex-wrap: wrap;
-    gap: 0.75rem;
+    gap: 0.6rem 0.75rem;
+    padding-block: 0.7rem;
   }
+  .admin-header__brand {
+    order: 1;
+  }
+  .admin-header__user {
+    order: 2;
+    margin-inline-start: auto;
+  }
+  /* Full-width scrollable tab bar — long Arabic labels keep their text and the
+     user swipes horizontally instead of the buttons being crushed. */
   .admin-tabs {
     order: 3;
     width: 100%;
-    justify-content: space-between;
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .admin-tabs::-webkit-scrollbar {
+    display: none;
+  }
+  .admin-tabs button {
+    flex: none;
+    white-space: nowrap;
   }
   .admin-sections {
     grid-template-columns: 1fr;
+  }
+  /* Tree/toolbar heads wrap their action buttons instead of overflowing. */
+  .admin-tree-head {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+  .admin-tree-head__actions {
+    flex-wrap: wrap;
   }
   /* Product table header labels don't fit a stacked card — hide them.
      `!important` outranks the base `.admin-table-head-row` rule that follows
@@ -1039,6 +1068,100 @@
     flex-wrap: wrap;
   }
   .admin-modal__foot .admin-btn {
+    flex: 1;
+  }
+
+  /* ---- Full-screen modals on phones ----
+     A form as long as the product editor needs the whole viewport; the rounded
+     floating card wastes space and traps content behind the keyboard. */
+  .admin-modal {
+    padding: 0;
+    place-items: stretch;
+  }
+  .admin-modal__panel,
+  .admin-modal__panel--lg,
+  .admin-modal__panel--sm {
+    width: 100%;
+    max-width: 100%;
+    min-height: 100dvh;
+    max-height: none;
+    border-radius: 0;
+    border-inline: 0;
+  }
+  .admin-modal__head {
+    border-radius: 0;
+  }
+  /* Pin the action bar to the bottom so Save/Cancel are always reachable. */
+  .admin-modal__foot {
+    position: sticky;
+    bottom: 0;
+    background: var(--a-surface);
+    padding-bottom: calc(1.1rem + env(safe-area-inset-bottom));
+  }
+  .admin-modal__body {
+    padding: 1.1rem;
+  }
+
+  /* ---- Comfortable touch targets ----
+     44px min height on the primary controls; 16px inputs so iOS won't zoom. */
+  .admin-btn {
+    min-height: 44px;
+    padding-inline: 1rem;
+  }
+  .admin-btn--sm {
+    min-height: 38px;
+  }
+  .admin-field input,
+  .admin-field select,
+  .admin-field textarea,
+  .admin-search,
+  .admin-toolbar select,
+  .admin-status-select {
+    font-size: 16px;
+    padding-block: 0.75rem;
+  }
+  .admin-icon {
+    width: 42px;
+    height: 42px;
+  }
+
+  /* Product-editor type/size pickers get bigger, thumb-friendly cells. */
+  .admin-type-grid {
+    grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  }
+  .admin-size-box,
+  .admin-chip,
+  .admin-swatch {
+    min-height: 38px;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  /* Toolbar: search takes its own row, the add button spans full width. */
+  .admin-toolbar {
+    gap: 0.6rem;
+  }
+  .admin-search {
+    flex-basis: 100%;
+  }
+  .admin-toolbar .admin-btn--primary {
+    flex: 1;
+  }
+
+  .admin-main {
+    padding: 1rem 0.9rem calc(1rem + env(safe-area-inset-bottom));
+  }
+  .admin-auth__card {
+    padding: 1.5rem 1.25rem;
+  }
+}
+
+/* Extra-compact phones: the reorder card row gets a touch more breathing room. */
+@media (max-width: 400px) {
+  .admin-type-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .admin-row__actions .admin-btn {
     flex: 1;
   }
 }
