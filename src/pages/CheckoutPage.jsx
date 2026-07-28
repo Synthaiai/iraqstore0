@@ -7,7 +7,7 @@ import { GOVERNORATES, deliveryFee, getDeliveryFees, isValidIraqiPhone } from '.
 import { STORE_CONTACT, buildWhatsAppInvoiceText, openWhatsAppInvoice } from '../data/contact';
 import { saveOrder } from '../data/remote';
 import Breadcrumbs from '../components/Breadcrumbs';
-import { Bag, Check, Truck, Whatsapp } from '../components/Icons';
+import { Bag, Card, Check, Truck, Whatsapp } from '../components/Icons';
 
 const EMPTY = { name: '', phone: '', governorate: '', city: '', address: '', notes: '' };
 
@@ -17,6 +17,7 @@ export default function CheckoutPage() {
   const navigate = useNavigate();
 
   const [form, setForm] = useState(EMPTY);
+  const [payment, setPayment] = useState('cod'); // 'cod' | 'card'
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
 
@@ -93,6 +94,8 @@ export default function CheckoutPage() {
       fee,
       total,
       itemCount: cart.reduce((n, l) => n + l.qty, 0),
+      payment, // 'cod' | 'card'
+      paymentLabel: payment === 'card' ? 'الدفع عن طريق الماستر الرافدين' : 'الدفع عند الاستلام',
     };
 
     // Save order to Firebase / LocalStorage for admin dashboard
@@ -225,14 +228,42 @@ export default function CheckoutPage() {
 
           <section className="form-card">
             <h2 className="form-card__title">{t('paymentMethod')}</h2>
-            <div className="pay-method is-active">
-              <span className="pay-method__radio" aria-hidden />
-              <Truck />
-              <span>
-                <strong>الدفع عند الاستلام + إرسال الفاتورة عبر الواتساب</strong>
-                <span>يتم إرسال الطلب وإعلام الإدارة عبر رقم الواتساب ({STORE_CONTACT.phone})</span>
-              </span>
+            <div className="pay-methods">
+              <button
+                type="button"
+                className={`pay-method ${payment === 'cod' ? 'is-active' : ''}`}
+                onClick={() => setPayment('cod')}
+                aria-pressed={payment === 'cod'}
+              >
+                <span className="pay-method__radio" aria-hidden />
+                <Truck />
+                <span className="pay-method__text">
+                  <strong>{t('cod')}</strong>
+                  <span>{t('codSub')}</span>
+                </span>
+              </button>
+
+              <button
+                type="button"
+                className={`pay-method ${payment === 'card' ? 'is-active' : ''}`}
+                onClick={() => setPayment('card')}
+                aria-pressed={payment === 'card'}
+              >
+                <span className="pay-method__radio" aria-hidden />
+                <Card />
+                <span className="pay-method__text">
+                  <strong>{t('payCard')}</strong>
+                  <span>{t('payCardSub')}</span>
+                </span>
+                <span className="pay-method__brand">
+                  <span className="pay-method__mc" aria-hidden>
+                    <i /><i />
+                  </span>
+                </span>
+              </button>
             </div>
+
+            {payment === 'card' && <p className="pay-note">{t('payCardNote')}</p>}
           </section>
         </form>
 

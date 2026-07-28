@@ -107,46 +107,111 @@
   background-position: left 1rem center;
 }
 
-/* ---- Payment method ---- */
+/* ---- Payment method (selectable cards) ---- */
+.pay-methods {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
 .pay-method {
   display: flex;
   align-items: center;
   gap: 0.85rem;
+  width: 100%;
   padding: 1rem 1.15rem;
   border: 1.5px solid var(--line-strong);
   border-radius: var(--radius);
+  background: var(--paper);
+  text-align: start;
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease);
+}
+
+.pay-method:hover {
+  border-color: var(--burgundy-600);
 }
 
 .pay-method.is-active {
   border-color: var(--burgundy-700);
   background: var(--burgundy-100);
+  box-shadow: 0 0 0 3px rgba(107, 15, 26, 0.08);
 }
 
-.pay-method svg {
+.pay-method > svg {
   width: 24px;
   height: 24px;
   color: var(--burgundy-700);
   flex: none;
 }
 
-.pay-method strong {
+.pay-method__text {
+  min-width: 0;
+}
+
+.pay-method__text strong {
   display: block;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--ink-900);
 }
 
-.pay-method span span {
+.pay-method__text span {
   font-size: 0.85rem;
   color: var(--ink-400);
 }
 
+/* Radio dot: hollow until selected */
 .pay-method__radio {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  border: 5px solid var(--burgundy-700);
-  background: #fff;
+  border: 2px solid var(--line-strong);
+  background: var(--paper);
   flex: none;
+  transition: border-color var(--dur-fast) var(--ease), border-width var(--dur-fast) var(--ease);
+}
+
+.pay-method.is-active .pay-method__radio {
+  border: 6px solid var(--burgundy-700);
+}
+
+/* Mastercard mark (two overlapping circles) */
+.pay-method__brand {
+  margin-inline-start: auto;
+  flex: none;
+}
+
+.pay-method__mc {
+  display: inline-flex;
+  align-items: center;
+}
+
+.pay-method__mc i {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: block;
+}
+
+.pay-method__mc i:first-child {
+  background: #eb001b;
+}
+
+.pay-method__mc i:last-child {
+  background: #f79e1b;
+  margin-inline-start: -9px;
+  mix-blend-mode: multiply;
+}
+
+.pay-note {
+  margin-top: 0.85rem;
+  padding: 0.8rem 1rem;
+  background: var(--burgundy-100);
+  border-radius: var(--radius);
+  font-size: 0.88rem;
+  color: var(--burgundy-800);
+  line-height: 1.7;
 }
 
 /* ---- Order summary ---- */

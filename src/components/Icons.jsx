@@ -110,6 +110,14 @@ export const Instagram = (p) => (
   </svg>
 );
 
+export const Card = (p) => (
+  <svg {...base} {...p}>
+    <rect x="3" y="5.5" width="18" height="13" rx="2.5" />
+    <path d="M3 9.5h18" />
+    <path d="M6.5 14.5h3" />
+  </svg>
+);
+
 export const Phone = (p) => (
   <svg {...base} {...p}>
     <path d="M4.5 5.5c0-.6.4-1 1-1h2.3c.5 0 .9.3 1 .8l.7 2.8c.1.4 0 .8-.3 1L7.7 10.6a12 12 0 0 0 5.7 5.7l1.5-1.5c.3-.3.7-.4 1-.3l2.8.7c.5.1.8.5.8 1V19c0 .6-.4 1-1 1A14.5 14.5 0 0 1 4.5 5.5Z" />

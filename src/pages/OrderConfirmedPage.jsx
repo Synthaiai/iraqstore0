@@ -45,6 +45,10 @@ export default function OrderConfirmedPage() {
           <strong>{state.governorate} — {state.city}</strong>
         </div>
         <div className="confirm__row">
+          <span>{t('paymentLabel')}</span>
+          <strong>{state.paymentLabel || (state.payment === 'card' ? 'الدفع عن طريق الماستر الرافدين' : t('cod'))}</strong>
+        </div>
+        <div className="confirm__row">
           <span>مجموع المنتجات</span>
           <strong>{formatPrice(state.subtotal, lang)}</strong>
         </div>

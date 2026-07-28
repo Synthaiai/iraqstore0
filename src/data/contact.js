@@ -14,7 +14,8 @@ export const STORE_CONTACT = {
 /**
  * Generate formatted WhatsApp order invoice text
  */
-export function buildWhatsAppInvoiceText({ name, phone, governorate, city, address, notes, cart, subtotal, fee, total, orderNo }) {
+export function buildWhatsAppInvoiceText({ name, phone, governorate, city, address, notes, cart, subtotal, fee, total, orderNo, payment, paymentLabel }) {
+  const payText = paymentLabel || (payment === 'card' ? 'الدفع عن طريق الماستر الرافدين' : 'الدفع عند الاستلام');
   let text = `🛍️ *طلب جديد من الموقع - العراق ستور*\n`;
   if (orderNo) text += `📋 *رقم الطلب:* #${orderNo}\n`;
   text += `----------------------------------\n`;
@@ -25,6 +26,7 @@ export function buildWhatsAppInvoiceText({ name, phone, governorate, city, addre
   text += `• *المدينة/المنطقة:* ${city}\n`;
   text += `• *العنوان التفصيلي:* ${address}\n`;
   if (notes) text += `• *ملاحظات:* ${notes}\n`;
+  text += `• *طريقة الدفع:* ${payText}\n`;
 
   text += `\n📦 *تفاصيل المنتجات:*\n`;
   cart.forEach((line, index) => {
