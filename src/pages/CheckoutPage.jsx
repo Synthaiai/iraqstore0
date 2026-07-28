@@ -3,9 +3,11 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useStore } from '../store/StoreContext';
 import { usePrefs } from '../store/PrefsContext';
 import { formatPrice } from '../data/products';
-import { GOVERNORATES, deliveryFee, isValidIraqiPhone } from '../data/iraq';
+import { GOVERNORATES, deliveryFee, getDeliveryFees, isValidIraqiPhone } from '../data/iraq';
+import { STORE_CONTACT, buildWhatsAppInvoiceText, openWhatsAppInvoice } from '../data/contact';
+import { saveOrder } from '../data/remote';
 import Breadcrumbs from '../components/Breadcrumbs';
-import { Bag, Check, Truck } from '../components/Icons';
+import { Bag, Check, Truck, Whatsapp } from '../components/Icons';
 
 const EMPTY = { name: '', phone: '', governorate: '', city: '', address: '', notes: '' };
 
@@ -18,7 +20,8 @@ export default function CheckoutPage() {
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
 
-  const fee = useMemo(() => deliveryFee(form.governorate), [form.governorate]);
+  const fees = useMemo(() => getDeliveryFees(), []);
+  const fee = useMemo(() => deliveryFee(form.governorate, fees), [form.governorate, fees]);
   const total = subtotal + (form.governorate ? fee : 0);
 
   const set = (key) => (e) => {
@@ -27,11 +30,11 @@ export default function CheckoutPage() {
   };
 
   const sizeText = (line) => {
-    const i = line.product.sizes.indexOf(line.size);
+    const i = line.product.sizes?.indexOf(line.size);
     return lang === 'en' && i >= 0 ? line.product.sizesEn[i] : line.size;
   };
   const colorText = (line) => {
-    const cObj = line.product.colors.find((c) => c.name === line.color);
+    const cObj = line.product.colors?.find((c) => c.name === line.color);
     return tf(cObj, 'name') || line.color;
   };
 
@@ -77,20 +80,31 @@ export default function CheckoutPage() {
 
     setSubmitting(true);
     const orderNo = `IQ${Date.now().toString().slice(-6)}`;
-    const summary = {
+    const orderData = {
       orderNo,
-      total,
-      fee,
-      subtotal,
-      itemCount: cart.reduce((n, l) => n + l.qty, 0),
       name: form.name.trim(),
       phone: form.phone.trim(),
       governorate: form.governorate,
+      city: form.city.trim(),
+      address: form.address.trim(),
+      notes: form.notes.trim(),
+      cart,
+      subtotal,
+      fee,
+      total,
+      itemCount: cart.reduce((n, l) => n + l.qty, 0),
     };
+
+    // Save order to Firebase / LocalStorage for admin dashboard
+    saveOrder(orderData).catch((e) => console.warn('Order save failed:', e));
+
+    // Open WhatsApp invoice directly
+    openWhatsAppInvoice(orderData);
+
     setTimeout(() => {
       clearCart();
-      navigate('/order-confirmed', { state: summary, replace: true });
-    }, 650);
+      navigate('/order-confirmed', { state: orderData, replace: true });
+    }, 600);
   };
 
   return (
@@ -99,7 +113,7 @@ export default function CheckoutPage() {
 
       <header className="shell page-head">
         <h1 className="page-head__title">{t('checkoutTitle')}</h1>
-        <p className="page-head__sub">{t('checkoutSub')}</p>
+        <p className="page-head__sub">يرجى إكمال تفاصيل الطلب وسيتم إرسال الفاتورة تلقائياً للواتساب ({STORE_CONTACT.phone})</p>
       </header>
 
       <div className="shell checkout">
@@ -215,8 +229,8 @@ export default function CheckoutPage() {
               <span className="pay-method__radio" aria-hidden />
               <Truck />
               <span>
-                <strong>{t('cod')}</strong>
-                <span>{t('codSub')}</span>
+                <strong>الدفع عند الاستلام + إرسال الفاتورة عبر الواتساب</strong>
+                <span>يتم إرسال الطلب وإعلام الإدارة عبر رقم الواتساب ({STORE_CONTACT.phone})</span>
               </span>
             </div>
           </section>
@@ -231,7 +245,7 @@ export default function CheckoutPage() {
               {cart.map((line) => (
                 <div className="summary-line" key={line.key}>
                   <span className="summary-line__img">
-                    <img src={line.product.thumbs[0]} alt="" loading="lazy" />
+                    <img src={(line.product.images && line.product.images[0]) || line.product.thumbs?.[0] || line.product.image} alt="" loading="lazy" />
                     <span className="summary-line__qty">{line.qty}</span>
                   </span>
                   <span className="summary-line__body">
@@ -254,7 +268,13 @@ export default function CheckoutPage() {
               </div>
               <div className="total-row">
                 <span>{t('deliveryFee')}</span>
-                <span>{form.governorate ? formatPrice(fee, lang) : t('feeByGov')}</span>
+                <span>
+                  {form.governorate
+                    ? fee === 0
+                      ? '🎁 مجاني'
+                      : formatPrice(fee, lang)
+                    : t('feeByGov')}
+                </span>
               </div>
               <div className="total-row total-row--grand">
                 <span>{t('total')}</span>
@@ -269,11 +289,11 @@ export default function CheckoutPage() {
               disabled={submitting}
             >
               {submitting ? (
-                t('confirming')
+                'جارٍ تحويل الفاتورة للواتساب…'
               ) : (
                 <>
-                  <Check />
-                  {t('confirmOrder')} — {formatPrice(total, lang)}
+                  <Whatsapp />
+                  إرسال الطلب عبر الواتساب — {formatPrice(total, lang)}
                 </>
               )}
             </button>

@@ -492,10 +492,11 @@ h4 {
 .logo__latin {
   font-family: var(--font-latin);
   font-size: clamp(1.02rem, 1.2vw, 1.2rem);
-  font-weight: 600;
+  font-weight: 700;
   /* Latin only — safe to track out; never do this to the Arabic line below. */
   letter-spacing: 0.04em;
-  color: var(--ink-900);
+  /* Brand name carries the logo's own red, matching the mark inside the badge. */
+  color: var(--brand-red);
   white-space: nowrap;
 }
 
@@ -1995,7 +1996,8 @@ h4 {
 }
 
 .footer .logo__latin {
-  color: #fff;
+  /* Keep the brand red on the dark footer — it reads cleanly against ink-900. */
+  color: var(--brand-red);
 }
 .footer .logo__ar {
   color: #e9c6cc;
@@ -2045,9 +2047,38 @@ h4 {
   color: rgba(255, 255, 255, 0.45);
 }
 
+.footer__brandname {
+  color: var(--brand-red);
+  font-weight: 700;
+}
+
 .footer__socials {
   display: flex;
   gap: 0.4rem;
+}
+
+.footer__contact-info {
+  margin-top: 0.85rem;
+}
+
+.footer__contact-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.8rem;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius);
+  color: #fff;
+  font-size: 0.88rem;
+  font-weight: 500;
+  transition: all var(--dur-fast) var(--ease);
+}
+
+.footer__contact-link:hover {
+  background: var(--burgundy-700);
+  border-color: var(--burgundy-600);
+  color: #fff;
 }
 
 .footer__socials a {

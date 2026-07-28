@@ -1,11 +1,11 @@
 import { POOLS } from './images';
+import { getLocalCatalog } from './remote';
 
 /**
- * The navigation tree: gender → category → subcategory.
- * `slug` values are what appear in the URL; `cover` is the tile photograph.
+ * Navigation tree: gender → category → subcategory.
  */
 
-export const GENDERS = [
+export const INITIAL_GENDERS = [
   {
     slug: 'men',
     title: 'رجالي',
@@ -24,7 +24,7 @@ export const GENDERS = [
   },
 ];
 
-export const CATEGORIES = {
+export const INITIAL_CATEGORIES = {
   men: [
     {
       slug: 'shoes',
@@ -79,7 +79,7 @@ export const CATEGORIES = {
   ],
 };
 
-export const SUBCATEGORIES = {
+export const INITIAL_SUBCATEGORIES = {
   'men/shoes': [
     { slug: 'all', title: 'كل الأحذية', latin: 'All Footwear', cover: POOLS.mFormal[2], feature: true },
     { slug: 'casual', title: 'أحذية كاجول (ترينرز)', latin: 'Trainers', cover: POOLS.mSneakers[5] },
@@ -122,16 +122,47 @@ export const SUBCATEGORIES = {
   ],
 };
 
+let currentGenders = [...INITIAL_GENDERS];
+let currentCategories = { ...INITIAL_CATEGORIES };
+let currentSubcategories = { ...INITIAL_SUBCATEGORIES };
+
+// Try loading local catalog cache at module start
+const cached = getLocalCatalog();
+if (cached && cached.genders) {
+  currentGenders = cached.genders;
+  currentCategories = cached.categories || INITIAL_CATEGORIES;
+  currentSubcategories = cached.subcategories || INITIAL_SUBCATEGORIES;
+}
+
+export function updateCatalogStore(tree) {
+  if (!tree) return;
+  if (tree.genders) currentGenders = tree.genders;
+  if (tree.categories) currentCategories = tree.categories;
+  if (tree.subcategories) currentSubcategories = tree.subcategories;
+}
+
+export function getFullCatalogTree() {
+  return {
+    genders: currentGenders,
+    categories: currentCategories,
+    subcategories: currentSubcategories,
+  };
+}
+
+export const GENDERS = currentGenders;
+export const CATEGORIES = currentCategories;
+export const SUBCATEGORIES = currentSubcategories;
+
 export function getGender(slug) {
-  return GENDERS.find((g) => g.slug === slug) || null;
+  return currentGenders.find((g) => g.slug === slug) || null;
 }
 
 export function getCategory(gender, slug) {
-  return (CATEGORIES[gender] || []).find((c) => c.slug === slug) || null;
+  return (currentCategories[gender] || []).find((c) => c.slug === slug) || null;
 }
 
 export function getSubcategories(gender, category) {
-  return SUBCATEGORIES[`${gender}/${category}`] || [];
+  return currentSubcategories[`${gender}/${category}`] || [];
 }
 
 export function getSubcategory(gender, category, slug) {

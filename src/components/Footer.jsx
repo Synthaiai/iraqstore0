@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { usePrefs } from '../store/PrefsContext';
 import Logo from './Logo';
 import { Facebook, Instagram, Whatsapp } from './Icons';
+import { STORE_CONTACT } from '../data/contact';
 
 export default function Footer() {
   const { t } = usePrefs();
@@ -42,6 +43,11 @@ export default function Footer() {
           <div className="footer__brand">
             <Logo />
             <p className="footer__about">{t('footerAbout')}</p>
+            <div className="footer__contact-info">
+              <a href={STORE_CONTACT.whatsappUrl} target="_blank" rel="noopener noreferrer" className="footer__contact-link">
+                📱 {STORE_CONTACT.phone}
+              </a>
+            </div>
           </div>
 
           {columns.map((col) => (
@@ -60,16 +66,16 @@ export default function Footer() {
 
         <div className="footer__bar">
           <span>
-            © {new Date().getFullYear()} IRAQI STORE. {t('rightsReserved')}
+            © {new Date().getFullYear()} <b className="footer__brandname">IRAQI STORE</b>. {t('rightsReserved')}
           </span>
           <div className="footer__socials">
-            <a href="#" aria-label="Instagram">
+            <a href={STORE_CONTACT.instagram} target="_blank" rel="noopener noreferrer" aria-label="Instagram">
               <Instagram />
             </a>
-            <a href="#" aria-label="Facebook">
+            <a href={STORE_CONTACT.facebook} target="_blank" rel="noopener noreferrer" aria-label="Facebook">
               <Facebook />
             </a>
-            <a href="#" aria-label="WhatsApp">
+            <a href={STORE_CONTACT.whatsappUrl} target="_blank" rel="noopener noreferrer" aria-label="WhatsApp">
               <Whatsapp />
             </a>
           </div>

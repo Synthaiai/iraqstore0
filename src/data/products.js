@@ -979,25 +979,16 @@ const womenEyewear = build('women', 'accessories', 'eyewear', POOLS.eyewear, [
    Exports & queries
    ============================================================ */
 
-/** The bundled seed catalogue — also the fallback when the database is empty. */
-export const SEED_PRODUCTS = [
-  ...menCasual, ...menSneakers, ...menFormal, ...menLoafers,
-  ...menShirts, ...menSuits, ...menOuter, ...menTrousers,
-  ...menWatches, ...menLeather, ...menEyewear,
-  ...womenHeels, ...womenWSneakers, ...womenBoots, ...womenFlats,
-  ...womenDresses, ...womenModest, ...womenOuter, ...womenTops,
-  ...womenBags, ...womenJewelry, ...womenEyewear,
-];
+/** The seed catalogue — empty by default so admin manages all products. */
+export const SEED_PRODUCTS = [];
 
 /**
- * The live catalogue. Starts as the seed; the LiveData provider swaps it for
- * the Realtime Database contents when those exist. ES module bindings are live,
- * so every query function below sees the updated array automatically.
+ * The live catalogue.
  */
 export let PRODUCTS = SEED_PRODUCTS;
 
 export function setLiveProducts(list) {
-  PRODUCTS = list && list.length ? list : SEED_PRODUCTS;
+  PRODUCTS = list || [];
 }
 
 /**
@@ -1010,9 +1001,10 @@ export function normalizeProduct(raw) {
   if (!raw) return null;
   if (raw.image && raw.thumbs) return raw; // already a full in-memory seed product
 
-  const colors = (raw.colors || []).map((c) =>
+  const rawColors = (raw.colors || []).map((c) =>
     typeof c === 'string' ? { name: c, nameEn: c, hex: '#888' } : c
   );
+  const colors = rawColors.length ? rawColors : [{ name: 'أساسي', nameEn: 'Basic', hex: '#333333' }];
   const sizes = raw.sizes && raw.sizes.length ? raw.sizes : [ONE];
 
   const base = {
@@ -1102,12 +1094,13 @@ export const BADGE_LABELS = {
 
 /** Products for a listing page. `sub === 'all'` widens to the whole category. */
 export function queryProducts({ gender, category, sub }) {
-  return PRODUCTS.filter(
+  const list = PRODUCTS.filter(
     (p) =>
       (!gender || p.gender === gender) &&
       (!category || p.category === category) &&
       (!sub || sub === 'all' || p.sub === sub)
   );
+  return list.sort((a, b) => (a.sortOrder ?? 9999) - (b.sortOrder ?? 9999));
 }
 
 export function countProducts(gender, category, sub) {
@@ -1115,7 +1108,19 @@ export function countProducts(gender, category, sub) {
 }
 
 export function getProduct(id) {
-  return PRODUCTS.find((p) => p.id === id) || null;
+  const found = PRODUCTS.find((p) => String(p.id) === String(id));
+  if (found) return found;
+
+  try {
+    const raw = localStorage.getItem('iraqstore_products_v1');
+    if (raw) {
+      const list = JSON.parse(raw);
+      const matched = list.find((p) => String(p.id) === String(id));
+      if (matched) return normalizeProduct(matched);
+    }
+  } catch (e) {}
+
+  return null;
 }
 
 /** Same subcategory first, then the wider category — never the product itself. */

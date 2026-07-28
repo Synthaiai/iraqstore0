@@ -22,13 +22,15 @@ const lineKey = (id, size, color) => `${id}|${size}|${color}`;
 function cartReducer(state, action) {
   switch (action.type) {
     case 'add': {
-      const { productId, size, color, qty } = action;
+      const { productId, size, color, qty, product } = action;
       const key = lineKey(productId, size, color);
       const existing = state.find((l) => l.key === key);
       if (existing) {
-        return state.map((l) => (l.key === key ? { ...l, qty: Math.min(l.qty + qty, 99) } : l));
+        return state.map((l) =>
+          l.key === key ? { ...l, qty: Math.min(l.qty + qty, 99), rawProduct: product || l.rawProduct } : l
+        );
       }
-      return [...state, { key, productId, size, color, qty }];
+      return [...state, { key, productId, size, color, qty, rawProduct: product }];
     }
     case 'setQty':
       return state
@@ -67,12 +69,23 @@ export function StoreProvider({ children }) {
 
   const addToCart = useCallback(
     (product, { size, color, qty = 1, silent = false } = {}) => {
+      if (!product || !product.id) return;
+
+      const safeSize = size || (product.sizes && product.sizes[0]) || 'مقاس واحد';
+      let safeColor = 'أساسي';
+      if (color) {
+        safeColor = typeof color === 'object' ? color.name || 'أساسي' : color;
+      } else if (product.colors && product.colors.length) {
+        safeColor = typeof product.colors[0] === 'object' ? product.colors[0].name || 'أساسي' : product.colors[0];
+      }
+
       dispatch({
         type: 'add',
         productId: product.id,
-        size: size || product.sizes[0],
-        color: color || product.colors[0].name,
+        size: safeSize,
+        color: safeColor,
         qty,
+        product,
       });
       if (!silent) toast(rt('addedToCart'));
     },
@@ -94,7 +107,10 @@ export function StoreProvider({ children }) {
   const detailedCart = useMemo(
     () =>
       cart
-        .map((line) => ({ ...line, product: getProduct(line.productId) }))
+        .map((line) => {
+          const prod = getProduct(line.productId) || line.rawProduct;
+          return { ...line, product: prod };
+        })
         .filter((line) => line.product),
     [cart]
   );
