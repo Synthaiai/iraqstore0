@@ -390,6 +390,72 @@ h4 {
   box-shadow: 0 1px 24px rgba(11, 11, 12, 0.05);
 }
 
+/* ---- Contact top strip ---- */
+.topbar {
+  background: var(--ink-900);
+  color: #fff;
+}
+
+.topbar__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-block: 0.4rem;
+}
+
+.topbar__phone {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 0.82rem;
+  color: #fff;
+  transition: color var(--dur-fast) var(--ease);
+}
+
+.topbar__phone:hover {
+  color: #e9c6cc;
+}
+
+.topbar__phone svg {
+  width: 16px;
+  height: 16px;
+}
+
+.topbar__socials {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.topbar__socials a {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: rgba(255, 255, 255, 0.85);
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+
+.topbar__socials a:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+.topbar__socials svg {
+  width: 17px;
+  height: 17px;
+}
+
+/* On dark theme the strip stays dark — just soften the border below it. */
+:root[data-theme='dark'] .topbar {
+  background: #08080a;
+  border-bottom: 1px solid var(--line);
+}
+
 .header__bar {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
@@ -1396,14 +1462,130 @@ h4 {
 }
 
 .pdp__main {
+  position: relative;
+  display: block;
+  width: 100%;
   aspect-ratio: 4 / 5;
   border-radius: var(--radius-lg);
   overflow: hidden;
   background: var(--paper-tint);
+  padding: 0;
+  border: 0;
+  cursor: zoom-in;
 }
 
 .pdp__main .imgw {
   animation: fadeIn var(--dur-slow) var(--ease);
+}
+
+/* Show the whole product, never crop it. */
+.pdp__main .imgw__img {
+  object-fit: contain;
+}
+
+.pdp__zoom-hint {
+  position: absolute;
+  bottom: 0.9rem;
+  inset-inline-end: 0.9rem;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(11, 11, 12, 0.55);
+  color: #fff;
+  font-size: 1.1rem;
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease);
+  pointer-events: none;
+}
+
+.pdp__main:hover .pdp__zoom-hint {
+  opacity: 1;
+}
+
+/* ---------- Zoom lightbox ---------- */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(8, 8, 10, 0.92);
+  backdrop-filter: blur(6px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: clamp(1rem, 4vw, 3rem);
+  cursor: zoom-out;
+  animation: fadeIn var(--dur) var(--ease);
+}
+
+.lightbox__img {
+  max-width: 100%;
+  max-height: 78vh;
+  object-fit: contain;
+  border-radius: var(--radius);
+  cursor: default;
+  animation: lightboxIn var(--dur-slow) var(--ease-out-expo);
+}
+
+@keyframes lightboxIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+.lightbox__close {
+  position: absolute;
+  top: clamp(0.75rem, 3vw, 1.5rem);
+  inset-inline-end: clamp(0.75rem, 3vw, 1.5rem);
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 0;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-size: 1.15rem;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.lightbox__close:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.lightbox__thumbs {
+  display: flex;
+  gap: 0.5rem;
+  cursor: default;
+}
+
+.lightbox__thumb {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 2px solid transparent;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  opacity: 0.55;
+  transition: opacity var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+}
+
+.lightbox__thumb.is-active,
+.lightbox__thumb:hover {
+  opacity: 1;
+  border-color: #fff;
+}
+
+.lightbox__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 @keyframes fadeIn {

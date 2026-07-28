@@ -1044,8 +1044,9 @@ export function normalizeProduct(raw) {
     };
   }
 
-  // Admin product with uploaded image URLs.
-  const urls = Array.isArray(raw.images) ? raw.images.filter(Boolean) : [];
+  // Admin product with uploaded image URLs. Hard-capped at 4 — more than that
+  // (especially large base64 data-URLs) overwhelms low-memory phones.
+  const urls = (Array.isArray(raw.images) ? raw.images.filter(Boolean) : []).slice(0, 4);
   const pad = urls.length ? urls : [img(POOLS.mShirts[0], 420, 560)];
   return {
     ...base,

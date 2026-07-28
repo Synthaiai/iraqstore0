@@ -142,10 +142,20 @@ export default function ProductForm({ initial, onSave, onCancel }) {
     }
   };
 
-  // Image Upload & Compression Handler
+  // Image Upload & Compression Handler — max 4 images per product.
+  const MAX_IMAGES = 4;
   const handleFileSelection = async (selectedFiles) => {
     if (!selectedFiles || !selectedFiles.length) return;
-    const fileList = Array.from(selectedFiles);
+    const existing = (form.images || []).length;
+    const slots = Math.max(0, MAX_IMAGES - existing);
+    if (slots === 0) {
+      setErr(`الحد الأقصى ${MAX_IMAGES} صور للمنتج`);
+      return;
+    }
+    const fileList = Array.from(selectedFiles).slice(0, slots);
+    if (Array.from(selectedFiles).length > slots) {
+      setErr(`تم اختيار أول ${slots} صور فقط (الحد الأقصى ${MAX_IMAGES})`);
+    }
     setFiles(fileList);
 
     // Run preview compression statistics
@@ -237,6 +247,8 @@ export default function ProductForm({ initial, onSave, onCancel }) {
         const uploaded = await Promise.all(files.map((f) => uploadImage(f, 'products')));
         images = [...images, ...uploaded.filter(Boolean)];
       }
+      // Never persist more than 4 images.
+      images = images.slice(0, 4);
 
       if (!images.length) {
         setBusy(false);
@@ -670,7 +682,7 @@ export default function ProductForm({ initial, onSave, onCancel }) {
           {/* STEP 9: Client Image Compressor & Upload */}
           <div className="admin-field admin-field--highlight">
             <div className="admin-flex-between">
-              <span>صور المنتج (يتم الضغط وتقليل الحجم لأقل شيء تلقائياً 🗜️)</span>
+              <span>صور المنتج — حتى ٤ صور (تُضغط تلقائياً 🗜️)</span>
               {compressionStats && (
                 <span className="admin-compress-badge">
                   تم الضغط: {compressionStats.original} ➔ {compressionStats.compressed} (وفّر {compressionStats.savings}%)
@@ -682,6 +694,7 @@ export default function ProductForm({ initial, onSave, onCancel }) {
               type="file"
               accept="image/*"
               multiple
+              disabled={(form.images || []).length + files.length >= 4}
               onChange={(e) => handleFileSelection(e.target.files)}
             />
 

@@ -27,6 +27,20 @@ export default function ProductPage() {
   const [color, setColor] = useState(null);
   const [qty, setQty] = useState(1);
   const [sizeError, setSizeError] = useState(false);
+  const [zoom, setZoom] = useState(false);
+
+  // Escape closes the zoom lightbox.
+  useEffect(() => {
+    if (!zoom) return;
+    const onKey = (e) => e.key === 'Escape' && setZoom(false);
+    window.addEventListener('keydown', onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [zoom]);
 
   const singleSize = product?.sizes.length === 1;
 
@@ -90,7 +104,12 @@ export default function ProductPage() {
         <div className="pdp">
           {/* ---------- Gallery ---------- */}
           <div className="pdp__gallery">
-            <div className="pdp__main">
+            <button
+              type="button"
+              className="pdp__main"
+              onClick={() => setZoom(true)}
+              aria-label={lang === 'en' ? 'Zoom image' : 'تكبير الصورة'}
+            >
               <Img
                 key={frame}
                 src={product.large[frame]}
@@ -99,7 +118,8 @@ export default function ProductPage() {
                 alt={name}
                 eager
               />
-            </div>
+              <span className="pdp__zoom-hint" aria-hidden>⤢</span>
+            </button>
             <div className="pdp__thumbs">
               {product.thumbs.map((thumb, i) => (
                 <button
@@ -273,6 +293,36 @@ export default function ProductPage() {
             ))}
           </div>
         </section>
+      )}
+
+      {/* ---------- Zoom lightbox ---------- */}
+      {zoom && (
+        <div className="lightbox" onClick={() => setZoom(false)} role="dialog" aria-modal="true">
+          <button type="button" className="lightbox__close" onClick={() => setZoom(false)} aria-label={t('close')}>
+            ✕
+          </button>
+          <img
+            className="lightbox__img"
+            src={product.large[frame]}
+            alt={name}
+            onClick={(e) => e.stopPropagation()}
+          />
+          {product.large.length > 1 && (
+            <div className="lightbox__thumbs" onClick={(e) => e.stopPropagation()}>
+              {product.large.map((u, i) => (
+                <button
+                  key={u}
+                  type="button"
+                  className={`lightbox__thumb ${i === frame ? 'is-active' : ''}`}
+                  onClick={() => setFrame(i)}
+                  aria-label={`${i + 1}`}
+                >
+                  <img src={product.thumbs[i] || u} alt="" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       )}
     </>
   );

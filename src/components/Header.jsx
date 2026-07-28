@@ -3,8 +3,9 @@ import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useStore } from '../store/StoreContext';
 import { usePrefs } from '../store/PrefsContext';
 import { formatPrice, searchProducts } from '../data/products';
+import { STORE_CONTACT } from '../data/contact';
 import Logo from './Logo';
-import { Bag, Close, Heart, Menu, Moon, Search, Sun } from './Icons';
+import { Bag, Close, Facebook, Heart, Instagram, Menu, Moon, Phone, Search, Sun, Whatsapp } from './Icons';
 
 export default function Header() {
   const { cartCount, openCart, favorites } = useStore();
@@ -82,6 +83,27 @@ export default function Header() {
   return (
     <>
       <header className={`header ${stuck ? 'is-stuck' : ''}`}>
+        {/* Contact strip — phone + socials, always visible */}
+        <div className="topbar">
+          <div className="shell topbar__inner">
+            <a className="topbar__phone" href={`tel:${STORE_CONTACT.phone}`}>
+              <Phone />
+              <span dir="ltr">{STORE_CONTACT.phone}</span>
+            </a>
+            <div className="topbar__socials">
+              <a href={STORE_CONTACT.whatsappUrl} target="_blank" rel="noopener noreferrer" aria-label="WhatsApp">
+                <Whatsapp />
+              </a>
+              <a href={STORE_CONTACT.instagram} target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+                <Instagram />
+              </a>
+              <a href={STORE_CONTACT.facebook} target="_blank" rel="noopener noreferrer" aria-label="Facebook">
+                <Facebook />
+              </a>
+            </div>
+          </div>
+        </div>
+
         <div className="shell header__bar">
           <nav className="header__nav" aria-label={t('menu')}>
             {NAV.map((item) => (

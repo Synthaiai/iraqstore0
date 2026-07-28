@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
+import ErrorBoundary from './components/ErrorBoundary';
 import { PrefsProvider } from './store/PrefsContext';
 import { LiveDataProvider } from './store/LiveDataContext';
 import { StoreProvider } from './store/StoreContext';
@@ -12,14 +13,16 @@ import './styles/admin.css';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-      <PrefsProvider>
-        <LiveDataProvider>
-          <StoreProvider>
-            <App />
-          </StoreProvider>
-        </LiveDataProvider>
-      </PrefsProvider>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <PrefsProvider>
+          <LiveDataProvider>
+            <StoreProvider>
+              <App />
+            </StoreProvider>
+          </LiveDataProvider>
+        </PrefsProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
   </StrictMode>
 );
