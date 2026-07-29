@@ -90,6 +90,7 @@ export default function Header() {
               <Phone />
               <span dir="ltr">{STORE_CONTACT.phone}</span>
             </a>
+            <span className="topbar__slogan">{lang === 'en' ? STORE_CONTACT.sloganEn : STORE_CONTACT.slogan}</span>
             <div className="topbar__socials">
               <a href={STORE_CONTACT.whatsappUrl} target="_blank" rel="noopener noreferrer" aria-label="WhatsApp">
                 <Whatsapp />

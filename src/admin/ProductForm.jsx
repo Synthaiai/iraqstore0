@@ -30,14 +30,25 @@ const PALETTE = [
   { name: 'سماوي', nameEn: 'Sky Blue', hex: '#9BBECB' },
 ];
 
+const range = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => String(a + i));
+
 const SIZE_PRESETS = {
-  'أحذية رجالية': ['40', '41', '42', '43', '44', '45', '46'],
-  'أحذية نسائية': ['36', '37', '38', '39', '40', '41'],
-  'ملابس (أحرف)': ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL'],
-  'ملابس (رقمي)': ['36', '38', '40', '42', '44', '46'],
+  'أحذية رجالية': range(39, 46),
+  'أحذية نسائية': range(35, 42),
+  'أحذية مقاسات كبيرة': range(47, 55),
+  'ملابس (أحرف)': ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', '4XL'],
+  'ملابس (رقمي)': ['36', '38', '40', '42', '44', '46', '48'],
   'عطور (حجم)': ['50 ml', '100 ml', '150 ml', '200 ml'],
   'مقاس واحد': ['مقاس واحد'],
 };
+
+// Full box grid: every shoe number 35–55, letter sizes, then perfume/one-size.
+const SIZE_GRID = [
+  ...range(35, 55),
+  'XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', '4XL',
+  '50 ml', '100 ml', '150 ml',
+  'مقاس واحد',
+];
 
 const BADGES = [
   { value: '', label: 'بدون شارة' },
@@ -84,6 +95,7 @@ export default function ProductForm({ initial, onSave, onCancel }) {
   const [err, setErr] = useState('');
   const [customColorName, setCustomColorName] = useState('');
   const [customColorHex, setCustomColorHex] = useState('#336699');
+  const [customSize, setCustomSize] = useState('');
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -196,6 +208,13 @@ export default function ProductForm({ initial, onSave, onCancel }) {
         ? f.sizes.filter((s) => s !== sizeStr)
         : [...f.sizes, sizeStr],
     }));
+  };
+
+  const addCustomSize = () => {
+    const s = customSize.trim();
+    if (!s) return;
+    setForm((f) => ({ ...f, sizes: f.sizes.includes(s) ? f.sizes : [...f.sizes, s] }));
+    setCustomSize('');
   };
 
   const addCustomSpec = () => {
@@ -634,7 +653,8 @@ export default function ProductForm({ initial, onSave, onCancel }) {
             </div>
 
             <div className="admin-sizes-selector">
-              {['36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', '50 ml', '100 ml', 'مقاس واحد'].map((sz) => (
+              {/* Grid 35–55 + letters + any custom sizes the admin added */}
+              {[...SIZE_GRID, ...form.sizes.filter((s) => !SIZE_GRID.includes(s))].map((sz) => (
                 <button
                   type="button"
                   key={sz}
@@ -644,6 +664,25 @@ export default function ProductForm({ initial, onSave, onCancel }) {
                   {sz}
                 </button>
               ))}
+            </div>
+
+            {/* Custom size: type any size and add it */}
+            <div className="admin-size-add">
+              <input
+                type="text"
+                value={customSize}
+                onChange={(e) => setCustomSize(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addCustomSize();
+                  }
+                }}
+                placeholder="قياس خاص (مثال: 56، 5XL، Free)…"
+              />
+              <button type="button" className="admin-btn admin-btn--sm" onClick={addCustomSize}>
+                + إضافة قياس
+              </button>
             </div>
           </div>
 

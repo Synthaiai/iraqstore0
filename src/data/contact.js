@@ -9,6 +9,8 @@ export const STORE_CONTACT = {
   instagramHandle: '@iraqistore.iq',
   facebook: 'https://facebook.com/menstoreiq',
   facebookHandle: 'menstoreiq',
+  slogan: '#عراقي_ستور متجر الرجال الأول في العراق ✌🏻',
+  sloganEn: '#IraqiStore — Iraq’s #1 men’s store ✌🏻',
 };
 
 /**
@@ -42,7 +44,8 @@ export function buildWhatsAppInvoiceText({ name, phone, governorate, city, addre
   text += `• أجور التوصيل: ${fee ? `${fee.toLocaleString('ar-IQ')} د.ع` : 'حسب المحافظة'}\n`;
   text += `• *المجموع النهائي:* *${total.toLocaleString('ar-IQ')} د.ع*\n`;
   text += `----------------------------------\n`;
-  text += `شكرًا لتسوقكم من العراق ستور! ❤️`;
+  text += `${STORE_CONTACT.slogan}\n`;
+  text += `شكرًا لتسوقكم من عراقي ستور! ❤️`;
 
   return text;
 }

@@ -4,6 +4,7 @@ import { useStore } from '../store/StoreContext';
 import { usePrefs } from '../store/PrefsContext';
 import { formatPrice } from '../data/products';
 import Img from './Img';
+import QuickAdd from './QuickAdd';
 import { Bag, Heart } from './Icons';
 import Stars from './Stars';
 
@@ -11,12 +12,27 @@ const CARD_SIZES = '(max-width: 380px) 92vw, (max-width: 760px) 46vw, (max-width
 const BADGE_KEY = { new: 'badgeNew', sale: 'badgeSale', best: 'badgeBest' };
 
 export default function ProductCard({ product, index = 0 }) {
-  const { addToCart, isFavorite, toggleFavorite } = useStore();
+  const { addToCart, openCart, isFavorite, toggleFavorite } = useStore();
   const { t, tf, lang } = usePrefs();
   // The second photo is a hover flourish — never spend a request on it until
   // the pointer actually arrives. On a weak connection this halves the grid.
   const [wantAlt, setWantAlt] = useState(false);
+  const [picking, setPicking] = useState(false);
   const fav = isFavorite(product.id);
+
+  // A choice of size or colour → open the quick picker so the order carries the
+  // customer's selection. A truly single-variant item adds straight away.
+  const onAdd = () => {
+    const sizes = product.sizes || [];
+    const colors = product.colors || [];
+    const needsChoice = sizes.length > 1 || colors.length > 1;
+    if (needsChoice) {
+      setPicking(true);
+    } else {
+      addToCart(product, { size: sizes[0], color: colors[0]?.name, silent: true });
+      openCart();
+    }
+  };
   const name = tf(product, 'name');
   const discount = product.oldPrice
     ? Math.round((1 - product.price / product.oldPrice) * 100)
@@ -76,7 +92,7 @@ export default function ProductCard({ product, index = 0 }) {
         <button
           type="button"
           className="pcard__add"
-          onClick={() => addToCart(product)}
+          onClick={onAdd}
           aria-label={`${t('addToCart')} — ${name}`}
         >
           <Bag />
@@ -99,12 +115,14 @@ export default function ProductCard({ product, index = 0 }) {
           <span className="price">{formatPrice(product.price, lang)}</span>
           {product.oldPrice && <span className="price price--old">{formatPrice(product.oldPrice, lang)}</span>}
           <span className="swatches" style={{ marginInlineStart: 'auto' }}>
-            {product.colors.slice(0, 4).map((c) => (
+            {(product.colors || []).slice(0, 4).map((c) => (
               <span key={c.name} className="swatch" style={{ background: c.hex }} title={tf(c, 'name')} />
             ))}
           </span>
         </div>
       </div>
+
+      {picking && <QuickAdd product={product} onClose={() => setPicking(false)} />}
     </article>
   );
 }

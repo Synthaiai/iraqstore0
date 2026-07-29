@@ -424,6 +424,25 @@ h4 {
   height: 16px;
 }
 
+.topbar__slogan {
+  flex: 1;
+  text-align: center;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: #e9c6cc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-inline: 0.75rem;
+}
+
+@media (max-width: 760px) {
+  .topbar__slogan {
+    display: none;
+  }
+}
+
 .topbar__socials {
   display: flex;
   align-items: center;
@@ -1505,6 +1524,128 @@ h4 {
   opacity: 1;
 }
 
+/* ---------- Quick add (size/colour picker from a card) ---------- */
+.qa {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  background: rgba(11, 11, 12, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  animation: fadeIn var(--dur) var(--ease);
+}
+
+@media (min-width: 640px) {
+  .qa {
+    align-items: center;
+  }
+}
+
+.qa__sheet {
+  position: relative;
+  width: min(460px, 100%);
+  background: var(--paper);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  box-shadow: var(--shadow-lg);
+  animation: qaIn var(--dur-slow) var(--ease-out-expo);
+}
+
+@media (min-width: 640px) {
+  .qa__sheet {
+    border-radius: var(--radius-lg);
+  }
+}
+
+@keyframes qaIn {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+}
+
+.qa__close {
+  position: absolute;
+  top: 0.9rem;
+  inset-inline-end: 0.9rem;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--ink-700);
+  background: var(--paper-tint);
+}
+
+.qa__close svg {
+  width: 18px;
+  height: 18px;
+}
+
+.qa__head {
+  display: flex;
+  gap: 0.9rem;
+  align-items: center;
+  padding-inline-end: 2.5rem;
+}
+
+.qa__img {
+  width: 64px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: var(--radius);
+  background: var(--paper-tint);
+  flex: none;
+}
+
+.qa__name {
+  font-size: 1.02rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.qa__price {
+  color: var(--burgundy-700);
+  font-weight: 700;
+}
+
+.qa__group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.qa__label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.qa__hint {
+  font-weight: 400;
+  color: var(--ink-400);
+  font-size: 0.85rem;
+}
+
+.qa__req {
+  color: #c0392b;
+  font-weight: 500;
+}
+
+.qa__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 /* ---------- Zoom lightbox ---------- */
 .lightbox {
   position: fixed;
@@ -2183,6 +2324,14 @@ h4 {
 }
 .footer .logo__ar {
   color: #e9c6cc;
+}
+
+.footer__slogan {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: #e9c6cc;
+  line-height: 1.6;
 }
 
 .footer__about {

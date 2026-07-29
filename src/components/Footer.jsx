@@ -5,7 +5,7 @@ import { Facebook, Instagram, Whatsapp } from './Icons';
 import { STORE_CONTACT } from '../data/contact';
 
 export default function Footer() {
-  const { t } = usePrefs();
+  const { t, lang } = usePrefs();
 
   const columns = [
     {
@@ -42,6 +42,7 @@ export default function Footer() {
         <div className="footer__grid">
           <div className="footer__brand">
             <Logo />
+            <p className="footer__slogan">{lang === 'en' ? STORE_CONTACT.sloganEn : STORE_CONTACT.slogan}</p>
             <p className="footer__about">{t('footerAbout')}</p>
             <div className="footer__contact-info">
               <a href={STORE_CONTACT.whatsappUrl} target="_blank" rel="noopener noreferrer" className="footer__contact-link">

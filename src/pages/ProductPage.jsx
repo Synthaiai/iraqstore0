@@ -42,17 +42,23 @@ export default function ProductPage() {
     };
   }, [zoom]);
 
-  const singleSize = product?.sizes.length === 1;
-
   useEffect(() => {
     setFrame(0);
     setQty(1);
-    setSize(product && product.sizes.length === 1 ? product.sizes[0] : null);
-    setColor(product?.colors[0]?.name ?? null);
+    setSize(product && (product.sizes?.length ?? 0) === 1 ? product.sizes[0] : null);
+    setColor(product?.colors?.[0]?.name ?? null);
     setSizeError(false);
   }, [product]);
 
   if (!product) return <Navigate to="/" replace />;
+
+  // Defensive: a malformed / partially-saved product must never crash the page.
+  const colors = Array.isArray(product.colors) ? product.colors : [];
+  const sizes = Array.isArray(product.sizes) ? product.sizes : [];
+  const sizesEn = Array.isArray(product.sizesEn) ? product.sizesEn : sizes;
+  const large = Array.isArray(product.large) && product.large.length ? product.large : [product.image].filter(Boolean);
+  const largeSet = Array.isArray(product.largeSet) ? product.largeSet : [];
+  const thumbs = Array.isArray(product.thumbs) && product.thumbs.length ? product.thumbs : large;
 
   const g = getGender(product.gender);
   const c = getCategory(product.gender, product.category);
@@ -62,10 +68,11 @@ export default function ProductPage() {
   const discount = product.oldPrice ? Math.round((1 - product.price / product.oldPrice) * 100) : 0;
   const pct = lang === 'en' ? '%' : '٪';
   const name = tf(product, 'name');
-  const colorObj = product.colors.find((cl) => cl.name === color);
+  const colorObj = colors.find((cl) => cl.name === color);
+  const singleSize = sizes.length <= 1;
   const localSize = (sz) => {
-    const i = product.sizes.indexOf(sz);
-    return lang === 'en' && i >= 0 ? product.sizesEn[i] : sz;
+    const i = sizes.indexOf(sz);
+    return lang === 'en' && i >= 0 ? sizesEn[i] : sz;
   };
 
   const handleAdd = () => {
@@ -112,8 +119,8 @@ export default function ProductPage() {
             >
               <Img
                 key={frame}
-                src={product.large[frame]}
-                srcSet={product.largeSet[frame]}
+                src={large[frame]}
+                srcSet={largeSet[frame]}
                 sizes="(max-width: 900px) 92vw, 48vw"
                 alt={name}
                 eager
@@ -121,7 +128,7 @@ export default function ProductPage() {
               <span className="pdp__zoom-hint" aria-hidden>⤢</span>
             </button>
             <div className="pdp__thumbs">
-              {product.thumbs.map((thumb, i) => (
+              {thumbs.map((thumb, i) => (
                 <button
                   key={thumb}
                   type="button"
@@ -174,7 +181,7 @@ export default function ProductPage() {
                 <span className="opt-group__hint">{tf(colorObj, 'name')}</span>
               </div>
               <div className="opt-row">
-                {product.colors.map((cl) => (
+                {colors.map((cl) => (
                   <button
                     key={cl.name}
                     type="button"
@@ -200,7 +207,7 @@ export default function ProductPage() {
                   <span className="opt-group__hint">{t('sizeGuide')}</span>
                 </div>
                 <div className={`opt-row ${sizeError ? 'opt-row--error' : ''}`}>
-                  {product.sizes.map((sz) => (
+                  {sizes.map((sz) => (
                     <button
                       key={sz}
                       type="button"
@@ -256,7 +263,7 @@ export default function ProductPage() {
               </div>
               <div className="spec">
                 <dt>{t('availableColors')}</dt>
-                <dd>{product.colors.map((cl) => tf(cl, 'name')).join(' · ')}</dd>
+                <dd>{colors.map((cl) => tf(cl, 'name')).join(' · ')}</dd>
               </div>
               <div className="spec">
                 <dt>{t('section')}</dt>
@@ -272,7 +279,7 @@ export default function ProductPage() {
               </div>
               <div className="spec">
                 <dt>{t('availableSizes')}</dt>
-                <dd>{(lang === 'en' ? product.sizesEn : product.sizes).join(' · ')}</dd>
+                <dd>{(lang === 'en' ? sizesEn : sizes).join(' · ')}</dd>
               </div>
             </dl>
           </div>
@@ -303,13 +310,13 @@ export default function ProductPage() {
           </button>
           <img
             className="lightbox__img"
-            src={product.large[frame]}
+            src={large[frame]}
             alt={name}
             onClick={(e) => e.stopPropagation()}
           />
-          {product.large.length > 1 && (
+          {large.length > 1 && (
             <div className="lightbox__thumbs" onClick={(e) => e.stopPropagation()}>
-              {product.large.map((u, i) => (
+              {large.map((u, i) => (
                 <button
                   key={u}
                   type="button"
@@ -317,7 +324,7 @@ export default function ProductPage() {
                   onClick={() => setFrame(i)}
                   aria-label={`${i + 1}`}
                 >
-                  <img src={product.thumbs[i] || u} alt="" />
+                  <img src={thumbs[i] || u} alt="" />
                 </button>
               ))}
             </div>

@@ -65,13 +65,13 @@ export default function CartDrawer() {
           ) : (
             <>
               {cart.map((line) => {
-                const cObj = line.product.colors.find((c) => c.name === line.color);
-                const si = line.product.sizes.indexOf(line.size);
-                const sizeText = lang === 'en' && si >= 0 ? line.product.sizesEn[si] : line.size;
+                const cObj = (line.product.colors || []).find((c) => c.name === line.color);
+                const si = (line.product.sizes || []).indexOf(line.size);
+                const sizeText = lang === 'en' && si >= 0 ? (line.product.sizesEn || [])[si] : line.size;
                 return (
                   <div className="cart-line" key={line.key}>
                     <Link to={`/product/${line.product.id}`} className="cart-line__img" onClick={closeCart}>
-                      <img src={line.product.thumbs[0]} alt={tf(line.product, 'name')} loading="lazy" />
+                      <img src={(line.product.thumbs && line.product.thumbs[0]) || line.product.image} alt={tf(line.product, 'name')} loading="lazy" />
                     </Link>
 
                     <div className="cart-line__body">

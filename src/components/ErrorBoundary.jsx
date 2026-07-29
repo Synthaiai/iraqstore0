@@ -50,9 +50,28 @@ export default class ErrorBoundary extends Component {
               ⟳
             </div>
             <h1 style={{ fontSize: '1.4rem', marginBottom: '0.6rem' }}>حدث خطأ غير متوقّع</h1>
-            <p style={{ color: 'rgba(255,255,255,0.65)', lineHeight: 1.8, marginBottom: '1.5rem' }}>
+            <p style={{ color: 'rgba(255,255,255,0.65)', lineHeight: 1.8, marginBottom: '1rem' }}>
               نعتذر — واجه المتجر مشكلة مؤقتة. أعد تحميل الصفحة للمتابعة.
             </p>
+            <pre
+              dir="ltr"
+              style={{
+                textAlign: 'left',
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+                background: 'rgba(255,255,255,0.06)',
+                border: '1px solid rgba(255,255,255,0.12)',
+                borderRadius: 10,
+                padding: '0.75rem 0.9rem',
+                fontSize: '0.75rem',
+                color: '#ffb4b4',
+                marginBottom: '1.5rem',
+                maxHeight: 160,
+                overflow: 'auto',
+              }}
+            >
+              {String(this.state.error?.message || this.state.error)}
+            </pre>
             <button
               type="button"
               onClick={() => {

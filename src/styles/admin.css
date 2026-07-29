@@ -756,6 +756,31 @@
   font-weight: 600;
 }
 
+/* Custom size input row */
+.admin-size-add {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+.admin-size-add input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.55rem 0.8rem;
+  background: var(--a-surface-2);
+  border: 1px solid var(--a-line-2);
+  border-radius: var(--a-radius-sm);
+  color: var(--a-text);
+  font: inherit;
+  font-size: 0.9rem;
+}
+.admin-size-add input:focus {
+  outline: none;
+  border-color: var(--a-accent);
+}
+.admin-size-add .admin-btn {
+  flex: none;
+}
+
 /* ---------- Custom Specs Table ---------- */
 .admin-specs-list {
   display: flex;
