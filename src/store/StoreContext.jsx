@@ -52,12 +52,22 @@ export function StoreProvider({ children }) {
   const [toasts, setToasts] = useState([]);
   const toastId = useRef(0);
 
+  // Persist cart/favorites, but never let a full-quota localStorage crash the
+  // app — the cart still lives in React state for this session.
   useEffect(() => {
-    localStorage.setItem(KEY_CART, JSON.stringify(cart));
+    try {
+      localStorage.setItem(KEY_CART, JSON.stringify(cart));
+    } catch (e) {
+      console.warn('Cart not persisted (storage full):', e);
+    }
   }, [cart]);
 
   useEffect(() => {
-    localStorage.setItem(KEY_FAVS, JSON.stringify(favorites));
+    try {
+      localStorage.setItem(KEY_FAVS, JSON.stringify(favorites));
+    } catch (e) {
+      console.warn('Favorites not persisted (storage full):', e);
+    }
   }, [favorites]);
 
   const toast = useCallback((message) => {

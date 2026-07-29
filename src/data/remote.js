@@ -54,11 +54,33 @@ function getLocalProducts() {
   }
 }
 
+/**
+ * Base64 data-URL images (the Storage-upload fallback) are huge — caching them
+ * in localStorage quickly blows the ~5 MB quota and then breaks the cart write.
+ * The offline cache only needs the product metadata, so strip inline images
+ * before storing; the live database still serves the real images when online.
+ */
+function slimForCache(products) {
+  return products.map((p) => {
+    if (Array.isArray(p.images) && p.images.some((u) => typeof u === 'string' && u.startsWith('data:'))) {
+      return { ...p, images: p.images.filter((u) => typeof u === 'string' && !u.startsWith('data:')) };
+    }
+    return p;
+  });
+}
+
 function setLocalProducts(products) {
   try {
-    localStorage.setItem(STORAGE_KEY_PRODUCTS, JSON.stringify(products));
+    localStorage.setItem(STORAGE_KEY_PRODUCTS, JSON.stringify(slimForCache(products)));
   } catch (e) {
-    console.warn('LocalStorage save failed:', e);
+    // Even slimmed it doesn't fit — drop the cache so the cart/favorites keys
+    // always have room. The live database remains the source of truth online.
+    try {
+      localStorage.removeItem(STORAGE_KEY_PRODUCTS);
+    } catch {
+      /* ignore */
+    }
+    console.warn('Products cache skipped (storage full):', e);
   }
 }
 
