@@ -980,26 +980,39 @@ const womenEyewear = build('women', 'accessories', 'eyewear', POOLS.eyewear, [
    ============================================================ */
 
 /** The seed catalogue — empty by default so admin manages all products. */
+/** The seed catalogue — empty by default so admin manages all products. */
 export const SEED_PRODUCTS = [];
 
 /**
- * The live catalogue.
+ * The live catalogue & Map index for O(1) instant product lookup.
  */
 export let PRODUCTS = SEED_PRODUCTS;
+const PRODUCTS_MAP = new Map();
+const NORMALIZED_CACHE = new Map();
 
 export function setLiveProducts(list) {
   PRODUCTS = list || [];
+  PRODUCTS_MAP.clear();
+  for (let i = 0; i < PRODUCTS.length; i++) {
+    const p = PRODUCTS[i];
+    if (p && p.id != null) {
+      PRODUCTS_MAP.set(String(p.id), p);
+    }
+  }
 }
 
 /**
  * Turn a raw record (from the admin form / database) into a full storefront
- * product: fills the image fields from uploaded URLs, and the English/size
- * fallbacks. Products that still carry a `gallery` of Unsplash slugs (the seed)
- * are passed through untouched.
+ * product with memoization to avoid re-normalizing thousands of unchanged objects.
  */
 export function normalizeProduct(raw) {
-  if (!raw) return null;
+  if (!raw || !raw.id) return null;
   if (raw.image && raw.thumbs) return raw; // already a full in-memory seed product
+
+  const cacheKey = `${raw.id}_${raw.price}_${raw.name}_${Array.isArray(raw.images) ? raw.images.length : 0}`;
+  if (NORMALIZED_CACHE.has(cacheKey)) {
+    return NORMALIZED_CACHE.get(cacheKey);
+  }
 
   const rawColors = (raw.colors || []).map((c) =>
     typeof c === 'string' ? { name: c, nameEn: c, hex: '#888' } : c
@@ -1026,12 +1039,15 @@ export function normalizeProduct(raw) {
     sizesEn: sizes.map((s) => (s === ONE ? ONE_EN : s)),
     material: raw.material || '',
     materialEn: raw.materialEn || materialEn(raw.material || ''),
+    sortOrder: raw.sortOrder,
+    status: raw.status,
+    stockQuantity: raw.stockQuantity,
   };
 
-  // Seeded product read back from the DB: rebuild image fields from the slugs.
+  let normalized;
   const gallery = Array.isArray(raw.gallery) ? raw.gallery.filter(Boolean) : [];
   if (gallery.length) {
-    return {
+    normalized = {
       ...base,
       gallery,
       image: img(gallery[0], 420, 560),
@@ -1042,23 +1058,24 @@ export function normalizeProduct(raw) {
       large: gallery.map((g) => img(g, 720, 900, 58)),
       largeSet: gallery.map((g) => srcSet(g, [420, 640, 900, 1200], 5 / 4, 58)),
     };
+  } else {
+    const urls = (Array.isArray(raw.images) ? raw.images.filter(Boolean) : []).slice(0, 4);
+    const pad = urls.length ? urls : [img(POOLS.mShirts[0], 420, 560)];
+    normalized = {
+      ...base,
+      images: urls,
+      image: pad[0],
+      imageSet: undefined,
+      imageAlt: pad[1] || pad[0],
+      imageAltSet: undefined,
+      thumbs: pad.slice(0, 4),
+      large: pad,
+      largeSet: pad.map(() => undefined),
+    };
   }
 
-  // Admin product with uploaded image URLs. Hard-capped at 4 — more than that
-  // (especially large base64 data-URLs) overwhelms low-memory phones.
-  const urls = (Array.isArray(raw.images) ? raw.images.filter(Boolean) : []).slice(0, 4);
-  const pad = urls.length ? urls : [img(POOLS.mShirts[0], 420, 560)];
-  return {
-    ...base,
-    images: urls,
-    image: pad[0],
-    imageSet: undefined,
-    imageAlt: pad[1] || pad[0],
-    imageAltSet: undefined,
-    thumbs: pad.slice(0, 4),
-    large: pad,
-    largeSet: pad.map(() => undefined),
-  };
+  NORMALIZED_CACHE.set(cacheKey, normalized);
+  return normalized;
 }
 
 /** Strip a storefront product down to the fields we persist to the database. */
@@ -1081,7 +1098,9 @@ export function toRecord(p) {
     sizes: p.sizes,
     material: p.material,
     materialEn: p.materialEn,
-    // Seed products keep their Unsplash gallery; admin products carry image URLs.
+    sortOrder: p.sortOrder,
+    status: p.status,
+    stockQuantity: p.stockQuantity,
     gallery: p.gallery || null,
     images: p.images || null,
   };
@@ -1109,23 +1128,16 @@ export function countProducts(gender, category, sub) {
 }
 
 export function getProduct(id) {
-  const found = PRODUCTS.find((p) => String(p.id) === String(id));
+  if (id == null) return null;
+  const sId = String(id);
+  const found = PRODUCTS_MAP.get(sId);
   if (found) return found;
-
-  try {
-    const raw = localStorage.getItem('iraqstore_products_v1');
-    if (raw) {
-      const list = JSON.parse(raw);
-      const matched = list.find((p) => String(p.id) === String(id));
-      if (matched) return normalizeProduct(matched);
-    }
-  } catch (e) {}
-
   return null;
 }
 
 /** Same subcategory first, then the wider category — never the product itself. */
 export function relatedProducts(product, limit = 4) {
+  if (!product) return [];
   const sameSub = PRODUCTS.filter(
     (p) => p.id !== product.id && p.gender === product.gender && p.sub === product.sub
   );
@@ -1149,43 +1161,70 @@ export function searchProducts(term, limit = 8) {
   const q = term.trim();
   if (q.length < 2) return [];
   const lower = q.toLowerCase();
-  return PRODUCTS.filter(
-    (p) =>
+  const res = [];
+  for (let i = 0; i < PRODUCTS.length; i++) {
+    const p = PRODUCTS[i];
+    if (
       p.name.includes(q) ||
       p.blurb.includes(q) ||
-      p.material.includes(q) ||
-      p.nameEn.toLowerCase().includes(lower) ||
-      p.blurbEn.toLowerCase().includes(lower) ||
-      p.materialEn.toLowerCase().includes(lower)
-  ).slice(0, limit);
+      (p.material && p.material.includes(q)) ||
+      (p.nameEn && p.nameEn.toLowerCase().includes(lower)) ||
+      (p.blurbEn && p.blurbEn.toLowerCase().includes(lower))
+    ) {
+      res.push(p);
+      if (res.length >= limit) break;
+    }
+  }
+  return res;
 }
 
-/* ---------- Filter helpers ---------- */
+/* ---------- High-Performance Filter Analysis Helper ---------- */
 
-/** Price bounds for a set of products, rounded out to clean 5,000 steps. */
-export function priceBounds(list) {
-  if (!list.length) return { min: 0, max: 0 };
-  const prices = list.map((p) => p.price);
-  const step = 5000;
-  return {
-    min: Math.floor(Math.min(...prices) / step) * step,
-    max: Math.ceil(Math.max(...prices) / step) * step,
-  };
-}
-
-/** Every colour present in a set, de-duplicated by name, in catalogue order. */
-export function availableColors(list) {
-  const seen = new Map();
-  list.forEach((p) => p.colors.forEach((c) => seen.has(c.name) || seen.set(c.name, c)));
-  return [...seen.values()];
-}
-
-/** Every size present in a set. Numeric sizes sort numerically, letters by scale. */
 const LETTER_ORDER = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
-export function availableSizes(list) {
-  const set = new Set();
-  list.forEach((p) => p.sizes.forEach((s) => set.add(s)));
-  return [...set].sort((a, b) => {
+
+/**
+ * Single-pass extraction of price bounds, unique colors, and unique sizes.
+ * High efficiency over 5,000+ products!
+ */
+export function analyzePool(list) {
+  if (!list || !list.length) {
+    return { bounds: { min: 0, max: 0 }, colors: [], sizes: [] };
+  }
+
+  let minPrice = Infinity;
+  let maxPrice = -Infinity;
+  const colorMap = new Map();
+  const sizeSet = new Set();
+
+  for (let i = 0; i < list.length; i++) {
+    const p = list[i];
+    if (p.price < minPrice) minPrice = p.price;
+    if (p.price > maxPrice) maxPrice = p.price;
+
+    if (p.colors) {
+      for (let j = 0; j < p.colors.length; j++) {
+        const c = p.colors[j];
+        if (c && c.name && !colorMap.has(c.name)) {
+          colorMap.set(c.name, c);
+        }
+      }
+    }
+
+    if (p.sizes) {
+      for (let k = 0; k < p.sizes.length; k++) {
+        sizeSet.add(p.sizes[k]);
+      }
+    }
+  }
+
+  const step = 5000;
+  const bounds = {
+    min: minPrice === Infinity ? 0 : Math.floor(minPrice / step) * step,
+    max: maxPrice === -Infinity ? 0 : Math.ceil(maxPrice / step) * step,
+  };
+
+  const colors = [...colorMap.values()];
+  const sizes = [...sizeSet].sort((a, b) => {
     const na = Number(a);
     const nb = Number(b);
     if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
@@ -1194,6 +1233,23 @@ export function availableSizes(list) {
     if (la !== -1 && lb !== -1) return la - lb;
     return a.localeCompare(b, 'ar');
   });
+
+  return { bounds, colors, sizes };
+}
+
+/** Price bounds for a set of products. */
+export function priceBounds(list) {
+  return analyzePool(list).bounds;
+}
+
+/** Every colour present in a set, de-duplicated by name. */
+export function availableColors(list) {
+  return analyzePool(list).colors;
+}
+
+/** Every size present in a set. */
+export function availableSizes(list) {
+  return analyzePool(list).sizes;
 }
 
 /** Iraqi dinar. Arabic-Indic numerals in Arabic, Western numerals + "IQD" in English. */

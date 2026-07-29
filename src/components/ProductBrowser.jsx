@@ -34,11 +34,17 @@ export default function ProductBrowser({ pool, resetKey }) {
   const [sort, setSort] = useState('featured');
   const [panelOpen, setPanelOpen] = useState(false);
   const [filters, setFilters] = useState(() => emptyFilters(bounds.max));
+  const [visibleLimit, setVisibleLimit] = useState(24);
 
   useEffect(() => {
     setFilters(emptyFilters(bounds.max));
     setSort('featured');
+    setVisibleLimit(24);
   }, [bounds.max, resetKey]);
+
+  useEffect(() => {
+    setVisibleLimit(24);
+  }, [filters, sort]);
 
   useEffect(() => {
     if (!panelOpen) return;
@@ -78,6 +84,10 @@ export default function ProductBrowser({ pool, resetKey }) {
         );
     }
   }, [pool, filters, sort]);
+
+  const visibleProducts = useMemo(() => {
+    return products.slice(0, visibleLimit);
+  }, [products, visibleLimit]);
 
   const activeCount =
     (filters.maxPrice < bounds.max ? 1 : 0) +
@@ -182,11 +192,26 @@ export default function ProductBrowser({ pool, resetKey }) {
             </button>
           </div>
         ) : (
-          <div className="product-grid" style={{ paddingBottom: 'clamp(4rem, 8vw, 7rem)' }}>
-            {products.map((p, i) => (
-              <ProductCard key={p.id} product={p} index={i} />
-            ))}
-          </div>
+          <>
+            <div className="product-grid" style={{ paddingBottom: '2rem' }}>
+              {visibleProducts.map((p, i) => (
+                <ProductCard key={p.id} product={p} index={i} />
+              ))}
+            </div>
+
+            {products.length > visibleLimit && (
+              <div style={{ textAlign: 'center', paddingBottom: 'clamp(4rem, 8vw, 7rem)' }}>
+                <button
+                  type="button"
+                  className="btn btn--burgundy btn--outline"
+                  onClick={() => setVisibleLimit((prev) => prev + 24)}
+                  style={{ minWidth: 200 }}
+                >
+                  {lang === 'en' ? `Show More (${products.length - visibleLimit} remaining)` : `عرض المزيد (متبقي ${products.length - visibleLimit})`}
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
 

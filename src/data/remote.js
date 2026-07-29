@@ -2,6 +2,8 @@ import { onValue, ref, remove, set, update } from 'firebase/database';
 import { db } from '../firebase';
 import { SEED_PRODUCTS, toRecord } from './products';
 
+import { deleteIDBProduct, getIDBProducts, setIDBProduct, setIDBProducts } from './db';
+
 const STORAGE_KEY_PRODUCTS = 'iraqstore_products_v1';
 const STORAGE_KEY_CATALOG = 'iraqstore_catalog_v1';
 const STORAGE_KEY_SETTINGS = 'iraqstore_settings_v1';
@@ -43,44 +45,35 @@ function withTimeout(promise, ms = 4000) {
   });
 }
 
-/* ---------------- Local Storage Helpers ---------------- */
+/* ---------------- IndexedDB & Cache Helpers ---------------- */
+
+let memoryProductsCache = null;
 
 function getLocalProducts() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_PRODUCTS);
-    return raw ? JSON.parse(raw) : null;
+    return raw ? JSON.parse(raw) : memoryProductsCache;
   } catch {
-    return null;
+    return memoryProductsCache;
   }
 }
 
-/**
- * Base64 data-URL images (the Storage-upload fallback) are huge — caching them
- * in localStorage quickly blows the ~5 MB quota and then breaks the cart write.
- * The offline cache only needs the product metadata, so strip inline images
- * before storing; the live database still serves the real images when online.
- */
-function slimForCache(products) {
-  return products.map((p) => {
-    if (Array.isArray(p.images) && p.images.some((u) => typeof u === 'string' && u.startsWith('data:'))) {
-      return { ...p, images: p.images.filter((u) => typeof u === 'string' && !u.startsWith('data:')) };
-    }
-    return p;
-  });
-}
-
 function setLocalProducts(products) {
+  memoryProductsCache = products;
+  // Safely write to IndexedDB without blocking
+  setIDBProducts(products);
+
+  // Try storing a tiny snapshot (first 50 items) in localStorage if needed, without throwing quota error
   try {
-    localStorage.setItem(STORAGE_KEY_PRODUCTS, JSON.stringify(slimForCache(products)));
+    if (products && products.length <= 80) {
+      localStorage.setItem(STORAGE_KEY_PRODUCTS, JSON.stringify(products));
+    } else {
+      localStorage.removeItem(STORAGE_KEY_PRODUCTS);
+    }
   } catch (e) {
-    // Even slimmed it doesn't fit — drop the cache so the cart/favorites keys
-    // always have room. The live database remains the source of truth online.
     try {
       localStorage.removeItem(STORAGE_KEY_PRODUCTS);
-    } catch {
-      /* ignore */
-    }
-    console.warn('Products cache skipped (storage full):', e);
+    } catch {}
   }
 }
 
@@ -89,15 +82,19 @@ function setLocalProducts(products) {
 export function listenProducts(cb) {
   let initialLoaded = false;
 
-  // Immediately load local storage or empty array
-  const cached = getLocalProducts();
-  if (cached) {
-    cb(cached);
+  // 1. Instantly return memory or IndexedDB cache for instant render
+  if (memoryProductsCache && memoryProductsCache.length) {
+    cb(memoryProductsCache);
   } else {
-    cb([]);
+    getIDBProducts().then((cached) => {
+      if (!initialLoaded && cached && cached.length) {
+        memoryProductsCache = cached;
+        cb(cached);
+      }
+    });
   }
 
-  // Subscribe to Firebase Realtime Database
+  // 2. Realtime sync online for ALL users via Firebase Realtime Database
   try {
     const unsub = onValue(
       ref(db, 'products'),
@@ -113,7 +110,7 @@ export function listenProducts(cb) {
         console.warn('Firebase DB read error:', error);
         notifyStatus('offline');
         if (!initialLoaded) {
-          cb(getLocalProducts() || []);
+          getIDBProducts().then((cached) => cb(cached || getLocalProducts() || []));
         }
       }
     );
@@ -126,8 +123,7 @@ export function listenProducts(cb) {
 }
 
 export async function saveProduct(record) {
-  // Always update local cache first so user interface reflects changes instantly
-  const current = getLocalProducts() || SEED_PRODUCTS.map(toRecord);
+  const current = memoryProductsCache || (await getIDBProducts()) || SEED_PRODUCTS.map(toRecord);
   const idx = current.findIndex((p) => p.id === record.id);
   let updated;
   if (idx >= 0) {
@@ -137,29 +133,55 @@ export async function saveProduct(record) {
     updated = [record, ...current];
   }
   setLocalProducts(updated);
+  setIDBProduct(record);
 
-  // Try pushing to Firebase with timeout
+  // Push to Firebase Realtime DB online so all users receive the updated product instantly
   try {
-    await withTimeout(set(ref(db, `products/${record.id}`), record), 4000);
+    await withTimeout(set(ref(db, `products/${record.id}`), record), 5000);
     notifyStatus('online');
   } catch (err) {
-    console.warn('Firebase save fallback to LocalStorage:', err);
+    console.warn('Firebase save fallback:', err);
     notifyStatus('offline');
-    // Saved locally, return success so user is not stuck on "جارٍ الحفظ"
   }
   return record;
 }
 
 export async function deleteProduct(id) {
-  const current = getLocalProducts() || [];
+  const current = memoryProductsCache || (await getIDBProducts()) || [];
   const updated = current.filter((p) => p.id !== id);
   setLocalProducts(updated);
+  deleteIDBProduct(id);
 
   try {
-    await withTimeout(remove(ref(db, `products/${id}`)), 4000);
+    await withTimeout(remove(ref(db, `products/${id}`)), 5000);
     notifyStatus('online');
   } catch (err) {
-    console.warn('Firebase delete fallback to LocalStorage:', err);
+    console.warn('Firebase delete fallback:', err);
+    notifyStatus('offline');
+  }
+  return true;
+}
+
+export async function saveProductsBatch(recordsList) {
+  if (!Array.isArray(recordsList) || !recordsList.length) return true;
+
+  const current = memoryProductsCache || (await getIDBProducts()) || [];
+  const map = new Map(current.map((p) => [p.id, p]));
+  const dbBatchMap = {};
+
+  recordsList.forEach((rec) => {
+    map.set(rec.id, rec);
+    dbBatchMap[rec.id] = rec;
+  });
+
+  const updatedList = Array.from(map.values());
+  setLocalProducts(updatedList);
+
+  try {
+    await withTimeout(update(ref(db, 'products'), dbBatchMap), 12000);
+    notifyStatus('online');
+  } catch (err) {
+    console.warn('Firebase saveProductsBatch fallback to IDB:', err);
     notifyStatus('offline');
   }
   return true;
@@ -177,10 +199,10 @@ export async function seedProducts() {
   setLocalProducts(list);
 
   try {
-    await withTimeout(set(ref(db, 'products'), map), 6000);
+    await withTimeout(set(ref(db, 'products'), map), 8000);
     notifyStatus('online');
   } catch (err) {
-    console.warn('Firebase seed fallback to LocalStorage:', err);
+    console.warn('Firebase seed fallback:', err);
     notifyStatus('offline');
   }
   return true;

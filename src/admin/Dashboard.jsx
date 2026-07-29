@@ -9,6 +9,7 @@ import {
   listenCatalog,
   listenProducts,
   saveProduct,
+  saveProductsBatch,
   saveSetting,
   seedProducts,
   subscribeConnectionStatus,
@@ -343,6 +344,30 @@ function SettingsPanel({ productCount, products }) {
     URL.revokeObjectURL(url);
   };
 
+  const handleImportJSON = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const parsed = JSON.parse(evt.target.result);
+        const list = Array.isArray(parsed) ? parsed : parsed.products;
+        if (!Array.isArray(list) || !list.length) {
+          alert('ملف JSON غير صالح أو لا يحتوي على منتجات.');
+          return;
+        }
+        if (window.confirm(`هل تريد استيراد ورفع ${list.length} منتج دفعة واحدة إلى قاعدة البيانات؟`)) {
+          setMsg('جارٍ رفع وحفظ المنتجات دفعة واحدة…');
+          await saveProductsBatch(list);
+          setMsg(`تم استيراد ورفع ${list.length} منتج بنجاح! 🚀`);
+        }
+      } catch (err) {
+        alert('خطأ في قراءة ملف JSON: ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+  };
+
   return (
     <div className="admin-panel admin-panel--narrow">
       <div className="admin-card">
@@ -355,11 +380,17 @@ function SettingsPanel({ productCount, products }) {
       </div>
 
       <div className="admin-card">
-        <h3>نسخ احتياطي واستعادة</h3>
-        <p>تصدير جميع منتجات الكتالوج إلى ملف JSON لحفظ نسخة احتياطية في جهازك.</p>
-        <button className="admin-btn admin-btn--ghost" onClick={exportDataJSON}>
-          ⬇️ تصدير النسخة الاحتياطية (JSON)
-        </button>
+        <h3>استيراد وتصدير المنتجات بالجملة (+1000 منتج) 🚀</h3>
+        <p>تصدير واستيراد الكتالوج بالكامل لرفع آلاف المنتجات دفعة واحدة إلى قاعدة البيانات في ثوانٍ.</p>
+        <div style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap', marginTop: '0.8rem' }}>
+          <button className="admin-btn admin-btn--ghost" onClick={exportDataJSON}>
+            ⬇️ تصدير النسخة الاحتياطية (JSON)
+          </button>
+          <label className="admin-btn admin-btn--primary admin-file">
+            ⬆️ استيراد جماعي (ملف JSON)
+            <input type="file" accept=".json" hidden onChange={handleImportJSON} />
+          </label>
+        </div>
       </div>
 
       <div className="admin-card">
