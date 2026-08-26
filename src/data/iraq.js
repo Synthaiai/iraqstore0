@@ -74,8 +74,8 @@ export function isValidIraqiPhone(raw) {
   arabicDigits.forEach((d, i) => {
     s = s.replaceAll(d, String(i));
   });
-  // Strip all non-digit characters except leading plus if any
+  // Strip all non-digit characters
   const digits = s.replace(/\D/g, '');
-  // Accept any reasonable phone number length (7 to 16 digits)
-  return digits.length >= 7 && digits.length <= 16;
+  // Accept any phone number with at least 6 digits
+  return digits.length >= 6;
 }

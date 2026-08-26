@@ -26,8 +26,14 @@ export default function CheckoutPage() {
   const total = subtotal + (form.governorate ? fee : 0);
 
   const set = (key) => (e) => {
-    setForm((f) => ({ ...f, [key]: e.target.value }));
-    setErrors((prev) => (prev[key] ? { ...prev, [key]: undefined } : prev));
+    const val = e.target.value;
+    setForm((f) => ({ ...f, [key]: val }));
+    setErrors((prev) => {
+      if (!prev || !prev[key]) return prev;
+      const copy = { ...prev };
+      delete copy[key];
+      return copy;
+    });
   };
 
   const sizeText = (line) => {
@@ -61,11 +67,11 @@ export default function CheckoutPage() {
 
   const validate = () => {
     const next = {};
-    if (form.name.trim().length < 3) next.name = t('errName');
+    if (!form.name || form.name.trim().length < 2) next.name = t('errName');
     if (!isValidIraqiPhone(form.phone)) next.phone = t('errPhone');
     if (!form.governorate) next.governorate = t('errGov');
-    if (form.city.trim().length < 2) next.city = t('errCity');
-    if (form.address.trim().length < 5) next.address = t('errAddress');
+    if (!form.city || form.city.trim().length < 2) next.city = t('errCity');
+    if (!form.address || form.address.trim().length < 2) next.address = t('errAddress');
     return next;
   };
 
