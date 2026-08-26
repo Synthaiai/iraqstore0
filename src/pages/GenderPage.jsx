@@ -1,6 +1,6 @@
 import { Navigate, useParams } from 'react-router-dom';
 import { CATEGORIES, getGender } from '../data/catalog';
-import { countProducts, featuredProducts } from '../data/products';
+import { countProducts, queryProducts } from '../data/products';
 import { usePrefs } from '../store/PrefsContext';
 import { useLiveData } from '../store/LiveDataContext';
 import Breadcrumbs from '../components/Breadcrumbs';
@@ -18,10 +18,8 @@ export default function GenderPage() {
   if (!g) return <Navigate to="/" replace />;
 
   const gName = lang === 'en' ? g.latin : g.title;
-  const categories = CATEGORIES[gender];
-  const picks = featuredProducts(20)
-    .filter((p) => p.gender === gender)
-    .slice(0, 4);
+  const categories = CATEGORIES[gender] || [];
+  const picks = queryProducts({ gender }).slice(0, 12);
 
   return (
     <>

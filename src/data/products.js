@@ -1008,7 +1008,6 @@ export function setLiveProducts(list) {
  */
 export function normalizeProduct(raw) {
   if (!raw || !raw.id) return null;
-  if (raw.image && raw.thumbs) return raw; // already a full in-memory seed product
 
   const imagesHash = Array.isArray(raw.images) ? raw.images.join('|') : (raw.image || '');
   const cacheKey = `${raw.id}_${raw.price}_${raw.name}_${raw.sortOrder}_${raw.status}_${imagesHash}`;
@@ -1023,7 +1022,7 @@ export function normalizeProduct(raw) {
   const sizes = raw.sizes && raw.sizes.length ? raw.sizes : [ONE];
 
   const base = {
-    id: raw.id,
+    id: String(raw.id),
     gender: raw.gender,
     category: raw.category,
     sub: raw.sub,
@@ -1033,8 +1032,8 @@ export function normalizeProduct(raw) {
     blurbEn: raw.blurbEn || raw.blurb || '',
     price: Number(raw.price) || 0,
     oldPrice: raw.oldPrice ? Number(raw.oldPrice) : null,
-    rating: raw.rating != null ? Number(raw.rating) : 4.7,
-    reviews: raw.reviews != null ? Number(raw.reviews) : 0,
+    rating: raw.rating != null ? Number(raw.rating) : 4.8,
+    reviews: raw.reviews != null ? Number(raw.reviews) : 12,
     badge: raw.badge || null,
     colors,
     sizes,
@@ -1042,7 +1041,7 @@ export function normalizeProduct(raw) {
     material: raw.material || '',
     materialEn: raw.materialEn || materialEn(raw.material || ''),
     sortOrder: raw.sortOrder,
-    status: raw.status,
+    status: raw.status || 'active',
     stockQuantity: raw.stockQuantity,
   };
 
@@ -1118,9 +1117,10 @@ export const BADGE_LABELS = {
 };
 
 /** Products for a listing page. `sub === 'all'` widens to the whole category. */
-export function queryProducts({ gender, category, sub }) {
+export function queryProducts({ gender, category, sub } = {}) {
   const list = PRODUCTS.filter(
     (p) =>
+      p.status !== 'draft' &&
       (!gender || p.gender === gender) &&
       (!category || p.category === category) &&
       (!sub || sub === 'all' || p.sub === sub)
@@ -1144,22 +1144,28 @@ export function getProduct(id) {
 export function relatedProducts(product, limit = 4) {
   if (!product) return [];
   const sameSub = PRODUCTS.filter(
-    (p) => p.id !== product.id && p.gender === product.gender && p.sub === product.sub
+    (p) => p.id !== product.id && p.status !== 'draft' && p.gender === product.gender && p.sub === product.sub
   );
   const sameCategory = PRODUCTS.filter(
-    (p) => p.id !== product.id && p.gender === product.gender && p.category === product.category && p.sub !== product.sub
+    (p) => p.id !== product.id && p.status !== 'draft' && p.gender === product.gender && p.category === product.category && p.sub !== product.sub
   );
   return [...sameSub, ...sameCategory].slice(0, limit);
 }
 
 export function featuredProducts(limit = 8) {
-  return PRODUCTS.filter((p) => p.badge === 'best')
-    .sort((a, b) => b.rating - a.rating)
-    .slice(0, limit);
+  const active = PRODUCTS.filter((p) => p.status !== 'draft');
+  const best = active.filter((p) => p.badge === 'best').sort((a, b) => (b.rating || 0) - (a.rating || 0));
+  if (best.length >= limit) return best.slice(0, limit);
+  const others = active.filter((p) => p.badge !== 'best').sort((a, b) => (a.sortOrder ?? 9999) - (b.sortOrder ?? 9999));
+  return [...best, ...others].slice(0, limit);
 }
 
 export function newArrivals(limit = 8) {
-  return PRODUCTS.filter((p) => p.badge === 'new').slice(0, limit);
+  const active = PRODUCTS.filter((p) => p.status !== 'draft');
+  const newBadge = active.filter((p) => p.badge === 'new');
+  if (newBadge.length >= limit) return newBadge.slice(0, limit);
+  const others = active.filter((p) => p.badge !== 'new').sort((a, b) => (a.sortOrder ?? 9999) - (b.sortOrder ?? 9999));
+  return [...newBadge, ...others].slice(0, limit);
 }
 
 export function searchProducts(term, limit = 8) {

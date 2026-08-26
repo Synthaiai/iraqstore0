@@ -104,44 +104,48 @@ export default function Home() {
       </section>
 
       {/* ============ Best sellers ============ */}
-      <section className="section shell">
-        <Reveal className="section-head">
-          <div>
-            <span className="eyebrow">Best Sellers</span>
-            <h2 className="section-head__title">{t('bestSellers')}</h2>
-            <p className="section-head__sub">{t('bestSellersSub')}</p>
-          </div>
-          <Link to="/g/men/shoes/all" className="link-underline">
-            {t('viewAll')}
-          </Link>
-        </Reveal>
+      {featured.length > 0 && (
+        <section className="section shell">
+          <Reveal className="section-head">
+            <div>
+              <span className="eyebrow">Best Sellers</span>
+              <h2 className="section-head__title">{t('bestSellers')}</h2>
+              <p className="section-head__sub">{t('bestSellersSub')}</p>
+            </div>
+            <Link to="/g/men/all" className="link-underline">
+              {t('viewAll')}
+            </Link>
+          </Reveal>
 
-        <div className="product-grid">
-          {featured.map((p, i) => (
-            <ProductCard key={p.id} product={p} index={i} />
-          ))}
-        </div>
-      </section>
+          <div className="product-grid">
+            {featured.map((p, i) => (
+              <ProductCard key={p.id} product={p} index={i} />
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* ============ New arrivals ============ */}
-      <section className="section shell">
-        <Reveal className="section-head">
-          <div>
-            <span className="eyebrow">Just In</span>
-            <h2 className="section-head__title">{t('newArrivals')}</h2>
-            <p className="section-head__sub">{t('newArrivalsSub')}</p>
-          </div>
-          <Link to="/g/women/clothing/all" className="link-underline">
-            {t('viewAll')}
-          </Link>
-        </Reveal>
+      {arrivals.length > 0 && (
+        <section className="section shell">
+          <Reveal className="section-head">
+            <div>
+              <span className="eyebrow">Just In</span>
+              <h2 className="section-head__title">{t('newArrivals')}</h2>
+              <p className="section-head__sub">{t('newArrivalsSub')}</p>
+            </div>
+            <Link to="/g/women/all" className="link-underline">
+              {t('viewAll')}
+            </Link>
+          </Reveal>
 
-        <div className="product-grid">
-          {arrivals.map((p, i) => (
-            <ProductCard key={p.id} product={p} index={i} />
-          ))}
-        </div>
-      </section>
+          <div className="product-grid">
+            {arrivals.map((p, i) => (
+              <ProductCard key={p.id} product={p} index={i} />
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* ============ Quick category strip ============ */}
       <section className="section section--tight shell">

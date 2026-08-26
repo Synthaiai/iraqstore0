@@ -102,16 +102,46 @@ export function listenProducts(cb) {
         initialLoaded = true;
         notifyStatus('online');
         const val = snap.val();
-        const list = val ? Object.values(val) : [];
-        setLocalProducts(list);
-        cb(list);
+        
+        if (val && typeof val === 'object' && Object.keys(val).length > 0) {
+          const cloudList = Object.values(val);
+          // Merge with any local products that may not have finished syncing
+          const currentLocal = memoryProductsCache || [];
+          const mergedMap = new Map();
+          cloudList.forEach((p) => {
+            if (p && p.id) mergedMap.set(String(p.id), p);
+          });
+          currentLocal.forEach((p) => {
+            if (p && p.id && !mergedMap.has(String(p.id))) {
+              mergedMap.set(String(p.id), p);
+            }
+          });
+          const finalList = Array.from(mergedMap.values());
+          setLocalProducts(finalList);
+          cb(finalList);
+        } else {
+          // Cloud has no products or null — NEVER wipe local cache!
+          getIDBProducts().then((cached) => {
+            const list = cached && cached.length ? cached : (memoryProductsCache || getLocalProducts() || []);
+            if (list.length > 0) {
+              setLocalProducts(list);
+              cb(list);
+              // If admin is active, auto-push existing products to Firebase cloud
+              try {
+                const batchMap = {};
+                list.forEach((p) => { if (p && p.id) batchMap[p.id] = p; });
+                update(ref(db, 'products'), batchMap).catch((e) => console.warn('Auto cloud sync:', e));
+              } catch (e) {}
+            } else {
+              cb([]);
+            }
+          });
+        }
       },
       (error) => {
         console.warn('Firebase DB read error:', error);
         notifyStatus('offline');
-        if (!initialLoaded) {
-          getIDBProducts().then((cached) => cb(cached || getLocalProducts() || []));
-        }
+        getIDBProducts().then((cached) => cb(cached || getLocalProducts() || []));
       }
     );
     return unsub;
@@ -123,8 +153,8 @@ export function listenProducts(cb) {
 }
 
 export async function saveProduct(record) {
-  const current = memoryProductsCache || (await getIDBProducts()) || SEED_PRODUCTS.map(toRecord);
-  const idx = current.findIndex((p) => p.id === record.id);
+  const current = memoryProductsCache || (await getIDBProducts()) || [];
+  const idx = current.findIndex((p) => String(p.id) === String(record.id));
   let updated;
   if (idx >= 0) {
     updated = [...current];
@@ -137,10 +167,10 @@ export async function saveProduct(record) {
 
   // Push to Firebase Realtime DB online so all users receive the updated product instantly
   try {
-    await withTimeout(set(ref(db, `products/${record.id}`), record), 5000);
+    await withTimeout(set(ref(db, `products/${record.id}`), record), 6000);
     notifyStatus('online');
   } catch (err) {
-    console.warn('Firebase save fallback:', err);
+    console.warn('Firebase save fallback to local IDB:', err);
     notifyStatus('offline');
   }
   return record;
@@ -148,7 +178,7 @@ export async function saveProduct(record) {
 
 export async function deleteProduct(id) {
   const current = memoryProductsCache || (await getIDBProducts()) || [];
-  const updated = current.filter((p) => p.id !== id);
+  const updated = current.filter((p) => String(p.id) !== String(id));
   setLocalProducts(updated);
   deleteIDBProduct(id);
 
@@ -166,11 +196,11 @@ export async function saveProductsBatch(recordsList) {
   if (!Array.isArray(recordsList) || !recordsList.length) return true;
 
   const current = memoryProductsCache || (await getIDBProducts()) || [];
-  const map = new Map(current.map((p) => [p.id, p]));
+  const map = new Map(current.map((p) => [String(p.id), p]));
   const dbBatchMap = {};
 
   recordsList.forEach((rec) => {
-    map.set(rec.id, rec);
+    map.set(String(rec.id), rec);
     dbBatchMap[rec.id] = rec;
   });
 
