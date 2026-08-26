@@ -317,10 +317,38 @@ export async function saveSetting(key, value) {
 
 /* ---------------- Catalog Tree (dynamic categories) ---------------- */
 
+function encodeTreeForFirebase(tree) {
+  if (!tree) return null;
+  const copy = JSON.parse(JSON.stringify(tree));
+  if (copy.subcategories && typeof copy.subcategories === 'object') {
+    const encodedSubs = {};
+    for (const [k, v] of Object.entries(copy.subcategories)) {
+      const safeKey = k.replace(/\//g, '___');
+      encodedSubs[safeKey] = v;
+    }
+    copy.subcategories = encodedSubs;
+  }
+  return copy;
+}
+
+function decodeTreeFromFirebase(tree) {
+  if (!tree) return null;
+  const copy = JSON.parse(JSON.stringify(tree));
+  if (copy.subcategories && typeof copy.subcategories === 'object') {
+    const decodedSubs = {};
+    for (const [k, v] of Object.entries(copy.subcategories)) {
+      const normalKey = k.replace(/___/g, '/');
+      decodedSubs[normalKey] = v;
+    }
+    copy.subcategories = decodedSubs;
+  }
+  return copy;
+}
+
 export function getLocalCatalog() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_CATALOG);
-    return raw ? JSON.parse(raw) : null;
+    return raw ? decodeTreeFromFirebase(JSON.parse(raw)) : null;
   } catch {
     return null;
   }
@@ -334,8 +362,11 @@ export function listenCatalog(cb) {
     return onValue(ref(db, 'catalog'), (snap) => {
       const val = snap.val();
       if (val) {
-        localStorage.setItem(STORAGE_KEY_CATALOG, JSON.stringify(val));
-        cb(val);
+        const decoded = decodeTreeFromFirebase(val);
+        try {
+          localStorage.setItem(STORAGE_KEY_CATALOG, JSON.stringify(decoded));
+        } catch (e) {}
+        cb(decoded);
       }
     });
   } catch {
@@ -344,18 +375,20 @@ export function listenCatalog(cb) {
 }
 
 export async function saveCatalog(tree) {
+  const decodedTree = decodeTreeFromFirebase(tree);
   try {
-    localStorage.setItem(STORAGE_KEY_CATALOG, JSON.stringify(tree));
+    localStorage.setItem(STORAGE_KEY_CATALOG, JSON.stringify(decodedTree));
   } catch (e) {}
 
   try {
-    await withTimeout(set(ref(db, 'catalog'), tree), 4000);
+    const encodedTree = encodeTreeForFirebase(decodedTree);
+    await withTimeout(set(ref(db, 'catalog'), encodedTree), 8000);
     notifyStatus('online');
   } catch (err) {
     console.warn('Firebase saveCatalog fallback:', err);
     notifyStatus('offline');
   }
-  return tree;
+  return decodedTree;
 }
 
 /* ---------------- Orders Realtime & Fallback ---------------- */

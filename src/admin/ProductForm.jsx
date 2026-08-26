@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CATEGORIES, SUBCATEGORIES } from '../data/catalog';
+import { CATEGORIES, SUBCATEGORIES, getFullCatalogTree, getSubcategories } from '../data/catalog';
 import { formatPrice } from '../data/products';
 import { uploadImage } from '../data/upload';
 import { compressImage, formatBytes } from '../utils/imageCompressor';
@@ -215,8 +215,9 @@ export default function ProductForm({ initial, onSave, onCancel }) {
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
   const activeTypeCfg = TYPE_CONFIG[form.type] || TYPE_CONFIG.general;
-  const cats = CATEGORIES[form.gender] || [];
-  const subs = (SUBCATEGORIES[`${form.gender}/${form.category}`] || []).filter((s) => s.slug !== 'all');
+  const currentTree = getFullCatalogTree();
+  const cats = (currentTree.categories && currentTree.categories[form.gender]) || CATEGORIES[form.gender] || [];
+  const subs = (getSubcategories(form.gender, form.category) || []).filter((s) => s.slug !== 'all');
 
   // Handle clicking Product Type card (e.g. Shoes, Clothing, Perfume, Bags, Watches)
   const handleTypeSelect = (typeId) => {
@@ -227,7 +228,7 @@ export default function ProductForm({ initial, onSave, onCancel }) {
       else if (typeId === 'shoes') targetCat = 'shoes';
       else targetCat = 'accessories';
 
-      const availSubs = (SUBCATEGORIES[`${f.gender}/${targetCat}`] || []).filter((s) => s.slug !== 'all');
+      const availSubs = (getSubcategories(f.gender, targetCat) || []).filter((s) => s.slug !== 'all');
       let targetSub = '';
       if (typeId === 'perfume') {
         const pSub = availSubs.find((s) => s.slug.includes('perfume') || s.slug.includes('fragrance'));
@@ -277,7 +278,7 @@ export default function ProductForm({ initial, onSave, onCancel }) {
         newType = 'bags';
       }
 
-      const availSubs = (SUBCATEGORIES[`${f.gender}/${newCat}`] || []).filter((s) => s.slug !== 'all');
+      const availSubs = (getSubcategories(f.gender, newCat) || []).filter((s) => s.slug !== 'all');
       const targetSub = availSubs[0]?.slug || '';
       const cfg = TYPE_CONFIG[newType] || TYPE_CONFIG.general;
       const defaultSizes = cfg ? Object.values(cfg.getPresets(f.gender))[0] : ['مقاس واحد'];
@@ -300,7 +301,7 @@ export default function ProductForm({ initial, onSave, onCancel }) {
     setForm((f) => {
       const availCats = CATEGORIES[newGender] || [];
       const targetCat = availCats.some((c) => c.slug === f.category) ? f.category : (availCats[0]?.slug || 'shoes');
-      const availSubs = (SUBCATEGORIES[`${newGender}/${targetCat}`] || []).filter((s) => s.slug !== 'all');
+      const availSubs = (getSubcategories(newGender, targetCat) || []).filter((s) => s.slug !== 'all');
       const targetSub = availSubs.some((s) => s.slug === f.sub) ? f.sub : (availSubs[0]?.slug || '');
 
       let sizes = f.sizes;

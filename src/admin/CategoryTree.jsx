@@ -55,7 +55,7 @@ export default function CategoryTree({ products, onCatalogUpdated }) {
         latin: formData.latin || translateText(formData.title),
         tagline: formData.tagline || '',
         taglineEn: formData.taglineEn || translateText(formData.tagline || ''),
-        cover: formData.cover || item?.cover || '',
+        cover: formData.cover !== undefined ? formData.cover : (item?.cover || ''),
       };
       if (isNew) {
         genders.push(newItem);
@@ -73,7 +73,7 @@ export default function CategoryTree({ products, onCatalogUpdated }) {
         latin: formData.latin || translateText(formData.title),
         blurb: formData.blurb || '',
         blurbEn: formData.blurbEn || translateText(formData.blurb || ''),
-        cover: formData.cover || item?.cover || '',
+        cover: formData.cover !== undefined ? formData.cover : (item?.cover || ''),
       };
       if (isNew) {
         cats.push(newItem);
@@ -95,7 +95,7 @@ export default function CategoryTree({ products, onCatalogUpdated }) {
         slug,
         title: formData.title,
         latin: formData.latin || translateText(formData.title),
-        cover: formData.cover || item?.cover || '',
+        cover: formData.cover !== undefined ? formData.cover : (item?.cover || ''),
       };
       if (isNew) {
         subs.push(newItem);
