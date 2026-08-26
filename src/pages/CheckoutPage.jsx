@@ -104,9 +104,13 @@ export default function CheckoutPage() {
       paymentLabel: payment === 'card' ? 'الدفع عن طريق الماستر الرافدين' : 'الدفع عند الاستلام',
     };
 
-    // Save order to Firebase / LocalStorage for admin dashboard
+    // 1. Save order to Firebase / LocalStorage for admin dashboard in real-time
     await saveOrder(orderData).catch((e) => console.warn('Order save failed:', e));
 
+    // 2. Open WhatsApp invoice directly
+    openWhatsAppInvoice(orderData);
+
+    // 3. Clear cart and navigate to confirmation
     clearCart();
     navigate('/order-confirmed', { state: orderData, replace: true });
   };
