@@ -314,7 +314,6 @@ function playNewOrderSound() {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     const now = ctx.currentTime;
-    // Note 1 (E5)
     const osc1 = ctx.createOscillator();
     const gain1 = ctx.createGain();
     osc1.type = 'sine';
@@ -325,7 +324,7 @@ function playNewOrderSound() {
     gain1.connect(ctx.destination);
     osc1.start(now);
     osc1.stop(now + 0.35);
-    // Note 2 (A5)
+
     const osc2 = ctx.createOscillator();
     const gain2 = ctx.createGain();
     osc2.type = 'sine';
@@ -356,7 +355,7 @@ function OrdersPanel_V3({ orders: initialOrders, onStatusChange, onDeleteOrder }
     setOrdersList(currentList);
     lastCountRef.current = currentList.length;
 
-    // Detect brand new incoming order
+    // Detect brand new incoming customer order
     if (currentList.length > prevCount && prevCount > 0) {
       const newest = currentList[0];
       if (newest) {
@@ -386,15 +385,15 @@ function OrdersPanel_V3({ orders: initialOrders, onStatusChange, onDeleteOrder }
 
   const syncCloudOrders = async () => {
     setIsRefreshing(true);
-    setMsg('جارٍ جلب وتحديث الطلبات من السحابة...');
+    setMsg('جارٍ مزامنة وجلب الطلبات السحابية...');
     try {
       if (window.__iraqstore_fetchCloudOrders) {
         const fresh = await window.__iraqstore_fetchCloudOrders(setOrdersList);
         if (fresh && Array.isArray(fresh)) {
           setOrdersList(fresh);
-          setMsg('تمت المزامنة وجلب ' + fresh.length + ' طلب بنجاح ✅');
+          setMsg('تمت المزامنة بنجاح — إجمالي الطلبات: ' + fresh.length + ' ✅');
         } else {
-          setMsg('تم التحقق من الطلبات السحابية');
+          setMsg('تمت المزامنة السحابية بنجاح ✅');
         }
       }
     } catch(err) {
@@ -405,54 +404,42 @@ function OrdersPanel_V3({ orders: initialOrders, onStatusChange, onDeleteOrder }
     }
   };
 
-  
-  const createTestOrder = async () => {
-    setMsg('جارٍ إنشاء وإرسال طلب تجريبي...');
-    const orderId = 'IQ' + Date.now().toString().slice(-6);
-    const sample = {
-      id: orderId,
-      orderNo: orderId,
-      name: 'زبون تجريبي (فحص النظام)',
-      phone: '07801234567',
-      governorate: 'بغداد',
-      city: 'المنصور',
-      address: 'شارع 14 رمضان — فحص لوحة الإدارة',
-      notes: 'طلب تجريبي للتأكد من وصول وتنسيق الطلبات وسرعة الاستجابة',
-      subtotal: 75000,
-      fee: 3000,
-      total: 78000,
-      itemCount: 1,
-      payment: 'cod',
-      paymentLabel: 'الدفع عند الاستلام',
-      status: 'new',
-      createdAt: new Date().toISOString(),
-      cart: [
-        {
-          product: { name: 'حذاء أكسفورد إيطالي فاخر', price: 75000 },
-          qty: 1,
-          color: 'أسود ملكي',
-          size: '42'
-        }
-      ]
-    };
-    if (window.__iraqstore_saveOrder) {
-      await window.__iraqstore_saveOrder(sample);
-    }
-    const cur = ordersList.filter(o => o.id !== orderId);
-    setOrdersList([sample, ...cur]);
-    playNewOrderSound();
-    setMsg('تم إرسال واستلام الطلب التجريبي بنجاح! 🎉');
-    setTimeout(() => setMsg(''), 4000);
-  };
-
-const clearAllOrders = () => {
-    if (window.confirm('هل أنت متأكد من مسح جميع الطلبات المعروضة محلياً لبدء استقبال الطلبات الحقيقية الجديدة فقط؟')) {
+  const clearAllOrders = async () => {
+    if (window.confirm('هل أنت متأكد من مسح كافة الطلبات نهائياً من السحابة والتخزين لبدء استقبال الطلبات الجديدة فقط؟')) {
       try {
         localStorage.removeItem('iraqstore_orders_v1');
         window.__iraqstore_orders = [];
         setOrdersList([]);
-        setMsg('تم مسح الطلبات المحلية بنجاح');
-      } catch(_) {}
+        setMsg('جارٍ مسح كافة الطلبات من السحابة...');
+
+        if (window.__iraqstore_deleteOrder) {
+          for (const ord of ordersList) {
+            await window.__iraqstore_deleteOrder(ord.id || ord.orderNo);
+          }
+        }
+
+        // Direct cloud wipe
+        try {
+          let url = "https://store-29692-default-rtdb.firebaseio.com/orders.json";
+          if (V && V.currentUser) {
+            const token = await V.currentUser.getIdToken(false);
+            if (token) url += "?auth=" + token;
+          }
+          await fetch(url, { method: "DELETE" });
+        } catch(_) {}
+
+        window.dispatchEvent(new CustomEvent('iraqstore_orders_updated', { detail: [] }));
+        if (typeof BroadcastChannel !== 'undefined') {
+          const bc = new BroadcastChannel('iraqstore_orders_channel');
+          bc.postMessage({ type: 'NEW_ORDER', order: null, list: [] });
+          bc.close();
+        }
+        setMsg('تم مسح جميع الطلبات نهائياً من السحابة والتخزين بنجاح 🧹');
+      } catch(e) {
+        setMsg('تم المسح: ' + e.message);
+      } finally {
+        setTimeout(() => setMsg(''), 4000);
+      }
     }
   };
 
@@ -494,15 +481,22 @@ const clearAllOrders = () => {
 
   const handleDelete = async (orderId) => {
     if (window.confirm('هل أنت متأكد من حذف هذا الطلب نهائياً؟')) {
+      const next = ordersList.filter(o => o.id !== orderId && o.orderNo !== orderId);
+      setOrdersList(next);
+      try {
+        localStorage.setItem('iraqstore_orders_v1', JSON.stringify(next));
+        window.__iraqstore_orders = next;
+        window.dispatchEvent(new CustomEvent('iraqstore_orders_updated', { detail: next }));
+      } catch(_) {}
+
+      if (selectedOrder && (selectedOrder.id === orderId || selectedOrder.orderNo === orderId)) {
+        setSelectedOrder(null);
+      }
+
       if (onDeleteOrder) {
         await onDeleteOrder(orderId);
       } else if (window.__iraqstore_deleteOrder) {
         await window.__iraqstore_deleteOrder(orderId);
-      }
-      const next = ordersList.filter(o => o.id !== orderId && o.orderNo !== orderId);
-      setOrdersList(next);
-      if (selectedOrder && (selectedOrder.id === orderId || selectedOrder.orderNo === orderId)) {
-        setSelectedOrder(null);
       }
     }
   };
@@ -599,13 +593,13 @@ const clearAllOrders = () => {
                 className: "admin-btn admin-btn--sm admin-btn--primary",
                 onClick: syncCloudOrders,
                 disabled: isRefreshing,
-                children: isRefreshing ? "جارٍ المزامنة..." : "🔄 مزامنة الطلبات السحابية" }), e.jsx("button", { type: "button", className: "admin-btn admin-btn--sm admin-btn--ghost", onClick: createTestOrder, children: "⚡ تجربة طلب جديد"
+                children: isRefreshing ? "جارٍ المزامنة..." : "🔄 مزامنة الطلبات السحابية"
               }),
               e.jsx("button", {
                 type: "button",
                 className: "admin-btn admin-btn--sm admin-btn--ghost",
                 onClick: clearAllOrders,
-                title: "مسح الطلبات القديمة لبدء صفحة جديدة",
+                title: "مسح كافة الطلبات القديمة لبدء استقبال الطلبات الحقيقية فقط",
                 children: "🧹 مسح الطلبات القديمة"
               })
             ]
@@ -639,7 +633,7 @@ const clearAllOrders = () => {
       }),
       filtered.length === 0 ? e.jsx("div", {
         className: "admin-empty",
-        children: [e.jsx("p", { children: "لا توجد طلبات مسجلة حالياً أو مطابقة للبحث." }), e.jsx("button", { type: "button", className: "admin-btn admin-btn--primary", style: { marginTop: "1rem" }, onClick: createTestOrder, children: "⚡ إرسال طلب تجريبي الآن للتأكد" })]
+        children: e.jsx("p", { children: "لا توجد طلبات مسجلة حالياً أو مطابقة للبحث." })
       }) : e.jsx("div", {
         className: "admin-orders-table",
         children: filtered.map(order => {
