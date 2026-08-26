@@ -497,10 +497,9 @@
     grid-template-columns: 1fr;
   }
 
-  /* Summary leads on mobile so the total is visible before the long form. */
   .checkout__summary {
     position: static;
-    order: -1;
+    order: 0;
   }
 }
 

@@ -270,6 +270,35 @@ export default function CheckoutPage() {
             </div>
 
             {payment === 'card' && <p className="pay-note">{t('payCardNote')}</p>}
+
+            {/* Submit Button directly after payment selection */}
+            <div style={{ marginTop: '1.25rem' }}>
+              <button
+                type="submit"
+                className="btn btn--burgundy btn--block btn--lg"
+                disabled={submitting}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.65rem',
+                  padding: '1.1rem 1.5rem',
+                  fontSize: '1.05rem',
+                  fontWeight: '700',
+                  borderRadius: 'var(--radius)',
+                  boxShadow: '0 4px 14px rgba(107, 15, 26, 0.25)',
+                }}
+              >
+                {submitting ? (
+                  'جارٍ تحويل الفاتورة للواتساب…'
+                ) : (
+                  <>
+                    <Whatsapp />
+                    إرسال الطلب عبر الواتساب — {formatPrice(total, lang)}
+                  </>
+                )}
+              </button>
+            </div>
           </section>
         </form>
 
