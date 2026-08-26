@@ -1,3 +1,4 @@
+if(typeof Node==="function"&&Node.prototype){const _origRC=Node.prototype.removeChild;Node.prototype.removeChild=function(c){if(c&&c.parentNode!==this){console.warn("removeChild prevented",c,this);return c;}return _origRC.apply(this,arguments);};const _origIB=Node.prototype.insertBefore;Node.prototype.insertBefore=function(n,r){if(r&&r.parentNode!==this){console.warn("insertBefore prevented",r,this);return n;}return _origIB.apply(this,arguments);};}
 
 (function(){
   if(typeof window!=="undefined"){
