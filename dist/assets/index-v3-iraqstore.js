@@ -3220,6 +3220,15 @@ function Uw(t){
   try{window.__iraqstore_orders=r;}catch(_){}
   try{window.dispatchEvent(new CustomEvent('iraqstore_orders_updated',{detail:r}));}catch(_){}
   
+  // BroadcastChannel for instant cross-tab delivery on same device
+  try {
+    if (typeof BroadcastChannel !== 'undefined') {
+      const bc = new BroadcastChannel('iraqstore_orders_channel');
+      bc.postMessage({ type: 'NEW_ORDER', order: fullOrder, list: r });
+      bc.close();
+    }
+  } catch(_) {}
+
   // 2. Guaranteed Cloud Save (both Firebase REST and WebSocket)
   setTimeout(() => {
     // A) Direct Firebase REST PUT with keepalive
@@ -3243,12 +3252,28 @@ function listenOrders(t){
   // Provide cached orders immediately
   t(HA());
   
-  // Try fetching cloud snapshot
+  // Cross-tab BroadcastChannel listener
+  try {
+    if (typeof BroadcastChannel !== 'undefined') {
+      const bc = new BroadcastChannel('iraqstore_orders_channel');
+      bc.onmessage = (ev) => {
+        if (ev.data && ev.data.list) {
+          GA(ev.data.list);
+          t(ev.data.list);
+        } else if (ev.data && ev.data.order) {
+          const cur = HA();
+          const next = [ev.data.order, ...cur.filter(o => o.id !== ev.data.order.id)];
+          GA(next);
+          t(next);
+        }
+      };
+    }
+  } catch(_) {}
+
+  // Cloud snapshot fetch
   fetchCloudOrdersSnapshot(t);
   
   let unsubWs = () => {};
-  
-  // Setup realtime listener function
   const setupRealtime = () => {
     try {
       if (unsubWs) { try { unsubWs(); } catch(_) {} }
@@ -3269,7 +3294,7 @@ function listenOrders(t){
   
   setupRealtime();
   
-  // When auth changes (e.g. admin logs in or session restores), re-sync & re-attach listener
+  // Auth state change handler
   try {
     if (b2 && typeof y2 === 'function') {
       y2(b2, user => {
@@ -3290,13 +3315,13 @@ function listenOrders(t){
     });
     window.addEventListener('online', () => fetchCloudOrdersSnapshot(t));
     
-    // Background polling interval every 3 seconds
+    // Background polling interval every 2.5 seconds
     if (window.__iraqstore_orders_sync_interval) clearInterval(window.__iraqstore_orders_sync_interval);
     window.__iraqstore_orders_sync_interval = setInterval(() => {
       if (document.visibilityState === 'visible') {
         fetchCloudOrdersSnapshot(t);
       }
-    }, 3000);
+    }, 2500);
   }
   
   return () => {

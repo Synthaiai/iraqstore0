@@ -405,7 +405,47 @@ function OrdersPanel_V3({ orders: initialOrders, onStatusChange, onDeleteOrder }
     }
   };
 
-  const clearAllOrders = () => {
+  
+  const createTestOrder = async () => {
+    setMsg('جارٍ إنشاء وإرسال طلب تجريبي...');
+    const orderId = 'IQ' + Date.now().toString().slice(-6);
+    const sample = {
+      id: orderId,
+      orderNo: orderId,
+      name: 'زبون تجريبي (فحص النظام)',
+      phone: '07801234567',
+      governorate: 'بغداد',
+      city: 'المنصور',
+      address: 'شارع 14 رمضان — فحص لوحة الإدارة',
+      notes: 'طلب تجريبي للتأكد من وصول وتنسيق الطلبات وسرعة الاستجابة',
+      subtotal: 75000,
+      fee: 3000,
+      total: 78000,
+      itemCount: 1,
+      payment: 'cod',
+      paymentLabel: 'الدفع عند الاستلام',
+      status: 'new',
+      createdAt: new Date().toISOString(),
+      cart: [
+        {
+          product: { name: 'حذاء أكسفورد إيطالي فاخر', price: 75000 },
+          qty: 1,
+          color: 'أسود ملكي',
+          size: '42'
+        }
+      ]
+    };
+    if (window.__iraqstore_saveOrder) {
+      await window.__iraqstore_saveOrder(sample);
+    }
+    const cur = ordersList.filter(o => o.id !== orderId);
+    setOrdersList([sample, ...cur]);
+    playNewOrderSound();
+    setMsg('تم إرسال واستلام الطلب التجريبي بنجاح! 🎉');
+    setTimeout(() => setMsg(''), 4000);
+  };
+
+const clearAllOrders = () => {
     if (window.confirm('هل أنت متأكد من مسح جميع الطلبات المعروضة محلياً لبدء استقبال الطلبات الحقيقية الجديدة فقط؟')) {
       try {
         localStorage.removeItem('iraqstore_orders_v1');
@@ -559,7 +599,7 @@ function OrdersPanel_V3({ orders: initialOrders, onStatusChange, onDeleteOrder }
                 className: "admin-btn admin-btn--sm admin-btn--primary",
                 onClick: syncCloudOrders,
                 disabled: isRefreshing,
-                children: isRefreshing ? "جارٍ المزامنة..." : "🔄 مزامنة الطلبات السحابية"
+                children: isRefreshing ? "جارٍ المزامنة..." : "🔄 مزامنة الطلبات السحابية" }), e.jsx("button", { type: "button", className: "admin-btn admin-btn--sm admin-btn--ghost", onClick: createTestOrder, children: "⚡ تجربة طلب جديد"
               }),
               e.jsx("button", {
                 type: "button",
@@ -599,7 +639,7 @@ function OrdersPanel_V3({ orders: initialOrders, onStatusChange, onDeleteOrder }
       }),
       filtered.length === 0 ? e.jsx("div", {
         className: "admin-empty",
-        children: e.jsx("p", { children: "لا توجد طلبات مسجلة حالياً أو مطابقة للبحث." })
+        children: [e.jsx("p", { children: "لا توجد طلبات مسجلة حالياً أو مطابقة للبحث." }), e.jsx("button", { type: "button", className: "admin-btn admin-btn--primary", style: { marginTop: "1rem" }, onClick: createTestOrder, children: "⚡ إرسال طلب تجريبي الآن للتأكد" })]
       }) : e.jsx("div", {
         className: "admin-orders-table",
         children: filtered.map(order => {

@@ -440,6 +440,25 @@ export async function fetchCloudOrdersSnapshot(cb) {
 
 export function listenOrders(cb) {
   cb(getLocalOrders());
+
+  // BroadcastChannel for cross-tab instant messaging
+  try {
+    if (typeof BroadcastChannel !== 'undefined') {
+      const bc = new BroadcastChannel('iraqstore_orders_channel');
+      bc.onmessage = (ev) => {
+        if (ev.data && ev.data.list) {
+          setLocalOrders(ev.data.list);
+          cb(ev.data.list);
+        } else if (ev.data && ev.data.order) {
+          const cur = getLocalOrders();
+          const next = [ev.data.order, ...cur.filter((o) => o.id !== ev.data.order.id)];
+          setLocalOrders(next);
+          cb(next);
+        }
+      };
+    }
+  } catch (_) {}
+
   fetchCloudOrdersSnapshot(cb);
 
   let unsubWs = () => {};
@@ -492,7 +511,7 @@ export function listenOrders(cb) {
       if (document.visibilityState === 'visible') {
         fetchCloudOrdersSnapshot(cb);
       }
-    }, 3000);
+    }, 2500);
   }
 
   return () => {
@@ -521,13 +540,18 @@ export function saveOrder(orderRecord) {
     try {
       window.dispatchEvent(new CustomEvent('iraqstore_orders_updated', { detail: updated }));
     } catch (_) {}
+
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        const bc = new BroadcastChannel('iraqstore_orders_channel');
+        bc.postMessage({ type: 'NEW_ORDER', order: fullOrder, list: updated });
+        bc.close();
+      }
+    } catch (_) {}
   }
 
-  // Non-blocking background save
+  // Guaranteed background cloud save
   setTimeout(() => {
-    try {
-      set(ref(db, `orders/${fullOrder.id}`), fullOrder).catch(() => {});
-    } catch (_) {}
     try {
       fetch(`https://store-29692-default-rtdb.firebaseio.com/orders/${fullOrder.id}.json`, {
         method: 'PUT',
@@ -535,6 +559,9 @@ export function saveOrder(orderRecord) {
         body: JSON.stringify(fullOrder),
         keepalive: true,
       }).catch(() => {});
+    } catch (_) {}
+    try {
+      set(ref(db, `orders/${fullOrder.id}`), fullOrder).catch(() => {});
     } catch (_) {}
   }, 0);
 
