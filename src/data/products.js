@@ -1180,18 +1180,12 @@ export function relatedProducts(product, limit = 4) {
 
 export function featuredProducts(limit = 8) {
   const active = PRODUCTS.filter((p) => p.status !== 'draft');
-  const best = active.filter((p) => p.badge === 'best').sort((a, b) => (b.rating || 0) - (a.rating || 0));
-  if (best.length >= limit) return best.slice(0, limit);
-  const others = active.filter((p) => p.badge !== 'best').sort((a, b) => (a.sortOrder ?? 9999) - (b.sortOrder ?? 9999));
-  return [...best, ...others].slice(0, limit);
+  return active.sort((a, b) => (a.sortOrder ?? 9999) - (b.sortOrder ?? 9999)).slice(0, limit);
 }
 
 export function newArrivals(limit = 8) {
   const active = PRODUCTS.filter((p) => p.status !== 'draft');
-  const newBadge = active.filter((p) => p.badge === 'new');
-  if (newBadge.length >= limit) return newBadge.slice(0, limit);
-  const others = active.filter((p) => p.badge !== 'new').sort((a, b) => (a.sortOrder ?? 9999) - (b.sortOrder ?? 9999));
-  return [...newBadge, ...others].slice(0, limit);
+  return active.sort((a, b) => (a.sortOrder ?? 9999) - (b.sortOrder ?? 9999)).slice(0, limit);
 }
 
 export function searchProducts(term, limit = 8) {

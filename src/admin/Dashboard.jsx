@@ -124,10 +124,18 @@ function ProductsPanel({ products }) {
     await saveProduct({ ...otherProduct, sortOrder: currentOrder });
   };
 
-  const updateOrderDirectly = async (product, newOrderStr) => {
-    const num = parseInt(newOrderStr, 10);
-    if (isNaN(num)) return;
-    await saveProduct({ ...product, sortOrder: num });
+  const moveToTop = async (product) => {
+    const sorted = [...products].sort((a, b) => (a.sortOrder ?? 9999) - (b.sortOrder ?? 9999));
+    const without = sorted.filter((p) => p.id !== product.id);
+    const updated = [product, ...without].map((p, i) => ({ ...p, sortOrder: i + 1 }));
+    await saveProductsBatch(updated);
+  };
+
+  const moveToBottom = async (product) => {
+    const sorted = [...products].sort((a, b) => (a.sortOrder ?? 9999) - (b.sortOrder ?? 9999));
+    const without = sorted.filter((p) => p.id !== product.id);
+    const updated = [...without, product].map((p, i) => ({ ...p, sortOrder: i + 1 }));
+    await saveProductsBatch(updated);
   };
 
   return (
@@ -205,26 +213,36 @@ function ProductsPanel({ products }) {
                 <div className="admin-reorder-box">
                   <button
                     className="admin-icon-btn"
+                    onClick={() => moveToTop(p)}
+                    disabled={idx === 0}
+                    title="اجعل المنتج أول واحد بالمتجر 🔝"
+                  >
+                    🔝
+                  </button>
+                  <button
+                    className="admin-icon-btn"
                     onClick={() => moveProduct(p, 'up')}
                     disabled={idx === 0}
-                    title="تحريك للأعلى"
+                    title="تحريك للأعلى ⬆️"
                   >
                     ▲
                   </button>
-                  <input
-                    type="number"
-                    className="admin-order-input"
-                    value={p.sortOrder ?? idx + 1}
-                    onChange={(e) => updateOrderDirectly(p, e.target.value)}
-                    title="رقم ترتيب المنتج"
-                  />
+                  <span className="admin-rank-pill" title="رقم الترتيب الحالي">#{idx + 1}</span>
                   <button
                     className="admin-icon-btn"
                     onClick={() => moveProduct(p, 'down')}
                     disabled={idx === filtered.length - 1}
-                    title="تحريك للأسفل"
+                    title="تحريك للأسفل ⬇️"
                   >
                     ▼
+                  </button>
+                  <button
+                    className="admin-icon-btn"
+                    onClick={() => moveToBottom(p)}
+                    disabled={idx === filtered.length - 1}
+                    title="نقل المنتج لآخر المتجر 🔚"
+                  >
+                    🔚
                   </button>
                 </div>
 
