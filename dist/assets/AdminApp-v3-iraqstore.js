@@ -309,6 +309,36 @@ const STATUS_META = {
   cancelled: { label: 'ملغى ❌', cls: 'admin-status--cancelled' }
 };
 
+// Play pleasant web audio chime on new order
+function playNewOrderSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const now = ctx.currentTime;
+    // Note 1 (E5)
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(659.25, now);
+    gain1.gain.setValueAtTime(0.3, now);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.35);
+    // Note 2 (A5)
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(880, now + 0.12);
+    gain2.gain.setValueAtTime(0.35, now + 0.12);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.start(now + 0.12);
+    osc2.stop(now + 0.6);
+  } catch(_) {}
+}
+
 function OrdersPanel_V3({ orders: initialOrders, onStatusChange, onDeleteOrder }) {
   const [ordersList, setOrdersList] = u.useState(initialOrders || []);
   const [q, setQ] = u.useState('');
@@ -316,10 +346,25 @@ function OrdersPanel_V3({ orders: initialOrders, onStatusChange, onDeleteOrder }
   const [selectedOrder, setSelectedOrder] = u.useState(null);
   const [printOrder, setPrintOrder] = u.useState(null);
   const [isRefreshing, setIsRefreshing] = u.useState(false);
+  const [newOrderAlert, setNewOrderAlert] = u.useState(null);
   const [msg, setMsg] = u.useState('');
+  const lastCountRef = u.useRef((initialOrders || []).length);
 
   u.useEffect(() => {
-    setOrdersList(initialOrders || []);
+    const prevCount = lastCountRef.current;
+    const currentList = initialOrders || [];
+    setOrdersList(currentList);
+    lastCountRef.current = currentList.length;
+
+    // Detect brand new incoming order
+    if (currentList.length > prevCount && prevCount > 0) {
+      const newest = currentList[0];
+      if (newest) {
+        playNewOrderSound();
+        setNewOrderAlert(newest);
+        setTimeout(() => setNewOrderAlert(null), 8000);
+      }
+    }
   }, [initialOrders]);
 
   const cleanPhone = (p) => {
@@ -425,6 +470,49 @@ function OrdersPanel_V3({ orders: initialOrders, onStatusChange, onDeleteOrder }
   return e.jsxs("div", {
     className: "admin-panel",
     children: [
+      newOrderAlert && e.jsxs("div", {
+        className: "admin-note admin-note--ok",
+        style: {
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "1rem",
+          background: "rgba(37, 211, 102, 0.15)",
+          borderColor: "#25D366",
+          padding: "0.85rem 1.2rem",
+          borderRadius: "12px",
+          boxShadow: "0 4px 18px rgba(37, 211, 102, 0.25)"
+        },
+        children: [
+          e.jsxs("div", {
+            style: { display: "flex", alignItems: "center", gap: "0.6rem" },
+            children: [
+              e.jsx("span", { style: { fontSize: "1.3rem" }, children: "🔔" }),
+              e.jsxs("strong", {
+                style: { color: "#25D366" },
+                children: ["وصل طلب جديد الآن! #", newOrderAlert.orderNo || newOrderAlert.id, " — ", newOrderAlert.name, " (", O(newOrderAlert.total || newOrderAlert.subtotal), ")"]
+              })
+            ]
+          }),
+          e.jsxs("div", {
+            style: { display: "flex", gap: "0.5rem" },
+            children: [
+              e.jsx("button", {
+                type: "button",
+                className: "admin-btn admin-btn--sm admin-btn--primary",
+                onClick: () => setSelectedOrder(newOrderAlert),
+                children: "معاينة الطلب 👁️"
+              }),
+              e.jsx("button", {
+                type: "button",
+                className: "admin-btn admin-btn--sm admin-btn--ghost",
+                onClick: () => setNewOrderAlert(null),
+                children: "إغلاق ✕"
+              })
+            ]
+          })
+        ]
+      }),
       e.jsxs("div", {
         style: { display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.8rem", marginBottom: "1rem" },
         children: [
@@ -861,14 +949,6 @@ function OrdersPanel_V3({ orders: initialOrders, onStatusChange, onDeleteOrder }
     ]
   });
 }
-const ls = {
-  'auth/invalid-credential': 'البريد الإلكتروني أو كلمة المرور غير صحيحة',
-  'auth/user-not-found': 'لم يتم العثور على حساب بهذا البريد',
-  'auth/wrong-password': 'كلمة المرور غير صحيحة',
-  'auth/invalid-email': 'صيغة البريد الإلكتروني غير صحيحة',
-  'auth/too-many-requests': 'تم حظر المحاولات مؤقتاً لكثرة المحاولات الخاطئة. حاول لاحقاً',
-  'auth/network-request-failed': 'فشل الاتصال بالإنترنت'
-};
 
 function is() {
   const { user: i, logout: l } = Y();

@@ -484,7 +484,7 @@ export function listenOrders(cb) {
   }
 }
 
-export async function saveOrder(orderRecord) {
+export function saveOrder(orderRecord) {
   const orderId = orderRecord.orderNo || `IQ${Date.now().toString().slice(-6)}`;
   const fullOrder = {
     id: orderId,
@@ -504,22 +504,22 @@ export async function saveOrder(orderRecord) {
     } catch (_) {}
   }
 
-  try {
-    await withTimeout(set(ref(db, `orders/${fullOrder.id}`), fullOrder), 6000);
-    notifyStatus('online');
-  } catch (err) {
-    console.warn('Firebase saveOrder fallback:', err);
+  // Non-blocking background save
+  setTimeout(() => {
     try {
-      await fetch(`https://store-29692-default-rtdb.firebaseio.com/orders/${fullOrder.id}.json`, {
+      set(ref(db, `orders/${fullOrder.id}`), fullOrder).catch(() => {});
+    } catch (_) {}
+    try {
+      fetch(`https://store-29692-default-rtdb.firebaseio.com/orders/${fullOrder.id}.json`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(fullOrder),
-      });
+        keepalive: true,
+      }).catch(() => {});
     } catch (_) {}
-    notifyStatus('offline');
-  }
+  }, 0);
 
-  return fullOrder;
+  return Promise.resolve(fullOrder);
 }
 
 export async function updateOrderStatus(orderId, status) {
