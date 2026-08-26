@@ -3159,70 +3159,125 @@ Content-Type: `+u.contentType+`\r
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */const Mw="storage";function w2(t,e,n){return t=Re(t),mA(t,e,n)}function E2(t){return t=Re(t),gA(t)}function S2(t,e){return t=Re(t),wA(t,e)}function SA(t=Ah(),e){t=Re(t);const r=Vl(t,Mw).getImmediate({identifier:e}),s=Ev("storage");return s&&bA(r,...s),r}function bA(t,e,n,r={}){EA(t,e,n,r)}function CA(t,{instanceIdentifier:e}){const n=t.getProvider("app").getImmediate(),r=t.getProvider("auth-internal"),s=t.getProvider("app-check-internal");return new If(n,r,s,e,Ur)}function kA(){Ir(new Xn(Mw,CA,"PUBLIC").setMultipleInstances(!0)),Ht(bg,Cg,""),Ht(bg,Cg,"esm2020")}kA();const xA={apiKey:"AIzaSyD4z7MljYOwlWc7eW27zBJsRt5pRD2JHfc",authDomain:"store-29692.firebaseapp.com",databaseURL:"https://store-29692-default-rtdb.firebaseio.com",projectId:"store-29692",storageBucket:"store-29692.firebasestorage.app",messagingSenderId:"708544997996",appId:"1:708544997996:web:913f4f694ae36bf397c649"},Tf=Tv(xA),b2=fR(Tf),Xt=eT(Tf),C2=SA(Tf),NA=["adminiraq@gmail.com","adoiniraqstore@gmail.com"];function k2(t){return!!t&&NA.map(e=>e.toLowerCase()).includes((t.email||"").toLowerCase())}const IA="iraqstore_db",TA=1,Kt="products",kg="catalog";function oc(){return new Promise((t,e)=>{if(!window.indexedDB){e(new Error("IndexedDB not supported"));return}const n=window.indexedDB.open(IA,TA);n.onupgradeneeded=r=>{const s=r.target.result;s.objectStoreNames.contains(Kt)||s.createObjectStore(Kt,{keyPath:"id"}),s.objectStoreNames.contains(kg)||s.createObjectStore(kg,{keyPath:"id"})},n.onsuccess=()=>t(n.result),n.onerror=()=>e(n.error)})}async function ho(){try{const t=await oc();return new Promise(e=>{const s=t.transaction(Kt,"readonly").objectStore(Kt).getAll();s.onsuccess=()=>e(s.result||[]),s.onerror=()=>e([])})}catch(t){return console.warn("IndexedDB read error:",t),[]}}async function PA(t){if(Array.isArray(t))try{const n=(await oc()).transaction(Kt,"readwrite"),r=n.objectStore(Kt);return r.clear(),t.forEach(s=>{if(s&&s.id){let i=s;Array.isArray(s.images)&&s.images.some(o=>typeof o=="string"&&o.startsWith("data:"))&&(i={...s,images:s.images.filter(o=>typeof o=="string"&&!o.startsWith("data:"))}),r.put(i)}}),new Promise(s=>{n.oncomplete=()=>s(!0),n.onerror=()=>s(!1)})}catch(e){return console.warn("IndexedDB write error:",e),!1}}async function RA(t){if(!(!t||!t.id))try{(await oc()).transaction(Kt,"readwrite").objectStore(Kt).put(t)}catch(e){console.warn("IndexedDB save error:",e)}}async function AA(t){if(t)try{(await oc()).transaction(Kt,"readwrite").objectStore(Kt).delete(t)}catch(e){console.warn("IndexedDB delete error:",e)}}const wa="iraqstore_products_v1",Pf="iraqstore_catalog_v1",wl="iraqstore_settings_v1",Fw="iraqstore_orders_v1";let Rf="checking";const Sd=new Set;function He(t){Rf=t,Sd.forEach(e=>e(t))}function OA(t){return Sd.add(t),t(Rf),()=>Sd.delete(t)}function jA(){return Rf}function $r(t,e=4e3){return new Promise((n,r)=>{const s=setTimeout(()=>{r(new Error("TIMEOUT"))},e);t.then(i=>{clearTimeout(s),n(i)}).catch(i=>{clearTimeout(s),r(i)})})}let zt=null;function LA(){try{const t=localStorage.getItem(wa);return t?JSON.parse(t):zt}catch{return zt}}function Io(t){zt=t,PA(t);try{t&&t.length<=80?localStorage.setItem(wa,JSON.stringify(t)):localStorage.removeItem(wa)}catch{try{localStorage.removeItem(wa)}catch{}}}async function _fetchFreshSnapshot(cb){try{const res=await fetch("https://store-29692-default-rtdb.firebaseio.com/products.json?v="+Date.now(),{headers:{"Cache-Control":"no-cache",Pragma:"no-cache"}});if(res.ok){const data=await res.json();if(data&&typeof data==="object"){const list=Object.values(data);if(list.length){Io(list);if(cb)cb(list);return list}}}}catch(e){}}
-function DA(t){let e=!1;zt&&zt.length?t(zt):ho().then(n=>{!e&&n&&n.length&&(zt=n,t(n))});_fetchFreshSnapshot(t);if(typeof window<"u"){window.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")_fetchFreshSnapshot(t)});window.addEventListener("online",()=>_fetchFreshSnapshot(t));}try{return mf(Jt(Xt,"products"),r=>{e=!0,He("online");const s=r.val(),i=s?Object.values(s):[];Io(i),t(i)},r=>{console.warn("Firebase DB read error:",r),He("offline"),e||ho().then(s=>t(s||LA()||[]))})}catch(n){return console.warn("Firebase DB connection failed:",n),He("offline"),()=>{}}}async function MA(t){const e=zt||await ho()||Sh.map(rv),n=e.findIndex(s=>s.id===t.id);let r;n>=0?(r=[...e],r[n]=t):r=[t,...e],Io(r),RA(t);try{await $r(Co(Jt(Xt,`products/${t.id}`),t),5e3),He("online")}catch(s){console.warn("Firebase save fallback:",s),He("offline")}return t}async function FA(t){const n=(zt||await ho()||[]).filter(r=>r.id!==t);Io(n),AA(t);try{await $r(HI(Jt(Xt,`products/${t}`)),5e3),He("online")}catch(r){console.warn("Firebase delete fallback:",r),He("offline")}return!0}async function UA(t){if(!Array.isArray(t)||!t.length)return!0;const e=zt||await ho()||[],n=new Map(e.map(i=>[i.id,i])),r={};t.forEach(i=>{n.set(i.id,i),r[i.id]=i});const s=Array.from(n.values());Io(s);try{await $r(B0(Jt(Xt,"products"),r),12e3),He("online")}catch(i){console.warn("Firebase saveProductsBatch fallback to IDB:",i),He("offline")}return!0}async function BA(){const t={},e=[];Sh.forEach(n=>{const r=rv(n);t[n.id]=r,e.push(r)}),Io(e);try{await $r(Co(Jt(Xt,"products"),t),8e3),He("online")}catch(n){console.warn("Firebase seed fallback:",n),He("offline")}return!0}function zA(t){try{const e=localStorage.getItem(wl);e&&t(JSON.parse(e))}catch{}try{return mf(Jt(Xt,"settings"),e=>{const n=e.val()||{};try{localStorage.setItem(wl,JSON.stringify(n))}catch{}t(n)})}catch{return()=>{}}}async function WA(t,e){try{const n=localStorage.getItem(wl),r=n?JSON.parse(n):{};r[t]=e,localStorage.setItem(wl,JSON.stringify(r))}catch{}try{await $r(B0(Jt(Xt,"settings"),{[t]:e}),4e3)}catch(n){console.warn("Firebase saveSetting fallback:",n)}}function Af(){try{const t=localStorage.getItem(Pf);return t?decodeTreeFromFirebase(JSON.parse(t)):null}catch{return null}}function $A(t){const e=Af();e&&t(e);try{return mf(Jt(Xt,"catalog"),n=>{const r=n.val();if(r){const _dr=decodeTreeFromFirebase(r);try{localStorage.setItem(Pf,JSON.stringify(_dr))}catch{}t(_dr);}})}catch{return()=>{}}}async function VA(t){const _dt=decodeTreeFromFirebase(t);try{localStorage.setItem(Pf,JSON.stringify(_dt))}catch{}try{await $r(Co(Jt(Xt,"catalog"),encodeTreeForFirebase(_dt)),8e3),He("online")}catch(e){console.warn("Firebase saveCatalog fallback:",e),He("offline")}return _dt}function HA(){
-  try{
-    const t=localStorage.getItem(Fw);
-    return t?JSON.parse(t):[];
-  }catch{return[];}
+ */const Mw="storage";function w2(t,e,n){return t=Re(t),mA(t,e,n)}function E2(t){return t=Re(t),gA(t)}function S2(t,e){return t=Re(t),wA(t,e)}function SA(t=Ah(),e){t=Re(t);const r=Vl(t,Mw).getImmediate({identifier:e}),s=Ev("storage");return s&&bA(r,...s),r}function bA(t,e,n,r={}){EA(t,e,n,r)}function CA(t,{instanceIdentifier:e}){const n=t.getProvider("app").getImmediate(),r=t.getProvider("auth-internal"),s=t.getProvider("app-check-internal");return new If(n,r,s,e,Ur)}function kA(){Ir(new Xn(Mw,CA,"PUBLIC").setMultipleInstances(!0)),Ht(bg,Cg,""),Ht(bg,Cg,"esm2020")}kA();const xA={apiKey:"AIzaSyD4z7MljYOwlWc7eW27zBJsRt5pRD2JHfc",authDomain:"store-29692.firebaseapp.com",databaseURL:"https://store-29692-default-rtdb.firebaseio.com",projectId:"store-29692",storageBucket:"store-29692.firebasestorage.app",messagingSenderId:"708544997996",appId:"1:708544997996:web:913f4f694ae36bf397c649"},Tf=Tv(xA),b2=fR(Tf),Xt=eT(Tf),C2=SA(Tf),NA=["adminiraq@gmail.com","adminiraqstore@gmail.com","adoiniraqstore@gmail.com"];function k2(t){return!!t&&NA.map(e=>e.toLowerCase()).includes((t.email||"").toLowerCase())}const IA="iraqstore_db",TA=1,Kt="products",kg="catalog";function oc(){return new Promise((t,e)=>{if(!window.indexedDB){e(new Error("IndexedDB not supported"));return}const n=window.indexedDB.open(IA,TA);n.onupgradeneeded=r=>{const s=r.target.result;s.objectStoreNames.contains(Kt)||s.createObjectStore(Kt,{keyPath:"id"}),s.objectStoreNames.contains(kg)||s.createObjectStore(kg,{keyPath:"id"})},n.onsuccess=()=>t(n.result),n.onerror=()=>e(n.error)})}async function ho(){try{const t=await oc();return new Promise(e=>{const s=t.transaction(Kt,"readonly").objectStore(Kt).getAll();s.onsuccess=()=>e(s.result||[]),s.onerror=()=>e([])})}catch(t){return console.warn("IndexedDB read error:",t),[]}}async function PA(t){if(Array.isArray(t))try{const n=(await oc()).transaction(Kt,"readwrite"),r=n.objectStore(Kt);return r.clear(),t.forEach(s=>{if(s&&s.id){let i=s;Array.isArray(s.images)&&s.images.some(o=>typeof o=="string"&&o.startsWith("data:"))&&(i={...s,images:s.images.filter(o=>typeof o=="string"&&!o.startsWith("data:"))}),r.put(i)}}),new Promise(s=>{n.oncomplete=()=>s(!0),n.onerror=()=>s(!1)})}catch(e){return console.warn("IndexedDB write error:",e),!1}}async function RA(t){if(!(!t||!t.id))try{(await oc()).transaction(Kt,"readwrite").objectStore(Kt).put(t)}catch(e){console.warn("IndexedDB save error:",e)}}async function AA(t){if(t)try{(await oc()).transaction(Kt,"readwrite").objectStore(Kt).delete(t)}catch(e){console.warn("IndexedDB delete error:",e)}}const wa="iraqstore_products_v1",Pf="iraqstore_catalog_v1",wl="iraqstore_settings_v1",Fw="iraqstore_orders_v1";let Rf="checking";const Sd=new Set;function He(t){Rf=t,Sd.forEach(e=>e(t))}function OA(t){return Sd.add(t),t(Rf),()=>Sd.delete(t)}function jA(){return Rf}function $r(t,e=4e3){return new Promise((n,r)=>{const s=setTimeout(()=>{r(new Error("TIMEOUT"))},e);t.then(i=>{clearTimeout(s),n(i)}).catch(i=>{clearTimeout(s),r(i)})})}let zt=null;function LA(){try{const t=localStorage.getItem(wa);return t?JSON.parse(t):zt}catch{return zt}}function Io(t){zt=t,PA(t);try{t&&t.length<=80?localStorage.setItem(wa,JSON.stringify(t)):localStorage.removeItem(wa)}catch{try{localStorage.removeItem(wa)}catch{}}}async function _fetchFreshSnapshot(cb){try{const res=await fetch("https://store-29692-default-rtdb.firebaseio.com/products.json?v="+Date.now(),{headers:{"Cache-Control":"no-cache",Pragma:"no-cache"}});if(res.ok){const data=await res.json();if(data&&typeof data==="object"){const list=Object.values(data);if(list.length){Io(list);if(cb)cb(list);return list}}}}catch(e){}}
+function DA(t){let e=!1;zt&&zt.length?t(zt):ho().then(n=>{!e&&n&&n.length&&(zt=n,t(n))});_fetchFreshSnapshot(t);if(typeof window<"u"){window.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")_fetchFreshSnapshot(t)});window.addEventListener("online",()=>_fetchFreshSnapshot(t));}try{return mf(Jt(Xt,"products"),r=>{e=!0,He("online");const s=r.val(),i=s?Object.values(s):[];Io(i),t(i)},r=>{console.warn("Firebase DB read error:",r),He("offline"),e||ho().then(s=>t(s||LA()||[]))})}catch(n){return console.warn("Firebase DB connection failed:",n),He("offline"),()=>{}}}async function MA(t){const e=zt||await ho()||Sh.map(rv),n=e.findIndex(s=>s.id===t.id);let r;n>=0?(r=[...e],r[n]=t):r=[t,...e],Io(r),RA(t);try{await $r(Co(Jt(Xt,`products/${t.id}`),t),5e3),He("online")}catch(s){console.warn("Firebase save fallback:",s),He("offline")}return t}async function FA(t){const n=(zt||await ho()||[]).filter(r=>r.id!==t);Io(n),AA(t);try{await $r(HI(Jt(Xt,`products/${t}`)),5e3),He("online")}catch(r){console.warn("Firebase delete fallback:",r),He("offline")}return!0}async function UA(t){if(!Array.isArray(t)||!t.length)return!0;const e=zt||await ho()||[],n=new Map(e.map(i=>[i.id,i])),r={};t.forEach(i=>{n.set(i.id,i),r[i.id]=i});const s=Array.from(n.values());Io(s);try{await $r(B0(Jt(Xt,"products"),r),12e3),He("online")}catch(i){console.warn("Firebase saveProductsBatch fallback to IDB:",i),He("offline")}return!0}async function BA(){const t={},e=[];Sh.forEach(n=>{const r=rv(n);t[n.id]=r,e.push(r)}),Io(e);try{await $r(Co(Jt(Xt,"products"),t),8e3),He("online")}catch(n){console.warn("Firebase seed fallback:",n),He("offline")}return!0}function zA(t){try{const e=localStorage.getItem(wl);e&&t(JSON.parse(e))}catch{}try{return mf(Jt(Xt,"settings"),e=>{const n=e.val()||{};try{localStorage.setItem(wl,JSON.stringify(n))}catch{}t(n)})}catch{return()=>{}}}async function WA(t,e){try{const n=localStorage.getItem(wl),r=n?JSON.parse(n):{};r[t]=e,localStorage.setItem(wl,JSON.stringify(r))}catch{}try{await $r(B0(Jt(Xt,"settings"),{[t]:e}),4e3)}catch(n){console.warn("Firebase saveSetting fallback:",n)}}function Af(){try{const t=localStorage.getItem(Pf);return t?decodeTreeFromFirebase(JSON.parse(t)):null}catch{return null}}function $A(t){const e=Af();e&&t(e);try{return mf(Jt(Xt,"catalog"),n=>{const r=n.val();if(r){const _dr=decodeTreeFromFirebase(r);try{localStorage.setItem(Pf,JSON.stringify(_dr))}catch{}t(_dr);}})}catch{return()=>{}}}async function VA(t){const _dt=decodeTreeFromFirebase(t);try{localStorage.setItem(Pf,JSON.stringify(_dt))}catch{}try{await $r(Co(Jt(Xt,"catalog"),encodeTreeForFirebase(_dt)),8e3),He("online")}catch(e){console.warn("Firebase saveCatalog fallback:",e),He("offline")}return _dt}const masterOrdersMap = new Map();
+const ordersSubscribers = new Set();
+
+function emitOrders() {
+  const list = Array.from(masterOrdersMap.values()).sort(
+    (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+  );
+  ordersSubscribers.forEach((cb) => {
+    try { cb(list); } catch(_) {}
+  });
 }
-function GA(t){
-  try{
-    localStorage.setItem(Fw,JSON.stringify(t));
-  }catch(e){console.warn("LocalStorage save orders failed:",e);}
+
+function ingestOrders(incoming) {
+  if (!incoming) return;
+  const list = Array.isArray(incoming) ? incoming : typeof incoming === 'object' ? Object.values(incoming) : [];
+  if (!list.length) return;
+
+  let hasChanges = false;
+  list.forEach((o) => {
+    if (o && (o.id || o.orderNo)) {
+      const key = String(o.id || o.orderNo);
+      const existing = masterOrdersMap.get(key);
+      if (!existing) {
+        masterOrdersMap.set(key, { ...o });
+        hasChanges = true;
+      } else {
+        if (
+          existing.status !== o.status ||
+          existing.updatedAt !== o.updatedAt ||
+          existing.total !== o.total ||
+          existing.notes !== o.notes
+        ) {
+          masterOrdersMap.set(key, { ...existing, ...o });
+          hasChanges = true;
+        }
+      }
+    }
+  });
+
+  if (hasChanges) {
+    emitOrders();
+  }
 }
+
+function HA() {
+  return Array.from(masterOrdersMap.values()).sort(
+    (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+  );
+}
+
+function GA(orders) {
+  ingestOrders(orders);
+}
+
 function mergeOrdersList(existing, incoming) {
-  const map = new Map();
-  (existing || []).forEach(o => {
-    if (o && (o.id || o.orderNo)) {
-      map.set(o.id || o.orderNo, o);
-    }
-  });
-  (incoming || []).forEach(o => {
-    if (o && (o.id || o.orderNo)) {
-      const key = o.id || o.orderNo;
-      const prev = map.get(key);
-      map.set(key, { ...prev, ...o });
-    }
-  });
-  const merged = Array.from(map.values());
-  merged.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-  return merged;
+  ingestOrders(incoming);
+  return HA();
 }
-async function fetchCloudOrdersSnapshot(cb){
-  try{
+
+async function fetchCloudOrdersSnapshot(cb) {
+  try {
+    const locRes = await fetch('/api/orders?t=' + Date.now(), { headers: { 'Cache-Control': 'no-cache' } });
+    if (locRes.ok) {
+      const locData = await locRes.json();
+      ingestOrders(locData);
+    }
+  } catch(_) {}
+
+  try {
     let token = null;
     if (b2) {
       if (b2.currentUser) {
         try { token = await b2.currentUser.getIdToken(false); } catch(_) {}
-      } else if (b2.authStateReady) {
-        try {
-          await b2.authStateReady();
-          if (b2.currentUser) token = await b2.currentUser.getIdToken(false);
-        } catch(_) {}
       }
     }
     let url = "https://store-29692-default-rtdb.firebaseio.com/orders.json";
     if (token) url += "?auth=" + token;
-    
     const res = await fetch(url + (url.includes('?') ? '&' : '?') + "t=" + Date.now(), {
-      headers: { "Cache-Control": "no-cache", "Pragma": "no-cache" }
+      headers: { "Cache-Control": "no-cache" }
     });
     if (res.ok) {
       const data = await res.json();
       if (data && typeof data === 'object' && !data.error) {
-        const list = Object.values(data);
-        const merged = mergeOrdersList(HA(), list);
-        GA(merged);
-        try{window.__iraqstore_orders=merged;}catch(_){}
-        if(cb) cb(merged);
-        return merged;
+        ingestOrders(data);
       }
     }
-  }catch(e){}
-  return null;
+  } catch(_) {}
+
+  const current = HA();
+  if (cb) cb(current);
+  return current;
 }
-async function Uw(t){
+
+function listenOrders(cb) {
+  ordersSubscribers.add(cb);
+  cb(HA());
+  fetchCloudOrdersSnapshot();
+
+  let unsubWs = () => {};
+  try {
+    unsubWs = mf(Jt(Xt, "orders"), (snap) => {
+      const val = snap.val();
+      if (val) ingestOrders(val);
+    }, () => {});
+  } catch(_) {}
+
+  const pollTimer = setInterval(() => {
+    fetchCloudOrdersSnapshot();
+  }, 6000);
+
+  return () => {
+    ordersSubscribers.delete(cb);
+    clearInterval(pollTimer);
+    if (unsubWs) unsubWs();
+  };
+}
+
+async function Uw(t) {
   const orderId = t.orderNo || ("IQ" + Date.now().toString().slice(-6));
   const fullOrder = {
     id: orderId,
@@ -3231,23 +3286,16 @@ async function Uw(t){
     createdAt: new Date().toISOString(),
     ...t
   };
-  // 1. Instant Local Save with Merge (0ms)
-  const current = HA();
-  const merged = mergeOrdersList(current, [fullOrder]);
-  GA(merged);
-  try{window.__iraqstore_orders=merged;}catch(_){}
-  try{window.dispatchEvent(new CustomEvent('iraqstore_orders_updated',{detail:merged}));}catch(_){}
-  
-  // BroadcastChannel for instant cross-tab delivery on same device
+  ingestOrders([fullOrder]);
+
   try {
-    if (typeof BroadcastChannel !== 'undefined') {
-      const bc = new BroadcastChannel('iraqstore_orders_channel');
-      bc.postMessage({ type: 'NEW_ORDER', order: fullOrder, list: merged });
-      bc.close();
-    }
+    await fetch('/api/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(fullOrder)
+    });
   } catch(_) {}
 
-  // 2. Direct Cloud Save before return
   try {
     await fetch("https://store-29692-default-rtdb.firebaseio.com/orders/" + fullOrder.id + ".json", {
       method: "PUT",
@@ -3256,6 +3304,7 @@ async function Uw(t){
       keepalive: true
     });
   } catch(_) {}
+
   try {
     if (typeof Co === 'function' && typeof Jt === 'function' && Xt) {
       await Co(Jt(Xt, "orders/" + fullOrder.id), fullOrder).catch(() => {});
@@ -3264,90 +3313,8 @@ async function Uw(t){
 
   return fullOrder;
 }
-function listenOrders(t){
-  // Provide cached orders immediately
-  t(HA());
-  
-  // Cross-tab BroadcastChannel listener
-  try {
-    if (typeof BroadcastChannel !== 'undefined') {
-      const bc = new BroadcastChannel('iraqstore_orders_channel');
-      bc.onmessage = (ev) => {
-        if (ev.data && ev.data.list) {
-          const merged = mergeOrdersList(HA(), ev.data.list);
-          GA(merged);
-          t(merged);
-        } else if (ev.data && ev.data.order) {
-          const merged = mergeOrdersList(HA(), [ev.data.order]);
-          GA(merged);
-          t(merged);
-        }
-      };
-    }
-  } catch(_) {}
 
-  // Cloud snapshot fetch
-  fetchCloudOrdersSnapshot(t);
-  
-  let unsubWs = () => {};
-  const setupRealtime = () => {
-    try {
-      if (unsubWs) { try { unsubWs(); } catch(_) {} }
-      unsubWs = mf(Jt(Xt, "orders"), n => {
-        const r = n.val();
-        if (r && typeof r === 'object') {
-          const list = Object.values(r);
-          const merged = mergeOrdersList(HA(), list);
-          GA(merged);
-          try { window.__iraqstore_orders = merged; } catch(_) {}
-          t(merged);
-        }
-      }, () => {
-        fetchCloudOrdersSnapshot(t);
-      });
-    } catch(_) {}
-  };
-  
-  setupRealtime();
-  
-  // Auth state change handler
-  try {
-    if (b2 && typeof y2 === 'function') {
-      y2(b2, user => {
-        if (user) {
-          fetchCloudOrdersSnapshot(t);
-          setupRealtime();
-        }
-      });
-    }
-  } catch(_) {}
-  
-  if (typeof window !== "undefined") {
-    const handler = e => t(e.detail || HA());
-    window.addEventListener('iraqstore_orders_updated', handler);
-    window.addEventListener('storage', e => { if (e.key === Fw) t(HA()); });
-    window.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') fetchCloudOrdersSnapshot(t);
-    });
-    window.addEventListener('online', () => fetchCloudOrdersSnapshot(t));
-    
-    // Background polling interval every 2.5 seconds
-    if (window.__iraqstore_orders_sync_interval) clearInterval(window.__iraqstore_orders_sync_interval);
-    window.__iraqstore_orders_sync_interval = setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        fetchCloudOrdersSnapshot(t);
-      }
-    }, 2500);
-  }
-  
-  return () => {
-    if (unsubWs) unsubWs();
-    if (typeof window !== "undefined" && window.__iraqstore_orders_sync_interval) {
-      clearInterval(window.__iraqstore_orders_sync_interval);
-    }
-  };
-}
-async function updateOrderStatus(t,e){
+function updateOrderStatus(t,e){
   const n=HA().map(s=>(s.id===t||s.orderNo===t)?{...s,status:e}:s);
   GA(n);
   try{window.__iraqstore_orders=n;}catch(_){}

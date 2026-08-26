@@ -2441,9 +2441,8 @@ h4 {
 .toast-wrap {
   position: fixed;
   bottom: 1.5rem;
-  /* Trailing edge, so toasts never land underneath the cart drawer. */
   inset-inline-end: 1.5rem;
-  z-index: 95;
+  z-index: 120;
   display: flex;
   flex-direction: column;
   gap: 0.6rem;

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatPrice } from '../data/products';
 import { deleteOrder, updateOrderStatus } from '../data/remote';
 
@@ -10,11 +10,71 @@ const STATUS_LABELS = {
   cancelled: { label: 'ملغى ❌', badge: 'admin-status--cancelled' },
 };
 
+function playNewOrderSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const now = ctx.currentTime;
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(659.25, now);
+    gain1.gain.setValueAtTime(0.3, now);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.35);
+
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(880, now + 0.12);
+    gain2.gain.setValueAtTime(0.35, now + 0.12);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.start(now + 0.12);
+    osc2.stop(now + 0.6);
+  } catch (_) {}
+}
+
 export default function OrdersPanel({ orders }) {
   const [q, setQ] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [printOrder, setPrintOrder] = useState(null);
+  const [newOrderAlert, setNewOrderAlert] = useState(null);
+  const seenIdsRef = useRef(new Set((orders || []).map((o) => o.id || o.orderNo)));
+  const initializedRef = useRef(false);
+  const alertTimerRef = useRef(null);
+
+  useEffect(() => {
+    if (!initializedRef.current) {
+      initializedRef.current = true;
+      (orders || []).forEach((o) => {
+        const id = o.id || o.orderNo;
+        if (id) seenIdsRef.current.add(id);
+      });
+      return;
+    }
+
+    const newArrivals = (orders || []).filter((o) => {
+      const id = o.id || o.orderNo;
+      return id && !seenIdsRef.current.has(id);
+    });
+
+    if (newArrivals.length > 0) {
+      newArrivals.forEach((o) => {
+        const id = o.id || o.orderNo;
+        if (id) seenIdsRef.current.add(id);
+      });
+      playNewOrderSound();
+      const newest = newArrivals[0];
+      setNewOrderAlert(newest);
+      if (alertTimerRef.current) clearTimeout(alertTimerRef.current);
+      alertTimerRef.current = setTimeout(() => setNewOrderAlert(null), 5000);
+    }
+  }, [orders]);
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -41,9 +101,16 @@ export default function OrdersPanel({ orders }) {
   }, [orders]);
 
   const handleStatusChange = async (orderId, newStatus) => {
-    await updateOrderStatus(orderId, newStatus);
-    if (selectedOrder && (selectedOrder.id === orderId || selectedOrder.orderNo === orderId)) {
-      setSelectedOrder((prev) => (prev ? { ...prev, status: newStatus } : null));
+    if (newStatus === 'completed' || newStatus === 'cancelled') {
+      await deleteOrder(orderId);
+      if (selectedOrder && (selectedOrder.id === orderId || selectedOrder.orderNo === orderId)) {
+        setSelectedOrder(null);
+      }
+    } else {
+      await updateOrderStatus(orderId, newStatus);
+      if (selectedOrder && (selectedOrder.id === orderId || selectedOrder.orderNo === orderId)) {
+        setSelectedOrder((prev) => (prev ? { ...prev, status: newStatus } : null));
+      }
     }
   };
 
@@ -78,6 +145,34 @@ export default function OrdersPanel({ orders }) {
 
   return (
     <div className="admin-panel">
+      {newOrderAlert && (
+        <div
+          className="admin-note admin-note--ok"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: '1rem',
+            padding: '0.85rem 1.25rem',
+            borderRadius: '8px',
+            backgroundColor: 'rgba(34, 197, 94, 0.15)',
+            border: '1px solid #22c55e',
+            color: '#15803d',
+            fontWeight: '600',
+          }}
+        >
+          <span>🔔 وصل طلب جديد الآن: #{newOrderAlert.orderNo || newOrderAlert.id} من {newOrderAlert.name} ({formatPrice(newOrderAlert.total, 'ar')})</span>
+          <button
+            type="button"
+            className="admin-btn admin-btn--sm"
+            style={{ padding: '0.2rem 0.6rem' }}
+            onClick={() => setNewOrderAlert(null)}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Quick KPI stats row for orders */}
       <div className="admin-orders-stats">
         <button

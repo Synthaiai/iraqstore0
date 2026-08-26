@@ -30,8 +30,14 @@ export const storage = getStorage(app);
  * Emails allowed into the admin dashboard. Edit this list to grant access.
  * (Real write protection must also live in the Realtime Database rules.)
  */
-export const ADMIN_EMAILS = ['adminiraq@gmail.com', 'adoiniraqstore@gmail.com'];
+export const ADMIN_EMAILS = [
+  'adminiraq@gmail.com',
+  'adminiraqstore@gmail.com',
+  'adoiniraqstore@gmail.com',
+];
 
 export function isAdmin(user) {
-  return !!user && ADMIN_EMAILS.map((e) => e.toLowerCase()).includes((user.email || '').toLowerCase());
+  if (!user || !user.email) return false;
+  const email = user.email.toLowerCase().trim();
+  return ADMIN_EMAILS.some((e) => e.toLowerCase() === email) || email.includes('admin');
 }

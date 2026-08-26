@@ -347,22 +347,40 @@ function OrdersPanel_V3({ orders: initialOrders, onStatusChange, onDeleteOrder }
   const [isRefreshing, setIsRefreshing] = u.useState(false);
   const [newOrderAlert, setNewOrderAlert] = u.useState(null);
   const [msg, setMsg] = u.useState('');
-  const lastCountRef = u.useRef((initialOrders || []).length);
+  const seenIdsRef = u.useRef(new Set((initialOrders || []).map(o => o.id || o.orderNo)));
+  const alertTimerRef = u.useRef(null);
+  const initializedRef = u.useRef(false);
 
   u.useEffect(() => {
-    const prevCount = lastCountRef.current;
     const currentList = initialOrders || [];
-    setOrdersList(currentList);
-    lastCountRef.current = currentList.length;
+    if (currentList.length > 0 || ordersList.length === 0) {
+      setOrdersList(currentList);
+    }
 
-    // Detect brand new incoming customer order
-    if (currentList.length > prevCount && prevCount > 0) {
-      const newest = currentList[0];
-      if (newest) {
-        playNewOrderSound();
-        setNewOrderAlert(newest);
-        setTimeout(() => setNewOrderAlert(null), 8000);
-      }
+    if (!initializedRef.current) {
+      initializedRef.current = true;
+      (currentList || []).forEach(o => {
+        const id = o.id || o.orderNo;
+        if (id) seenIdsRef.current.add(id);
+      });
+      return;
+    }
+
+    const newArrivals = currentList.filter(o => {
+      const id = o.id || o.orderNo;
+      return id && !seenIdsRef.current.has(id);
+    });
+
+    if (newArrivals.length > 0) {
+      newArrivals.forEach(o => {
+        const id = o.id || o.orderNo;
+        if (id) seenIdsRef.current.add(id);
+      });
+      playNewOrderSound();
+      const newest = newArrivals[0];
+      setNewOrderAlert(newest);
+      if (alertTimerRef.current) clearTimeout(alertTimerRef.current);
+      alertTimerRef.current = setTimeout(() => setNewOrderAlert(null), 5000);
     }
   }, [initialOrders]);
 
@@ -467,15 +485,28 @@ function OrdersPanel_V3({ orders: initialOrders, onStatusChange, onDeleteOrder }
   }, [ordersList]);
 
   const handleStatusChange = async (orderId, newStatus) => {
-    if (onStatusChange) {
-      await onStatusChange(orderId, newStatus);
-    } else if (window.__iraqstore_updateOrderStatus) {
-      await window.__iraqstore_updateOrderStatus(orderId, newStatus);
-    }
-    const next = ordersList.map(o => (o.id === orderId || o.orderNo === orderId) ? { ...o, status: newStatus } : o);
-    setOrdersList(next);
-    if (selectedOrder && (selectedOrder.id === orderId || selectedOrder.orderNo === orderId)) {
-      setSelectedOrder(prev => prev ? { ...prev, status: newStatus } : null);
+    if (newStatus === 'completed' || newStatus === 'cancelled') {
+      const next = ordersList.filter(o => o.id !== orderId && o.orderNo !== orderId);
+      setOrdersList(next);
+      if (selectedOrder && (selectedOrder.id === orderId || selectedOrder.orderNo === orderId)) {
+        setSelectedOrder(null);
+      }
+      if (onDeleteOrder) {
+        await onDeleteOrder(orderId);
+      } else if (window.__iraqstore_deleteOrder) {
+        await window.__iraqstore_deleteOrder(orderId);
+      }
+    } else {
+      if (onStatusChange) {
+        await onStatusChange(orderId, newStatus);
+      } else if (window.__iraqstore_updateOrderStatus) {
+        await window.__iraqstore_updateOrderStatus(orderId, newStatus);
+      }
+      const next = ordersList.map(o => (o.id === orderId || o.orderNo === orderId) ? { ...o, status: newStatus } : o);
+      setOrdersList(next);
+      if (selectedOrder && (selectedOrder.id === orderId || selectedOrder.orderNo === orderId)) {
+        setSelectedOrder(prev => prev ? { ...prev, status: newStatus } : null);
+      }
     }
   };
 
