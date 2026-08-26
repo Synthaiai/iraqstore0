@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useStore } from '../store/StoreContext';
 import { usePrefs } from '../store/PrefsContext';
-import { formatPrice } from '../data/products';
+import { formatPrice, getProduct } from '../data/products';
 import { GOVERNORATES, deliveryFee, getDeliveryFees, isValidIraqiPhone } from '../data/iraq';
 import { STORE_CONTACT, buildWhatsAppInvoiceText, openWhatsAppInvoice } from '../data/contact';
 import { saveOrder } from '../data/remote';
@@ -75,8 +75,10 @@ export default function CheckoutPage() {
     return next;
   };
 
-  const submit = (e) => {
-    e.preventDefault();
+  const submit = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (submitting) return;
+
     const next = validate();
     if (Object.keys(next).length) {
       setErrors(next);
@@ -86,35 +88,57 @@ export default function CheckoutPage() {
     }
 
     setSubmitting(true);
-    const orderNo = `IQ${Date.now().toString().slice(-6)}`;
-    const orderData = {
-      orderNo,
-      name: form.name.trim(),
-      phone: form.phone.trim(),
-      governorate: form.governorate,
-      city: form.city.trim(),
-      address: form.address.trim(),
-      notes: form.notes.trim(),
-      cart,
-      subtotal,
-      fee,
-      total,
-      itemCount: cart.reduce((n, l) => n + l.qty, 0),
-      payment, // 'cod' | 'card'
-      paymentLabel: payment === 'card' ? 'الدفع عن طريق الماستر الرافدين' : 'الدفع عند الاستلام',
-    };
-
-    // 1. Save order to Firebase / LocalStorage for admin dashboard in real-time
     try {
-      await saveOrder(orderData);
-    } catch (err) {
-      console.warn('Order save fallback:', err);
-    }
+      // 1. Cross-verify cart prices against the live database catalog
+      let verifiedSubtotal = 0;
+      const verifiedCart = cart.map((line) => {
+        const live = getProduct(line.product.id);
+        const unitPrice = (live && typeof live.price === 'number') ? live.price : (Number(line.product.price) || 0);
+        const qty = Math.max(1, Math.min(99, Number(line.qty) || 1));
+        verifiedSubtotal += unitPrice * qty;
+        return {
+          ...line,
+          qty,
+          product: {
+            ...line.product,
+            price: unitPrice,
+          },
+        };
+      });
 
-    // 2. Clear cart and navigate directly to confirmation
-    clearCart();
-    setSubmitting(false);
-    navigate('/order-confirmed', { state: orderData, replace: true });
+      const verifiedFee = deliveryFee(form.governorate, fees);
+      const verifiedTotal = verifiedSubtotal + (form.governorate ? verifiedFee : 0);
+
+      const orderNo = `IQ${Date.now().toString().slice(-6)}`;
+      const orderData = {
+        orderNo,
+        name: form.name.trim(),
+        phone: form.phone.trim(),
+        governorate: form.governorate,
+        city: form.city.trim(),
+        address: form.address.trim(),
+        notes: form.notes.trim(),
+        cart: verifiedCart,
+        subtotal: verifiedSubtotal,
+        fee: verifiedFee,
+        total: verifiedTotal,
+        itemCount: verifiedCart.reduce((n, l) => n + l.qty, 0),
+        payment, // 'cod' | 'card'
+        paymentLabel: payment === 'card' ? 'الدفع عن طريق الماستر الرافدين' : 'الدفع عند الاستلام',
+      };
+
+      // 2. Save order to Firebase Realtime DB & local IndexedDB
+      await saveOrder(orderData);
+
+      // 3. Clear cart and navigate directly to confirmation
+      clearCart();
+      setSubmitting(false);
+      navigate('/order-confirmed', { state: orderData, replace: true });
+    } catch (err) {
+      console.error('Order checkout submission error:', err);
+      setSubmitting(false);
+      alert(lang === 'en' ? 'An unexpected error occurred while placing your order. Please try again.' : 'حدث خطأ أثناء معالجة طلبك، يرجى المحاولة مرة أخرى.');
+    }
   };
 
   return (

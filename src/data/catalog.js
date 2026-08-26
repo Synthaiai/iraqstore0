@@ -129,16 +129,31 @@ let currentSubcategories = { ...INITIAL_SUBCATEGORIES };
 // Try loading local catalog cache at module start
 const cached = getLocalCatalog();
 if (cached && cached.genders) {
-  currentGenders = cached.genders;
-  currentCategories = cached.categories || INITIAL_CATEGORIES;
-  currentSubcategories = cached.subcategories || INITIAL_SUBCATEGORIES;
+  if (Array.isArray(cached.genders) && cached.genders.length) {
+    currentGenders = [...cached.genders];
+  }
+  if (cached.categories && typeof cached.categories === 'object') {
+    currentCategories = { ...INITIAL_CATEGORIES, ...cached.categories };
+  }
+  if (cached.subcategories && typeof cached.subcategories === 'object') {
+    currentSubcategories = { ...INITIAL_SUBCATEGORIES, ...cached.subcategories };
+  }
 }
 
 export function updateCatalogStore(tree) {
   if (!tree) return;
-  if (tree.genders) currentGenders = tree.genders;
-  if (tree.categories) currentCategories = tree.categories;
-  if (tree.subcategories) currentSubcategories = tree.subcategories;
+  if (Array.isArray(tree.genders) && tree.genders.length) {
+    currentGenders.length = 0;
+    currentGenders.push(...tree.genders);
+  }
+  if (tree.categories && typeof tree.categories === 'object') {
+    Object.keys(currentCategories).forEach((k) => delete currentCategories[k]);
+    Object.assign(currentCategories, tree.categories);
+  }
+  if (tree.subcategories && typeof tree.subcategories === 'object') {
+    Object.keys(currentSubcategories).forEach((k) => delete currentSubcategories[k]);
+    Object.assign(currentSubcategories, tree.subcategories);
+  }
 }
 
 export function getFullCatalogTree() {

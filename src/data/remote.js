@@ -1,5 +1,6 @@
+import { onAuthStateChanged } from 'firebase/auth';
 import { onValue, ref, remove, set, update } from 'firebase/database';
-import { db } from '../firebase';
+import { auth, db } from '../firebase';
 import { SEED_PRODUCTS, toRecord } from './products';
 
 import { deleteIDBProduct, getIDBProducts, setIDBProduct, setIDBProducts } from './db';
@@ -458,10 +459,10 @@ function mergeOrdersList(existing, incoming) {
 export function listenOrders(cb) {
   cb(getLocalOrders());
 
-  // BroadcastChannel for cross-tab instant messaging
+  let bc = null;
   try {
     if (typeof BroadcastChannel !== 'undefined') {
-      const bc = new BroadcastChannel('iraqstore_orders_channel');
+      bc = new BroadcastChannel('iraqstore_orders_channel');
       bc.onmessage = (ev) => {
         if (ev.data && ev.data.list) {
           setLocalOrders(ev.data.list);
@@ -503,43 +504,50 @@ export function listenOrders(cb) {
 
   setupRealtime();
 
+  let unsubAuth = () => {};
   try {
-    onAuthStateChanged(auth, (user) => {
-      if (user) {
-        fetchCloudOrdersSnapshot(cb);
-        setupRealtime();
-      }
-    });
+    if (auth) {
+      unsubAuth = onAuthStateChanged(auth, (user) => {
+        if (user) {
+          fetchCloudOrdersSnapshot(cb);
+          setupRealtime();
+        }
+      });
+    }
   } catch (_) {}
 
-  if (typeof window !== 'undefined') {
-    const handler = (e) => cb(e.detail || getLocalOrders());
-    window.addEventListener('iraqstore_orders_updated', handler);
-    window.addEventListener('storage', (e) => {
-      if (e.key === STORAGE_KEY_ORDERS) cb(getLocalOrders());
-    });
-    window.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') fetchCloudOrdersSnapshot(cb);
-    });
-    window.addEventListener('online', () => fetchCloudOrdersSnapshot(cb));
+  const orderUpdateHandler = (e) => cb(e.detail || getLocalOrders());
+  const storageHandler = (e) => {
+    if (e.key === STORAGE_KEY_ORDERS) cb(getLocalOrders());
+  };
+  const visibilityHandler = () => {
+    if (document.visibilityState === 'visible') fetchCloudOrdersSnapshot(cb);
+  };
+  const onlineHandler = () => fetchCloudOrdersSnapshot(cb);
 
-    if (window.__iraqstore_orders_sync_interval) clearInterval(window.__iraqstore_orders_sync_interval);
-    window.__iraqstore_orders_sync_interval = setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        fetchCloudOrdersSnapshot(cb);
-      }
-    }, 2500);
+  if (typeof window !== 'undefined') {
+    window.addEventListener('iraqstore_orders_updated', orderUpdateHandler);
+    window.addEventListener('storage', storageHandler);
+    window.addEventListener('visibilitychange', visibilityHandler);
+    window.addEventListener('online', onlineHandler);
   }
 
   return () => {
     if (unsubWs) unsubWs();
-    if (typeof window !== 'undefined' && window.__iraqstore_orders_sync_interval) {
-      clearInterval(window.__iraqstore_orders_sync_interval);
+    if (unsubAuth) unsubAuth();
+    if (bc) {
+      try { bc.close(); } catch (_) {}
+    }
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('iraqstore_orders_updated', orderUpdateHandler);
+      window.removeEventListener('storage', storageHandler);
+      window.removeEventListener('visibilitychange', visibilityHandler);
+      window.removeEventListener('online', onlineHandler);
     }
   };
 }
 
-export function saveOrder(orderRecord) {
+export async function saveOrder(orderRecord) {
   const orderId = orderRecord.orderNo || `IQ${Date.now().toString().slice(-6)}`;
   const fullOrder = {
     id: orderId,
@@ -567,22 +575,25 @@ export function saveOrder(orderRecord) {
     } catch (_) {}
   }
 
-  // Guaranteed background cloud save
-  setTimeout(() => {
+  // Push to Firebase Realtime Database with timeout and fallback
+  try {
+    await withTimeout(set(ref(db, `orders/${fullOrder.id}`), fullOrder), 6000);
+    notifyStatus('online');
+  } catch (err) {
+    console.warn('Firebase set order fallback to REST:', err);
     try {
-      fetch(`https://store-29692-default-rtdb.firebaseio.com/orders/${fullOrder.id}.json`, {
+      await fetch(`https://store-29692-default-rtdb.firebaseio.com/orders/${fullOrder.id}.json`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(fullOrder),
         keepalive: true,
-      }).catch(() => {});
-    } catch (_) {}
-    try {
-      set(ref(db, `orders/${fullOrder.id}`), fullOrder).catch(() => {});
-    } catch (_) {}
-  }, 0);
+      });
+    } catch (e) {
+      console.warn('REST order save error:', e);
+    }
+  }
 
-  return Promise.resolve(fullOrder);
+  return fullOrder;
 }
 
 export async function updateOrderStatus(orderId, status) {
@@ -617,4 +628,3 @@ export async function deleteOrder(orderId) {
   }
   return true;
 }
-

@@ -11,11 +11,15 @@ const BASE = 'https://images.unsplash.com/';
  * and at q=52 a 480px card image lands around 20–30 KB — the difference between
  * a grid that paints on a weak connection and one that doesn't.
  */
-const Q = 52;
+const Q = 38;
 
-export function img(slug, w = 480, h, q = Q) {
+export function img(slug, w = 340, h, q = Q) {
+  if (!slug) return '/logo.png';
+  if (typeof slug === 'string' && (slug.startsWith('http://') || slug.startsWith('https://') || slug.startsWith('data:') || slug.startsWith('/'))) {
+    return slug;
+  }
   const crop = h ? `&h=${h}` : '';
-  return `${BASE}${slug}?auto=format&fit=crop&w=${w}${crop}&q=${q}`;
+  return `${BASE}${slug}?auto=format,compress&fm=webp&fit=crop&w=${w}${crop}&q=${q}`;
 }
 
 /**
@@ -23,6 +27,9 @@ export function img(slug, w = 480, h, q = Q) {
  * phone fetch the 320w file instead of the 960w one.
  */
 export function srcSet(slug, widths, ratio, q = Q) {
+  if (!slug || (typeof slug === 'string' && (slug.startsWith('http://') || slug.startsWith('https://') || slug.startsWith('data:') || slug.startsWith('/')))) {
+    return undefined;
+  }
   return widths
     .map((w) => `${img(slug, w, ratio ? Math.round(w * ratio) : undefined, q)} ${w}w`)
     .join(', ');
@@ -350,12 +357,12 @@ export const POOLS = {
   // Editorial frames are vetted to be free of third-party brand marks —
   // a competitor's wordmark in our own hero would be worse than no photo.
   editorial: [
-    'photo-1762843352680-21a700cb56ac',
+    'photo-1489987707025-afc232f7ea0f',
+    'photo-1441986300917-64674bd600d8',
+    'photo-1558769132-cb1aea458c5e',
+    'photo-1567401893414-76b7b1e5a7a5',
     'photo-1642571969491-5d8b9eb4e809',
-    'photo-1638719742913-2d367150f683',
-    'photo-1615232204366-b1e65d7f9462',
     'photo-1629296967944-eb61e53efa91',
-    'photo-1695418390347-a82090e69ed9',
   ],
   menEditorial: [
     'photo-1519085360753-af0119f7cbe7',

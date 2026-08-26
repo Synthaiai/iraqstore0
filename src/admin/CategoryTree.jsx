@@ -101,6 +101,10 @@ export default function CategoryTree({ products, onCatalogUpdated }) {
         subs.push(newItem);
       } else {
         const idx = subs.findIndex((s) => s.slug === item.slug);
+        if (idx >= 0) {
+          subs[idx] = { ...subs[idx], ...newItem };
+        }
+      }
       updatedTree.subcategories[subKey] = subs;
     }
 

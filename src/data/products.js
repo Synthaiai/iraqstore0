@@ -1009,8 +1009,10 @@ export function setLiveProducts(list) {
 export function normalizeProduct(raw) {
   if (!raw || !raw.id) return null;
 
+  const colorsHash = Array.isArray(raw.colors) ? raw.colors.map((c) => (typeof c === 'object' ? c?.name : c)).join(',') : '';
+  const sizesHash = Array.isArray(raw.sizes) ? raw.sizes.join(',') : '';
   const imagesHash = Array.isArray(raw.images) ? raw.images.join('|') : (raw.image || '');
-  const cacheKey = `${raw.id}_${raw.price}_${raw.name}_${raw.sortOrder}_${raw.status}_${imagesHash}`;
+  const cacheKey = `${raw.id}_${raw.price}_${raw.oldPrice}_${raw.name}_${raw.sortOrder}_${raw.status}_${raw.badge}_${colorsHash}_${sizesHash}_${imagesHash}`;
   if (NORMALIZED_CACHE.has(cacheKey)) {
     return NORMALIZED_CACHE.get(cacheKey);
   }

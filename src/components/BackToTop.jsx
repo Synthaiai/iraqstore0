@@ -18,7 +18,7 @@ export default function BackToTop() {
       type="button"
       className={`to-top ${show ? 'is-visible' : ''}`}
       onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-      aria-label={t('backHome')}
+      aria-label={t('backToTop')}
       tabIndex={show ? 0 : -1}
     >
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>

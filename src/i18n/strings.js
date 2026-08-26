@@ -187,6 +187,7 @@ export const STRINGS = {
     notFoundTitle: 'هذه الصفحة غير موجودة',
     notFoundSub: 'ربما تغيّر الرابط أو حُذف القسم. لنعُد إلى نقطة البداية.',
     backHome: 'العودة إلى الرئيسية',
+    backToTop: 'العودة للأعلى',
 
     // Footer
     footerAbout: 'متجر إلكتروني لبيع الملابس والأحذية والإكسسوارات الرجالية والنسائية. تصفّح الأقسام واختر ما يناسبك.',
@@ -366,6 +367,7 @@ export const STRINGS = {
     notFoundTitle: 'This page does not exist',
     notFoundSub: 'The link may have changed or the section was removed. Let’s head back.',
     backHome: 'Back to home',
+    backToTop: 'Back to top',
 
     footerAbout: 'An online store for men’s and women’s clothing, footwear and accessories. Browse the sections and pick what suits you.',
     footerLinks: 'Links',
