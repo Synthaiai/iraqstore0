@@ -1,4 +1,4 @@
-import{r as u,o as ye,s as Se,a as Ce,i as we,j as e,b as V,c as Ee,d as ke,u as _e,g as Ae,e as Pe,f as ue,h as $e,I as Be,k as Te,l as Fe,m as Ie,G as D,n as O,D as Le,p as Oe,q as he,C as Me,S as ze,t as Re,v as Ue,L as Ge,w as We,x as Je,y as re,z as R,A as Xe,B as De}from "./index-v4-iraqstore.js";
+import{r as u,o as ye,s as Se,a as Ce,i as we,j as e,b as V,c as Ee,d as ke,u as _e,g as Ae,e as Pe,f as ue,h as $e,I as Be,k as Te,l as Fe,m as Ie,G as D,n as O,D as Le,p as Oe,q as he,C as Me,S as ze,t as Re,v as Ue,L as Ge,w as We,x as Je,y as re,z as R,A as Xe,B as De}from "./index-v5-iraqstore.js";
 
 function ProductReorderPanel_V3({ products }) {
   const [genderFilter, setGenderFilter] = u.useState('');
@@ -1010,6 +1010,20 @@ function is() {
     };
   }, []);
 
+  const handleStatusChange = async (orderId, newStatus) => {
+    if (window.__iraqstore_updateOrderStatus) {
+      await window.__iraqstore_updateOrderStatus(orderId, newStatus);
+    }
+    setOrders(prev => prev.map(item => (item.id === orderId || item.orderNo === orderId) ? { ...item, status: newStatus } : item));
+  };
+
+  const handleDeleteOrder = async (orderId) => {
+    if (window.__iraqstore_deleteOrder) {
+      await window.__iraqstore_deleteOrder(orderId);
+    }
+    setOrders(prev => prev.filter(item => item.id !== orderId && item.orderNo !== orderId));
+  };
+
   return e.jsxs("div", {
     className: "admin",
     "data-admin": "on",
@@ -1055,7 +1069,7 @@ function is() {
         children: [
           c === "products" && e.jsx(as, { products: o }),
           c === "reorder" && e.jsx(ProductReorderPanel_V3, { products: o }),
-          c === "orders" && e.jsx(OrdersPanel_V3, { orders: orders }),
+          c === "orders" && e.jsx(OrdersPanel_V3, { orders: orders, onStatusChange: handleStatusChange, onDeleteOrder: handleDeleteOrder }),
           c === "tree" && e.jsx(qe, { products: o }),
           c === "delivery" && e.jsx(Ke, {}),
           c === "settings" && e.jsx(ts, { productCount: o.length, products: o })
