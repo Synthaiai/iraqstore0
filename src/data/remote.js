@@ -410,10 +410,51 @@ function setLocalOrders(orders) {
   }
 }
 
+export async function fetchCloudOrdersSnapshot(cb) {
+  try {
+    let url = 'https://store-29692-default-rtdb.firebaseio.com/orders.json';
+    if (auth && auth.currentUser) {
+      try {
+        const token = await auth.currentUser.getIdToken(true);
+        if (token) url += '?auth=' + token;
+      } catch (_) {}
+    }
+    const res = await fetch(url + (url.includes('?') ? '&' : '?') + 't=' + Date.now(), {
+      headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && typeof data === 'object' && !data.error) {
+        const list = Object.values(data);
+        list.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+        setLocalOrders(list);
+        if (cb) cb(list);
+        return list;
+      }
+    }
+  } catch (e) {
+    console.warn('fetchCloudOrdersSnapshot fallback:', e);
+  }
+  return null;
+}
+
 export function listenOrders(cb) {
   let initialLoaded = false;
   const cached = getLocalOrders();
   cb(cached);
+  fetchCloudOrdersSnapshot(cb);
+
+  if (typeof window !== 'undefined') {
+    const handler = (e) => cb(e.detail || getLocalOrders());
+    window.addEventListener('iraqstore_orders_updated', handler);
+    window.addEventListener('storage', (e) => {
+      if (e.key === STORAGE_KEY_ORDERS) cb(getLocalOrders());
+    });
+    window.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') fetchCloudOrdersSnapshot(cb);
+    });
+    window.addEventListener('online', () => fetchCloudOrdersSnapshot(cb));
+  }
 
   try {
     const unsub = onValue(
@@ -423,13 +464,16 @@ export function listenOrders(cb) {
         notifyStatus('online');
         const val = snap.val();
         const list = val ? Object.values(val) : [];
+        list.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
         setLocalOrders(list);
         cb(list);
       },
       (error) => {
         console.warn('Firebase orders read error:', error);
         notifyStatus('offline');
-        if (!initialLoaded) cb(getLocalOrders());
+        fetchCloudOrdersSnapshot(cb).then((list) => {
+          if (!list && !initialLoaded) cb(getLocalOrders());
+        });
       }
     );
     return unsub;
@@ -441,22 +485,37 @@ export function listenOrders(cb) {
 }
 
 export async function saveOrder(orderRecord) {
+  const orderId = orderRecord.orderNo || `IQ${Date.now().toString().slice(-6)}`;
   const fullOrder = {
-    id: orderRecord.orderNo || `IQ${Date.now()}`,
+    id: orderId,
+    orderNo: orderId,
     status: 'new', // 'new' | 'processing' | 'shipped' | 'completed' | 'cancelled'
     createdAt: new Date().toISOString(),
     ...orderRecord,
   };
 
   const current = getLocalOrders();
-  const updated = [fullOrder, ...current.filter((o) => o.id !== fullOrder.id)];
+  const updated = [fullOrder, ...current.filter((o) => o.id !== fullOrder.id && o.orderNo !== fullOrder.id)];
   setLocalOrders(updated);
 
+  if (typeof window !== 'undefined') {
+    try {
+      window.dispatchEvent(new CustomEvent('iraqstore_orders_updated', { detail: updated }));
+    } catch (_) {}
+  }
+
   try {
-    await withTimeout(set(ref(db, `orders/${fullOrder.id}`), fullOrder), 4000);
+    await withTimeout(set(ref(db, `orders/${fullOrder.id}`), fullOrder), 6000);
     notifyStatus('online');
   } catch (err) {
     console.warn('Firebase saveOrder fallback:', err);
+    try {
+      await fetch(`https://store-29692-default-rtdb.firebaseio.com/orders/${fullOrder.id}.json`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(fullOrder),
+      });
+    } catch (_) {}
     notifyStatus('offline');
   }
 

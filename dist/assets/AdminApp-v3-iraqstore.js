@@ -315,6 +315,8 @@ function OrdersPanel_V3({ orders: initialOrders, onStatusChange, onDeleteOrder }
   const [statusFilter, setStatusFilter] = u.useState('');
   const [selectedOrder, setSelectedOrder] = u.useState(null);
   const [printOrder, setPrintOrder] = u.useState(null);
+  const [isRefreshing, setIsRefreshing] = u.useState(false);
+  const [msg, setMsg] = u.useState('');
 
   u.useEffect(() => {
     setOrdersList(initialOrders || []);
@@ -337,14 +339,47 @@ function OrdersPanel_V3({ orders: initialOrders, onStatusChange, onDeleteOrder }
     }
   };
 
+  const syncCloudOrders = async () => {
+    setIsRefreshing(true);
+    setMsg('جارٍ جلب وتحديث الطلبات من السحابة...');
+    try {
+      if (window.__iraqstore_fetchCloudOrders) {
+        const fresh = await window.__iraqstore_fetchCloudOrders(setOrdersList);
+        if (fresh && Array.isArray(fresh)) {
+          setOrdersList(fresh);
+          setMsg('تمت المزامنة وجلب ' + fresh.length + ' طلب بنجاح ✅');
+        } else {
+          setMsg('تم التحقق من الطلبات السحابية');
+        }
+      }
+    } catch(err) {
+      setMsg('خطأ أثناء المزامنة: ' + err.message);
+    } finally {
+      setIsRefreshing(false);
+      setTimeout(() => setMsg(''), 4000);
+    }
+  };
+
+  const clearAllOrders = () => {
+    if (window.confirm('هل أنت متأكد من مسح جميع الطلبات المعروضة محلياً لبدء استقبال الطلبات الحقيقية الجديدة فقط؟')) {
+      try {
+        localStorage.removeItem('iraqstore_orders_v1');
+        window.__iraqstore_orders = [];
+        setOrdersList([]);
+        setMsg('تم مسح الطلبات المحلية بنجاح');
+      } catch(_) {}
+    }
+  };
+
   const filtered = u.useMemo(() => {
     const s = q.trim().toLowerCase();
     return ordersList.filter(o => {
-      const matchQ = !s || (o.orderNo && o.orderNo.toLowerCase().includes(s)) ||
-        (o.name && o.name.toLowerCase().includes(s)) ||
-        (o.phone && o.phone.toLowerCase().includes(s)) ||
-        (o.governorate && o.governorate.toLowerCase().includes(s)) ||
-        (o.city && o.city.toLowerCase().includes(s));
+      const matchQ = !s || (o.orderNo && String(o.orderNo).toLowerCase().includes(s)) ||
+        (o.id && String(o.id).toLowerCase().includes(s)) ||
+        (o.name && String(o.name).toLowerCase().includes(s)) ||
+        (o.phone && String(o.phone).toLowerCase().includes(s)) ||
+        (o.governorate && String(o.governorate).toLowerCase().includes(s)) ||
+        (o.city && String(o.city).toLowerCase().includes(s));
       const matchStatus = !statusFilter || o.status === statusFilter;
       return matchQ && matchStatus;
     });
@@ -391,43 +426,67 @@ function OrdersPanel_V3({ orders: initialOrders, onStatusChange, onDeleteOrder }
     className: "admin-panel",
     children: [
       e.jsxs("div", {
-        className: "admin-orders-stats",
+        style: { display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.8rem", marginBottom: "1rem" },
         children: [
-          e.jsxs("button", {
-            type: "button",
-            className: `admin-stat-chip ${statusFilter === '' ? 'is-active' : ''}`,
-            onClick: () => setStatusFilter(''),
-            children: [e.jsx("span", { children: "كل الطلبات" }), e.jsx("strong", { children: counts.total })]
+          e.jsxs("div", {
+            className: "admin-orders-stats",
+            children: [
+              e.jsxs("button", {
+                type: "button",
+                className: `admin-stat-chip ${statusFilter === '' ? 'is-active' : ''}`,
+                onClick: () => setStatusFilter(''),
+                children: [e.jsx("span", { children: "كل الطلبات" }), e.jsx("strong", { children: counts.total })]
+              }),
+              e.jsxs("button", {
+                type: "button",
+                className: `admin-stat-chip admin-stat-chip--new ${statusFilter === 'new' ? 'is-active' : ''}`,
+                onClick: () => setStatusFilter('new'),
+                children: [e.jsx("span", { children: "طلبات جديدة" }), e.jsx("strong", { children: counts.new })]
+              }),
+              e.jsxs("button", {
+                type: "button",
+                className: `admin-stat-chip admin-stat-chip--processing ${statusFilter === 'processing' ? 'is-active' : ''}`,
+                onClick: () => setStatusFilter('processing'),
+                children: [e.jsx("span", { children: "قيد التجهيز" }), e.jsx("strong", { children: counts.processing })]
+              }),
+              e.jsxs("button", {
+                type: "button",
+                className: `admin-stat-chip admin-stat-chip--shipped ${statusFilter === 'shipped' ? 'is-active' : ''}`,
+                onClick: () => setStatusFilter('shipped'),
+                children: [e.jsx("span", { children: "تم الشحن" }), e.jsx("strong", { children: counts.shipped })]
+              }),
+              e.jsxs("button", {
+                type: "button",
+                className: `admin-stat-chip admin-stat-chip--completed ${statusFilter === 'completed' ? 'is-active' : ''}`,
+                onClick: () => setStatusFilter('completed'),
+                children: [e.jsx("span", { children: "مكتملة" }), e.jsx("strong", { children: counts.completed })]
+              })
+            ]
           }),
-          e.jsxs("button", {
-            type: "button",
-            className: `admin-stat-chip admin-stat-chip--new ${statusFilter === 'new' ? 'is-active' : ''}`,
-            onClick: () => setStatusFilter('new'),
-            children: [e.jsx("span", { children: "طلبات جديدة" }), e.jsx("strong", { children: counts.new })]
-          }),
-          e.jsxs("button", {
-            type: "button",
-            className: `admin-stat-chip admin-stat-chip--processing ${statusFilter === 'processing' ? 'is-active' : ''}`,
-            onClick: () => setStatusFilter('processing'),
-            children: [e.jsx("span", { children: "قيد التجهيز" }), e.jsx("strong", { children: counts.processing })]
-          }),
-          e.jsxs("button", {
-            type: "button",
-            className: `admin-stat-chip admin-stat-chip--shipped ${statusFilter === 'shipped' ? 'is-active' : ''}`,
-            onClick: () => setStatusFilter('shipped'),
-            children: [e.jsx("span", { children: "تم الشحن" }), e.jsx("strong", { children: counts.shipped })]
-          }),
-          e.jsxs("button", {
-            type: "button",
-            className: `admin-stat-chip admin-stat-chip--completed ${statusFilter === 'completed' ? 'is-active' : ''}`,
-            onClick: () => setStatusFilter('completed'),
-            children: [e.jsx("span", { children: "مكتملة" }), e.jsx("strong", { children: counts.completed })]
+          e.jsxs("div", {
+            style: { display: "flex", gap: "0.5rem", alignItems: "center" },
+            children: [
+              e.jsx("button", {
+                type: "button",
+                className: "admin-btn admin-btn--sm admin-btn--primary",
+                onClick: syncCloudOrders,
+                disabled: isRefreshing,
+                children: isRefreshing ? "جارٍ المزامنة..." : "🔄 مزامنة الطلبات السحابية"
+              }),
+              e.jsx("button", {
+                type: "button",
+                className: "admin-btn admin-btn--sm admin-btn--ghost",
+                onClick: clearAllOrders,
+                title: "مسح الطلبات القديمة لبدء صفحة جديدة",
+                children: "🧹 مسح الطلبات القديمة"
+              })
+            ]
           })
         ]
       }),
+      msg && e.jsx("div", { className: "admin-note admin-note--ok", style: { marginBottom: "1rem" }, children: msg }),
       e.jsxs("div", {
         className: "admin-toolbar",
-        style: { marginTop: "1.25rem" },
         children: [
           e.jsx("input", {
             className: "admin-search",
@@ -802,7 +861,6 @@ function OrdersPanel_V3({ orders: initialOrders, onStatusChange, onDeleteOrder }
     ]
   });
 }
-
 function is(){
   const { user: i, logout: l } = Y();
   const [o, n] = u.useState([]);
