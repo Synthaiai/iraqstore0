@@ -150,7 +150,7 @@ export default function CheckoutPage() {
                 inputMode="numeric"
                 value={form.phone}
                 onChange={set('phone')}
-                placeholder="07XXXXXXXXX"
+                placeholder="07XXXXXXXXX / +964..."
                 autoComplete="tel"
                 dir="ltr"
                 style={{ textAlign: lang === 'en' ? 'left' : 'right' }}

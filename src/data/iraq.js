@@ -62,8 +62,9 @@ export function deliveryFee(governorate, customFeesMap) {
 }
 
 /**
- * Iraqi mobile numbers: supports 07xxxxxxxxx, +9647xxxxxxxxx, 009647xxxxxxxxx, 7xxxxxxxxx,
- * and converts Arabic-Indic numerals automatically.
+ * Flexible Phone Number Validation:
+ * Accepts any valid mobile or phone number (Iraqi or international, 7 to 16 digits).
+ * Automatically normalizes Arabic-Indic digits (٠١٢٣...) and removes spaces/dashes.
  */
 export function isValidIraqiPhone(raw) {
   if (!raw) return false;
@@ -73,14 +74,8 @@ export function isValidIraqiPhone(raw) {
   arabicDigits.forEach((d, i) => {
     s = s.replaceAll(d, String(i));
   });
-  // Strip non-digits
-  let digits = s.replace(/\D/g, '');
-  // Normalize +964 or 00964 prefixes
-  if (digits.startsWith('964')) {
-    digits = '0' + digits.slice(3);
-  }
-  if (!digits.startsWith('0') && digits.startsWith('7') && digits.length === 10) {
-    digits = '0' + digits;
-  }
-  return /^07\d{9}$/.test(digits);
+  // Strip all non-digit characters except leading plus if any
+  const digits = s.replace(/\D/g, '');
+  // Accept any reasonable phone number length (7 to 16 digits)
+  return digits.length >= 7 && digits.length <= 16;
 }
