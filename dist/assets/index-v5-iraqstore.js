@@ -3222,7 +3222,7 @@ async function fetchCloudOrdersSnapshot(cb){
   }catch(e){}
   return null;
 }
-function Uw(t){
+async function Uw(t){
   const orderId = t.orderNo || ("IQ" + Date.now().toString().slice(-6));
   const fullOrder = {
     id: orderId,
@@ -3247,24 +3247,22 @@ function Uw(t){
     }
   } catch(_) {}
 
-  // 2. Guaranteed Cloud Save (both Firebase REST and WebSocket)
-  setTimeout(() => {
-    // A) Direct Firebase REST PUT with keepalive
-    try {
-      fetch("https://store-29692-default-rtdb.firebaseio.com/orders/" + fullOrder.id + ".json", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(fullOrder),
-        keepalive: true
-      }).catch(() => {});
-    } catch(_) {}
-    // B) Firebase WebSocket set
-    try {
-      Co(Jt(Xt,"orders/" + fullOrder.id), fullOrder).catch(() => {});
-    } catch(_) {}
-  }, 0);
+  // 2. Direct Cloud Save before return
+  try {
+    await fetch("https://store-29692-default-rtdb.firebaseio.com/orders/" + fullOrder.id + ".json", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(fullOrder),
+      keepalive: true
+    });
+  } catch(_) {}
+  try {
+    if (typeof Co === 'function' && typeof Jt === 'function' && Xt) {
+      await Co(Jt(Xt, "orders/" + fullOrder.id), fullOrder).catch(() => {});
+    }
+  } catch(_) {}
 
-  return Promise.resolve(fullOrder);
+  return fullOrder;
 }
 function listenOrders(t){
   // Provide cached orders immediately

@@ -404,6 +404,201 @@ function getLocalOrders() {
 }
 
 function setLocalOrders(orders) {
+  } catch (err) {
+    console.warn('Firebase save fallback to local IDB:', err);
+    notifyStatus('offline');
+  }
+  return record;
+}
+
+export async function deleteProduct(id) {
+  const current = memoryProductsCache || (await getIDBProducts()) || [];
+  const updated = current.filter((p) => String(p.id) !== String(id));
+  setLocalProducts(updated);
+  deleteIDBProduct(id);
+
+  try {
+    await withTimeout(remove(ref(db, `products/${id}`)), 5000);
+    notifyStatus('online');
+  } catch (err) {
+    console.warn('Firebase delete fallback:', err);
+    notifyStatus('offline');
+  }
+  return true;
+}
+
+export async function saveProductsBatch(recordsList) {
+  if (!Array.isArray(recordsList) || !recordsList.length) return true;
+
+  const current = memoryProductsCache || (await getIDBProducts()) || [];
+  const map = new Map(current.map((p) => [String(p.id), p]));
+  const dbBatchMap = {};
+
+  recordsList.forEach((rec) => {
+    map.set(String(rec.id), rec);
+    dbBatchMap[rec.id] = rec;
+  });
+
+  const updatedList = Array.from(map.values());
+  setLocalProducts(updatedList);
+
+  try {
+    await withTimeout(update(ref(db, 'products'), dbBatchMap), 12000);
+    notifyStatus('online');
+  } catch (err) {
+    console.warn('Firebase saveProductsBatch fallback to IDB:', err);
+    notifyStatus('offline');
+  }
+  return true;
+}
+
+export async function seedProducts() {
+  const map = {};
+  const list = [];
+  SEED_PRODUCTS.forEach((p) => {
+    const rec = toRecord(p);
+    map[p.id] = rec;
+    list.push(rec);
+  });
+
+  setLocalProducts(list);
+
+  try {
+    await withTimeout(set(ref(db, 'products'), map), 8000);
+    notifyStatus('online');
+  } catch (err) {
+    console.warn('Firebase seed fallback:', err);
+    notifyStatus('offline');
+  }
+  return true;
+}
+
+/* ---------------- Settings (logo, promos…) ---------------- */
+
+export function listenSettings(cb) {
+  try {
+    const local = localStorage.getItem(STORAGE_KEY_SETTINGS);
+    if (local) cb(JSON.parse(local));
+  } catch (e) {
+    /* ignore */
+  }
+
+  try {
+    return onValue(ref(db, 'settings'), (snap) => {
+      const val = snap.val() || {};
+      try {
+        localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(val));
+      } catch (e) {}
+      cb(val);
+    });
+  } catch {
+    return () => {};
+  }
+}
+
+export async function saveSetting(key, value) {
+  try {
+    const localStr = localStorage.getItem(STORAGE_KEY_SETTINGS);
+    const local = localStr ? JSON.parse(localStr) : {};
+    local[key] = value;
+    localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(local));
+  } catch (e) {}
+
+  try {
+    await withTimeout(update(ref(db, 'settings'), { [key]: value }), 4000);
+  } catch (err) {
+    console.warn('Firebase saveSetting fallback:', err);
+  }
+}
+
+/* ---------------- Catalog Tree (dynamic categories) ---------------- */
+
+function encodeTreeForFirebase(tree) {
+  if (!tree) return null;
+  const copy = JSON.parse(JSON.stringify(tree));
+  if (copy.subcategories && typeof copy.subcategories === 'object') {
+    const encodedSubs = {};
+    for (const [k, v] of Object.entries(copy.subcategories)) {
+      const safeKey = k.replace(/\//g, '___');
+      encodedSubs[safeKey] = v;
+    }
+    copy.subcategories = encodedSubs;
+  }
+  return copy;
+}
+
+function decodeTreeFromFirebase(tree) {
+  if (!tree) return null;
+  const copy = JSON.parse(JSON.stringify(tree));
+  if (copy.subcategories && typeof copy.subcategories === 'object') {
+    const decodedSubs = {};
+    for (const [k, v] of Object.entries(copy.subcategories)) {
+      const normalKey = k.replace(/___/g, '/');
+      decodedSubs[normalKey] = v;
+    }
+    copy.subcategories = decodedSubs;
+  }
+  return copy;
+}
+
+export function getLocalCatalog() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_CATALOG);
+    return raw ? decodeTreeFromFirebase(JSON.parse(raw)) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function listenCatalog(cb) {
+  const cached = getLocalCatalog();
+  if (cached) cb(cached);
+
+  try {
+    return onValue(ref(db, 'catalog'), (snap) => {
+      const val = snap.val();
+      if (val) {
+        const decoded = decodeTreeFromFirebase(val);
+        try {
+          localStorage.setItem(STORAGE_KEY_CATALOG, JSON.stringify(decoded));
+        } catch (e) {}
+        cb(decoded);
+      }
+    });
+  } catch {
+    return () => {};
+  }
+}
+
+export async function saveCatalog(tree) {
+  const decodedTree = decodeTreeFromFirebase(tree);
+  try {
+    localStorage.setItem(STORAGE_KEY_CATALOG, JSON.stringify(decodedTree));
+  } catch (e) {}
+
+  try {
+    const encodedTree = encodeTreeForFirebase(decodedTree);
+    await withTimeout(set(ref(db, 'catalog'), encodedTree), 8000);
+    notifyStatus('online');
+  } catch (err) {
+    console.warn('Firebase saveCatalog fallback:', err);
+    notifyStatus('offline');
+  }
+  return decodedTree;
+}
+
+/* ---------------- Orders Realtime & Fallback ---------------- */
+
+function getLocalOrders() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_ORDERS);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function setLocalOrders(orders) {
   try {
     localStorage.setItem(STORAGE_KEY_ORDERS, JSON.stringify(orders));
   } catch (e) {
@@ -427,10 +622,10 @@ export async function fetchCloudOrdersSnapshot(cb) {
       const data = await res.json();
       if (data && typeof data === 'object' && !data.error) {
         const list = Object.values(data);
-        list.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-        setLocalOrders(list);
-        if (cb) cb(list);
-        return list;
+        const merged = mergeOrdersList(getLocalOrders(), list);
+        setLocalOrders(merged);
+        if (cb) cb(merged);
+        return merged;
       }
     }
   } catch (e) {
@@ -465,13 +660,13 @@ export function listenOrders(cb) {
       bc = new BroadcastChannel('iraqstore_orders_channel');
       bc.onmessage = (ev) => {
         if (ev.data && ev.data.list) {
-          setLocalOrders(ev.data.list);
-          cb(ev.data.list);
+          const merged = mergeOrdersList(getLocalOrders(), ev.data.list);
+          setLocalOrders(merged);
+          cb(merged);
         } else if (ev.data && ev.data.order) {
-          const cur = getLocalOrders();
-          const next = [ev.data.order, ...cur.filter((o) => o.id !== ev.data.order.id)];
-          setLocalOrders(next);
-          cb(next);
+          const merged = mergeOrdersList(getLocalOrders(), [ev.data.order]);
+          setLocalOrders(merged);
+          cb(merged);
         }
       };
     }
@@ -490,9 +685,9 @@ export function listenOrders(cb) {
           const val = snap.val();
           if (val && typeof val === 'object') {
             const list = Object.values(val);
-            list.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-            setLocalOrders(list);
-            cb(list);
+            const merged = mergeOrdersList(getLocalOrders(), list);
+            setLocalOrders(merged);
+            cb(merged);
           }
         },
         () => {

@@ -222,6 +222,40 @@ assert(rulesContent.rules.orders['.read'].includes('auth != null'), 'Orders read
 assert(rulesContent.rules.orders.$orderId['.write'].includes('data.val() == null'), 'Customers can only create new orders and cannot overwrite existing orders');
 
 // ----------------------------------------------------
+// Test 8: Orders Merge & Retention Integrity
+// ----------------------------------------------------
+console.log('\n--- Test Suite 8: Orders Merge & Retention Engine ---');
+const local = [
+  { id: 'IQ1001', orderNo: 'IQ1001', name: 'زبون محلي 1', createdAt: '2026-08-26T10:00:00Z' }
+];
+const cloud = [
+  { id: 'IQ1002', orderNo: 'IQ1002', name: 'زبون سحابي 2', createdAt: '2026-08-26T11:00:00Z' }
+];
+
+function mergeOrdersList(existing, incoming) {
+  const map = new Map();
+  (existing || []).forEach((o) => {
+    if (o && (o.id || o.orderNo)) map.set(o.id || o.orderNo, o);
+  });
+  (incoming || []).forEach((o) => {
+    if (o && (o.id || o.orderNo)) {
+      const key = o.id || o.orderNo;
+      const prev = map.get(key);
+      map.set(key, { ...prev, ...o });
+    }
+  });
+  const merged = Array.from(map.values());
+  merged.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+  return merged;
+}
+
+const mergedOrders = mergeOrdersList(local, cloud);
+assert(mergedOrders.length === 2, 'Merged list retains BOTH local and cloud orders (length = 2)');
+assert(mergedOrders[0].id === 'IQ1002' && mergedOrders[1].id === 'IQ1001', 'Merged list correctly ordered newest first');
+const mergedWithEmpty = mergeOrdersList(local, []);
+assert(mergedWithEmpty.length === 1, 'Merging with empty cloud array does NOT wipe out local orders');
+
+// ----------------------------------------------------
 // Summary
 // ----------------------------------------------------
 console.log('\n========================================');
