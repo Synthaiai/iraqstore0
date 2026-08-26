@@ -22,7 +22,7 @@ export default function OrderConfirmedPage() {
 
       <h1 className="confirm__title">{t('orderReceived')}</h1>
       <p className="confirm__lead">
-        {t('thanks')} <b>{state.name}</b>. تم تجهيز الفاتورة وإرسالها عبر الواتساب إلى الرقم ({STORE_CONTACT.phone}).
+        {t('thanks')} <b>{state.name}</b>. تم استلام طلبك وتسجيله بنجاح في نظام المتجر، وسيتم التواصل معك هاتفياً لتأكيد الطلب والشحن.
       </p>
 
       <div className="confirm__card">
@@ -64,17 +64,23 @@ export default function OrderConfirmedPage() {
 
       <div className="confirm__note">
         <Truck />
-        <span>الدفع عند الاستلام. سيتم التواصل معك قريباً لتأكيد موعد التوصيل.</span>
+        <span>{state.payment === 'card' ? 'سيتم التواصل معك لإتمام دفع الماستر كارد والشحن.' : 'الدفع عند الاستلام. سيتم التواصل معك هاتفياً لتأكيد موعد التوصيل.'}</span>
       </div>
 
       <div className="confirm__actions" style={{ flexDirection: 'column', gap: '0.75rem', alignItems: 'center' }}>
-        <button type="button" className="btn btn--burgundy" onClick={resendWhatsApp} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+        <a
+          href={`https://wa.me/${STORE_CONTACT.whatsappNumber}?text=${encodeURIComponent(`مرحباً، لدي استفسار بخصوص طلبي رقم #${state.orderNo}`)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn btn--burgundy"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
+        >
           <Whatsapp />
-          فتح الواتساب لإرسال الفاتورة مجدداً 📱
-        </button>
+          مراسلة خدمة العملاء عبر الواتساب للاستفسار 💬
+        </a>
 
         <Link to="/" className="btn btn--ghost">
-          العودة للمتجر
+          العودة لتصفح المتجر 🛍️
         </Link>
       </div>
     </section>

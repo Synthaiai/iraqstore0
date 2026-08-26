@@ -105,15 +105,10 @@ export default function CheckoutPage() {
     };
 
     // Save order to Firebase / LocalStorage for admin dashboard
-    saveOrder(orderData).catch((e) => console.warn('Order save failed:', e));
+    await saveOrder(orderData).catch((e) => console.warn('Order save failed:', e));
 
-    // Open WhatsApp invoice directly
-    openWhatsAppInvoice(orderData);
-
-    setTimeout(() => {
-      clearCart();
-      navigate('/order-confirmed', { state: orderData, replace: true });
-    }, 600);
+    clearCart();
+    navigate('/order-confirmed', { state: orderData, replace: true });
   };
 
   return (
@@ -122,7 +117,7 @@ export default function CheckoutPage() {
 
       <header className="shell page-head">
         <h1 className="page-head__title">{t('checkoutTitle')}</h1>
-        <p className="page-head__sub">يرجى إكمال تفاصيل الطلب وسيتم إرسال الفاتورة تلقائياً للواتساب ({STORE_CONTACT.phone})</p>
+        <p className="page-head__sub">يرجى إدخال معلومات التوصيل وسيصل طلبك مباشرة إلى إدارة المتجر لتجهيزه والشحن.</p>
       </header>
 
       <div className="shell checkout">
@@ -293,7 +288,7 @@ export default function CheckoutPage() {
                   lang === 'en' ? 'Processing order…' : 'جارٍ إتمام الطلب…'
                 ) : (
                   <>
-                    <Whatsapp />
+                    <Bag />
                     {lang === 'en' ? 'Complete Order' : 'إتمام الطلب'} — {formatPrice(total, lang)}
                   </>
                 )}
@@ -358,7 +353,7 @@ export default function CheckoutPage() {
                 lang === 'en' ? 'Processing order…' : 'جارٍ إتمام الطلب…'
               ) : (
                 <>
-                  <Whatsapp />
+                  <Bag />
                   {lang === 'en' ? 'Complete Order' : 'إتمام الطلب'} — {formatPrice(total, lang)}
                 </>
               )}

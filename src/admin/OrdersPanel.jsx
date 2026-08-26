@@ -69,6 +69,13 @@ export default function OrdersPanel({ orders }) {
     }
   };
 
+  const cleanPhone = (p) => {
+    const digits = String(p || '').replace(/\D/g, '');
+    if (digits.startsWith('07')) return '964' + digits.slice(1);
+    if (digits.startsWith('7')) return '964' + digits;
+    return digits;
+  };
+
   return (
     <div className="admin-panel">
       {/* Quick KPI stats row for orders */}
@@ -138,6 +145,7 @@ export default function OrdersPanel({ orders }) {
         <div className="admin-orders-table">
           {filtered.map((order) => {
             const st = STATUS_LABELS[order.status || 'new'] || STATUS_LABELS.new;
+            const items = order.cart || [];
             return (
               <div className="admin-order-card" key={order.id || order.orderNo}>
                 <div className="admin-order-card__head">
@@ -156,16 +164,26 @@ export default function OrdersPanel({ orders }) {
                   </div>
 
                   <div className="admin-order-items-preview">
-                    <span>{order.itemCount || order.cart?.length || 1} منتجات</span>
-                    <small className="admin-dim">
-                      {order.cart?.map((i) => i.product?.name || i.name).slice(0, 2).join('، ')}
-                      {order.cart?.length > 2 && '...'}
-                    </small>
+                    <span>{order.itemCount || items.length || 1} منتجات مطلوبة:</span>
+                    <div className="admin-order-thumbs">
+                      {items.slice(0, 4).map((item, i) => (
+                        <img
+                          key={i}
+                          src={item.product?.images?.[0] || item.product?.image || item.image || '/logo.png'}
+                          alt=""
+                          className="admin-order-thumb"
+                          title={`${item.product?.name || item.name || 'منتج'} (${item.size || ''} / ${item.color || ''}) × ${item.qty}`}
+                        />
+                      ))}
+                      {items.length > 4 && (
+                        <span className="admin-order-thumb-more">+{items.length - 4}</span>
+                      )}
+                    </div>
                   </div>
 
                   <div className="admin-order-price">
                     <strong>{formatPrice(order.total || order.subtotal)}</strong>
-                    <small>الدفع عند الاستلام</small>
+                    <small>{order.paymentLabel || 'الدفع عند الاستلام'}</small>
                   </div>
                 </div>
 
@@ -183,6 +201,23 @@ export default function OrdersPanel({ orders }) {
                   </select>
 
                   <div className="admin-order-btns">
+                    <a
+                      href={`tel:${order.phone}`}
+                      className="admin-btn admin-btn--sm admin-btn--ghost"
+                      title="اتصال مباشر بالزبون"
+                    >
+                      📞 اتصال
+                    </a>
+                    <a
+                      href={`https://wa.me/${cleanPhone(order.phone)}?text=${encodeURIComponent(`مرحباً ${order.name}، بخصوص طلبك رقم #${order.orderNo || order.id} من متجر عراق ستور`)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="admin-btn admin-btn--sm admin-btn--ghost"
+                      style={{ color: '#25D366' }}
+                      title="مراسلة الزبون على الواتساب"
+                    >
+                      💬 واتساب
+                    </a>
                     <button
                       className="admin-btn admin-btn--sm"
                       onClick={() => setSelectedOrder(order)}
@@ -228,6 +263,13 @@ export default function OrdersPanel({ orders }) {
 }
 
 function OrderDetailsModal({ order, onClose, onStatusChange, onPrint }) {
+  const cleanPhone = (p) => {
+    const digits = String(p || '').replace(/\D/g, '');
+    if (digits.startsWith('07')) return '964' + digits.slice(1);
+    if (digits.startsWith('7')) return '964' + digits;
+    return digits;
+  };
+
   return (
     <div className="admin-modal" onClick={onClose}>
       <div className="admin-modal__panel admin-modal__panel--lg" onClick={(e) => e.stopPropagation()}>
@@ -245,7 +287,11 @@ function OrderDetailsModal({ order, onClose, onStatusChange, onPrint }) {
             <div className="admin-card" style={{ margin: 0 }}>
               <h3>👤 معلومات الزبون</h3>
               <p style={{ margin: 0 }}><b>الاسم:</b> {order.name}</p>
-              <p style={{ margin: '0.4rem 0' }}><b>رقم الهاتف:</b> <span dir="ltr">{order.phone}</span></p>
+              <p style={{ margin: '0.4rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <b>رقم الهاتف:</b> <span dir="ltr">{order.phone}</span>
+                <a href={`tel:${order.phone}`} className="admin-btn admin-btn--sm admin-btn--ghost" style={{ padding: '2px 8px', fontSize: '0.8rem' }}>📞 اتصال</a>
+                <a href={`https://wa.me/${cleanPhone(order.phone)}?text=${encodeURIComponent(`مرحباً ${order.name}، معك متجر عراق ستور بخصوص طلبك رقم #${order.orderNo || order.id}`)}`} target="_blank" rel="noopener noreferrer" className="admin-btn admin-btn--sm admin-btn--ghost" style={{ padding: '2px 8px', fontSize: '0.8rem', color: '#25D366' }}>💬 واتساب</a>
+              </p>
               <p style={{ margin: 0 }}><b>المحافظة:</b> {order.governorate}</p>
               <p style={{ margin: '0.4rem 0' }}><b>المنطقة / المدينة:</b> {order.city}</p>
               <p style={{ margin: 0 }}><b>العنوان التفصيلي:</b> {order.address}</p>
