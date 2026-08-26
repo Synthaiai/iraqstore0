@@ -438,6 +438,23 @@ export async function fetchCloudOrdersSnapshot(cb) {
   return null;
 }
 
+function mergeOrdersList(existing, incoming) {
+  const map = new Map();
+  (existing || []).forEach((o) => {
+    if (o && (o.id || o.orderNo)) map.set(o.id || o.orderNo, o);
+  });
+  (incoming || []).forEach((o) => {
+    if (o && (o.id || o.orderNo)) {
+      const key = o.id || o.orderNo;
+      const prev = map.get(key);
+      map.set(key, { ...prev, ...o });
+    }
+  });
+  const merged = Array.from(map.values());
+  merged.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+  return merged;
+}
+
 export function listenOrders(cb) {
   cb(getLocalOrders());
 

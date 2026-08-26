@@ -3171,6 +3171,24 @@ function GA(t){
     localStorage.setItem(Fw,JSON.stringify(t));
   }catch(e){console.warn("LocalStorage save orders failed:",e);}
 }
+function mergeOrdersList(existing, incoming) {
+  const map = new Map();
+  (existing || []).forEach(o => {
+    if (o && (o.id || o.orderNo)) {
+      map.set(o.id || o.orderNo, o);
+    }
+  });
+  (incoming || []).forEach(o => {
+    if (o && (o.id || o.orderNo)) {
+      const key = o.id || o.orderNo;
+      const prev = map.get(key);
+      map.set(key, { ...prev, ...o });
+    }
+  });
+  const merged = Array.from(map.values());
+  merged.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+  return merged;
+}
 async function fetchCloudOrdersSnapshot(cb){
   try{
     let token = null;
@@ -3194,11 +3212,11 @@ async function fetchCloudOrdersSnapshot(cb){
       const data = await res.json();
       if (data && typeof data === 'object' && !data.error) {
         const list = Object.values(data);
-        list.sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
-        GA(list);
-        try{window.__iraqstore_orders=list;}catch(_){}
-        if(cb) cb(list);
-        return list;
+        const merged = mergeOrdersList(HA(), list);
+        GA(merged);
+        try{window.__iraqstore_orders=merged;}catch(_){}
+        if(cb) cb(merged);
+        return merged;
       }
     }
   }catch(e){}
@@ -3213,18 +3231,18 @@ function Uw(t){
     createdAt: new Date().toISOString(),
     ...t
   };
-  // 1. Instant Local Save (0ms)
-  const n = HA();
-  const r = [fullOrder, ...n.filter(s => s.id !== fullOrder.id && s.orderNo !== fullOrder.id)];
-  GA(r);
-  try{window.__iraqstore_orders=r;}catch(_){}
-  try{window.dispatchEvent(new CustomEvent('iraqstore_orders_updated',{detail:r}));}catch(_){}
+  // 1. Instant Local Save with Merge (0ms)
+  const current = HA();
+  const merged = mergeOrdersList(current, [fullOrder]);
+  GA(merged);
+  try{window.__iraqstore_orders=merged;}catch(_){}
+  try{window.dispatchEvent(new CustomEvent('iraqstore_orders_updated',{detail:merged}));}catch(_){}
   
   // BroadcastChannel for instant cross-tab delivery on same device
   try {
     if (typeof BroadcastChannel !== 'undefined') {
       const bc = new BroadcastChannel('iraqstore_orders_channel');
-      bc.postMessage({ type: 'NEW_ORDER', order: fullOrder, list: r });
+      bc.postMessage({ type: 'NEW_ORDER', order: fullOrder, list: merged });
       bc.close();
     }
   } catch(_) {}
@@ -3258,13 +3276,13 @@ function listenOrders(t){
       const bc = new BroadcastChannel('iraqstore_orders_channel');
       bc.onmessage = (ev) => {
         if (ev.data && ev.data.list) {
-          GA(ev.data.list);
-          t(ev.data.list);
+          const merged = mergeOrdersList(HA(), ev.data.list);
+          GA(merged);
+          t(merged);
         } else if (ev.data && ev.data.order) {
-          const cur = HA();
-          const next = [ev.data.order, ...cur.filter(o => o.id !== ev.data.order.id)];
-          GA(next);
-          t(next);
+          const merged = mergeOrdersList(HA(), [ev.data.order]);
+          GA(merged);
+          t(merged);
         }
       };
     }
@@ -3281,10 +3299,10 @@ function listenOrders(t){
         const r = n.val();
         if (r && typeof r === 'object') {
           const list = Object.values(r);
-          list.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-          GA(list);
-          try { window.__iraqstore_orders = list; } catch(_) {}
-          t(list);
+          const merged = mergeOrdersList(HA(), list);
+          GA(merged);
+          try { window.__iraqstore_orders = merged; } catch(_) {}
+          t(merged);
         }
       }, () => {
         fetchCloudOrdersSnapshot(t);
