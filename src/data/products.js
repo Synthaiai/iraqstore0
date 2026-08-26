@@ -1047,9 +1047,14 @@ export function normalizeProduct(raw) {
     heelType: raw.heelType || '',
     soleMaterial: raw.soleMaterial || '',
     fitType: raw.fitType || '',
+    clothingStyle: raw.clothingStyle || '',
     perfumeVolume: raw.perfumeVolume || '',
     perfumeConcentration: raw.perfumeConcentration || '',
     perfumeNotes: raw.perfumeNotes || '',
+    bagClosure: raw.bagClosure || '',
+    bagDimensions: raw.bagDimensions || '',
+    watchMovement: raw.watchMovement || '',
+    watchWaterResistance: raw.watchWaterResistance || '',
     customSpecs: Array.isArray(raw.customSpecs) ? raw.customSpecs : [],
   };
 
@@ -1119,9 +1124,14 @@ export function toRecord(p) {
     heelType: p.heelType || '',
     soleMaterial: p.soleMaterial || '',
     fitType: p.fitType || '',
+    clothingStyle: p.clothingStyle || '',
     perfumeVolume: p.perfumeVolume || '',
     perfumeConcentration: p.perfumeConcentration || '',
     perfumeNotes: p.perfumeNotes || '',
+    bagClosure: p.bagClosure || '',
+    bagDimensions: p.bagDimensions || '',
+    watchMovement: p.watchMovement || '',
+    watchWaterResistance: p.watchWaterResistance || '',
     customSpecs: Array.isArray(p.customSpecs) ? p.customSpecs : [],
   };
 }

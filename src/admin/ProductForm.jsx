@@ -7,12 +7,12 @@ import { parseSmartPrice } from '../utils/smartPrice';
 import { autoTranslateProduct, translateArabicAsync, translateText } from '../utils/translator';
 
 const PRODUCT_TYPES = [
-  { id: 'shoes', label: '👟 أحذية (Footwear)', icon: '👟' },
-  { id: 'clothing', label: '👔 ملابس (Clothing)', icon: '👔' },
-  { id: 'perfume', label: '🧪 عطور وتجميل (Perfumes)', icon: '🧪' },
-  { id: 'bags', label: '👜 حقائب وإكسسوارات (Bags)', icon: '👜' },
-  { id: 'watches', label: '⌚ ساعات ومجوهرات (Watches)', icon: '⌚' },
-  { id: 'general', label: '📦 عام / منتج آخر (General)', icon: '📦' },
+  { id: 'shoes', label: '👟 أحذية (Footwear)', icon: '👟', category: 'shoes' },
+  { id: 'clothing', label: '👔 ملابس (Clothing)', icon: '👔', category: 'clothing' },
+  { id: 'perfume', label: '🧪 عطور وتجميل (Perfumes)', icon: '🧪', category: 'accessories' },
+  { id: 'bags', label: '👜 حقائب ومحافظ (Bags)', icon: '👜', category: 'accessories' },
+  { id: 'watches', label: '⌚ ساعات ومجوهرات (Watches)', icon: '⌚', category: 'accessories' },
+  { id: 'general', label: '📦 عام / إكسسوارات (General)', icon: '📦', category: 'accessories' },
 ];
 
 const PALETTE = [
@@ -32,23 +32,94 @@ const PALETTE = [
 
 const range = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => String(a + i));
 
-const SIZE_PRESETS = {
-  'أحذية رجالية': range(39, 46),
-  'أحذية نسائية': range(35, 42),
-  'أحذية مقاسات كبيرة': range(47, 55),
-  'ملابس (أحرف)': ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', '4XL'],
-  'ملابس (رقمي)': ['36', '38', '40', '42', '44', '46', '48'],
-  'عطور (حجم)': ['50 ml', '100 ml', '150 ml', '200 ml'],
-  'مقاس واحد': ['مقاس واحد'],
+const TYPE_CONFIG = {
+  shoes: {
+    label: 'أحذية',
+    icon: '👟',
+    category: 'shoes',
+    getPresets: (gender) => ({
+      [gender === 'women' ? 'أحذية نسائية (35–42)' : 'أحذية رجالية (39–46)']:
+        gender === 'women' ? range(35, 42) : range(39, 46),
+      'أحذية كلاسيك (39–45)': range(39, 45),
+      'مقاسات خاصة وكبيرة (47–52)': range(47, 52),
+      'مقاس موحد': ['مقاس واحد'],
+    }),
+    getGrid: (gender) =>
+      gender === 'women'
+        ? [...range(35, 43), ...range(44, 48)]
+        : [...range(38, 48), ...range(49, 53)],
+    sizePlaceholder: 'قياس حذاء (مثال: 41.5 أو 47)…',
+    questionsTitle: 'مواصفات وتفاصيل الأحذية 👟',
+  },
+  clothing: {
+    label: 'ملابس',
+    icon: '👔',
+    category: 'clothing',
+    getPresets: () => ({
+      'المقاسات القياسية (S – XXL)': ['S', 'M', 'L', 'XL', 'XXL'],
+      'المقاسات الشاملة (XS – 4XL)': ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', '4XL'],
+      'المقاسات الكبيرة (2XL – 6XL)': ['2XL', '3XL', '4XL', '5XL', '6XL'],
+      'المقاسات الرقمية الأوروبية': ['36', '38', '40', '42', '44', '46', '48', '50'],
+      'مقاس موحد (Free Size)': ['Free Size'],
+    }),
+    getGrid: () => ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', '4XL', '5XL', 'Free Size', '36', '38', '40', '42', '44', '46', '48', '50'],
+    sizePlaceholder: 'قياس ملابس (مثال: 5XL أو 42 أو Free)…',
+    questionsTitle: 'مواصفات وتفاصيل الملابس 👔',
+  },
+  perfume: {
+    label: 'عطور وتجميل',
+    icon: '🧪',
+    category: 'accessories',
+    getPresets: () => ({
+      'الأحجام الشائعة': ['50 ml', '100 ml'],
+      'جميع الأحجام': ['30 ml', '50 ml', '75 ml', '100 ml', '150 ml', '200 ml'],
+      'عبوة تجربة': ['عينة 10 ml', 'تستر 100 ml'],
+    }),
+    getGrid: () => ['30 ml', '50 ml', '75 ml', '100 ml', '125 ml', '150 ml', '200 ml', 'تستر 100 ml'],
+    sizePlaceholder: 'حجم العبوة (مثال: 250 ml)…',
+    questionsTitle: 'مواصفات وتفاصيل العطور 🧪',
+  },
+  bags: {
+    label: 'حقائب ومحافظ',
+    icon: '👜',
+    category: 'accessories',
+    getPresets: () => ({
+      'مقاس موحد': ['مقاس واحد'],
+      'أحجام الحقائب': ['صغير (Small)', 'وسط (Medium)', 'كبير (Large)'],
+    }),
+    getGrid: () => ['مقاس واحد', 'صغير (S)', 'وسط (M)', 'كبير (L)', 'Mini', 'Tote'],
+    sizePlaceholder: 'حجم الحقيبة…',
+    questionsTitle: 'مواصفات وتفاصيل الحقائب والمحافظ 👜',
+  },
+  watches: {
+    label: 'ساعات ومجوهرات',
+    icon: '⌚',
+    category: 'accessories',
+    getPresets: (gender) => ({
+      'مقاس موحد': ['مقاس واحد'],
+      [gender === 'women' ? 'أقطار الساعات النسائية' : 'أقطار الساعات الرجالية']:
+        gender === 'women' ? ['28 mm', '32 mm', '36 mm'] : ['40 mm', '42 mm', '44 mm'],
+    }),
+    getGrid: (gender) =>
+      gender === 'women'
+        ? ['مقاس واحد', '26 mm', '28 mm', '30 mm', '32 mm', '34 mm', '36 mm', '38 mm']
+        : ['مقاس واحد', '38 mm', '40 mm', '41 mm', '42 mm', '43 mm', '44 mm', '45 mm', '46 mm'],
+    sizePlaceholder: 'قطر الساعة (مثال: 41 mm)…',
+    questionsTitle: 'مواصفات وتفاصيل الساعات والمجوهرات ⌚',
+  },
+  general: {
+    label: 'إكسسوارات وعام',
+    icon: '📦',
+    category: 'accessories',
+    getPresets: () => ({
+      'مقاس موحد': ['مقاس واحد'],
+      'مقاسات عامة': ['S', 'M', 'L', 'XL'],
+    }),
+    getGrid: () => ['مقاس واحد', 'S', 'M', 'L', 'XL'],
+    sizePlaceholder: 'القياس…',
+    questionsTitle: 'مواصفات وتفاصيل المنتج 📦',
+  },
 };
-
-// Full box grid: every shoe number 35–55, letter sizes, then perfume/one-size.
-const SIZE_GRID = [
-  ...range(35, 55),
-  'XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', '4XL',
-  '50 ml', '100 ml', '150 ml',
-  'مقاس واحد',
-];
 
 const BADGES = [
   { value: '', label: 'بدون شارة' },
@@ -74,16 +145,26 @@ const empty = {
   colors: [],
   sizes: [],
   images: [],
-  // Type specific details
   stockQuantity: 15,
-  status: 'active', // 'active' | 'draft'
+  status: 'active',
+  // Shoes specific
   heelType: '',
   soleMaterial: '',
+  // Clothing specific
   fitType: '',
+  clothingStyle: '',
+  // Perfume specific
   perfumeVolume: '',
   perfumeNotes: '',
   perfumeConcentration: '',
-  customSpecs: [], // [{ key: '', value: '' }]
+  // Bags specific
+  bagClosure: '',
+  bagDimensions: '',
+  // Watches specific
+  watchMovement: '',
+  watchWaterResistance: '',
+  // Custom specs
+  customSpecs: [],
 };
 
 export default function ProductForm({ initial, onSave, onCancel }) {
@@ -97,8 +178,31 @@ export default function ProductForm({ initial, onSave, onCancel }) {
     } else if (Array.isArray(init.gallery) && init.gallery.length) {
       existingImages = init.gallery.filter(Boolean);
     }
-    return { ...empty, ...init, images: existingImages };
+
+    // Infer initial type smartly
+    let detectedType = init.type;
+    if (!detectedType) {
+      if (init.category === 'clothing') detectedType = 'clothing';
+      else if (init.category === 'shoes') detectedType = 'shoes';
+      else if (init.sub === 'watches' || (init.name && init.name.includes('ساعة'))) detectedType = 'watches';
+      else if (init.sub === 'bags' || (init.name && (init.name.includes('حقيبة') || init.name.includes('شنطة')))) detectedType = 'bags';
+      else if (init.perfumeVolume || (init.name && init.name.includes('عطر'))) detectedType = 'perfume';
+      else if (init.category === 'accessories') detectedType = 'bags';
+      else detectedType = 'shoes';
+    }
+
+    const cfg = TYPE_CONFIG[detectedType] || TYPE_CONFIG.shoes;
+    const defaultSizes = init.sizes && init.sizes.length ? init.sizes : Object.values(cfg.getPresets(init.gender || 'men'))[0];
+
+    return {
+      ...empty,
+      ...init,
+      type: detectedType,
+      sizes: defaultSizes,
+      images: existingImages,
+    };
   });
+
   const [files, setFiles] = useState([]);
   const [compressionStats, setCompressionStats] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -110,23 +214,110 @@ export default function ProductForm({ initial, onSave, onCancel }) {
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
+  const activeTypeCfg = TYPE_CONFIG[form.type] || TYPE_CONFIG.general;
   const cats = CATEGORIES[form.gender] || [];
   const subs = (SUBCATEGORIES[`${form.gender}/${form.category}`] || []).filter((s) => s.slug !== 'all');
 
-  useEffect(() => {
-    if (!cats.find((c) => c.slug === form.category)) {
-      set('category', cats[0]?.slug || 'shoes');
-    }
-  }, [form.gender]);
+  // Handle clicking Product Type card (e.g. Shoes, Clothing, Perfume, Bags, Watches)
+  const handleTypeSelect = (typeId) => {
+    const cfg = TYPE_CONFIG[typeId] || TYPE_CONFIG.general;
+    setForm((f) => {
+      let targetCat = 'shoes';
+      if (typeId === 'clothing') targetCat = 'clothing';
+      else if (typeId === 'shoes') targetCat = 'shoes';
+      else targetCat = 'accessories';
 
-  useEffect(() => {
-    if (form.sub && !subs.find((s) => s.slug === form.sub)) {
-      set('sub', subs[0]?.slug || '');
-    }
-    if (!form.sub && subs[0]) {
-      set('sub', subs[0].slug);
-    }
-  }, [form.gender, form.category]);
+      const availSubs = (SUBCATEGORIES[`${f.gender}/${targetCat}`] || []).filter((s) => s.slug !== 'all');
+      let targetSub = '';
+      if (typeId === 'perfume') {
+        const pSub = availSubs.find((s) => s.slug.includes('perfume') || s.slug.includes('fragrance'));
+        targetSub = pSub ? pSub.slug : (availSubs[0]?.slug || '');
+      } else if (typeId === 'bags') {
+        const bSub = availSubs.find((s) => s.slug.includes('bag') || s.slug.includes('leather'));
+        targetSub = bSub ? bSub.slug : (availSubs[0]?.slug || '');
+      } else if (typeId === 'watches') {
+        const wSub = availSubs.find((s) => s.slug.includes('watch') || s.slug.includes('jewel'));
+        targetSub = wSub ? wSub.slug : (availSubs[0]?.slug || '');
+      } else {
+        targetSub = availSubs[0]?.slug || '';
+      }
+
+      const presetsMap = cfg.getPresets(f.gender);
+      const defaultSizes = Object.values(presetsMap)[0] || ['مقاس واحد'];
+
+      return {
+        ...f,
+        type: typeId,
+        category: targetCat,
+        sub: targetSub,
+        sizes: defaultSizes,
+        // Reset type-specific fields so old shoe questions don't linger on clothes
+        heelType: typeId === 'shoes' ? f.heelType : '',
+        soleMaterial: typeId === 'shoes' ? f.soleMaterial : '',
+        fitType: typeId === 'clothing' ? f.fitType : '',
+        clothingStyle: typeId === 'clothing' ? f.clothingStyle : '',
+        perfumeVolume: typeId === 'perfume' ? f.perfumeVolume : '',
+        perfumeConcentration: typeId === 'perfume' ? f.perfumeConcentration : '',
+        perfumeNotes: typeId === 'perfume' ? f.perfumeNotes : '',
+        bagClosure: typeId === 'bags' ? f.bagClosure : '',
+        bagDimensions: typeId === 'bags' ? f.bagDimensions : '',
+        watchMovement: typeId === 'watches' ? f.watchMovement : '',
+        watchWaterResistance: typeId === 'watches' ? f.watchWaterResistance : '',
+      };
+    });
+  };
+
+  // Handle changing Category dropdown
+  const handleCategoryChange = (newCat) => {
+    setForm((f) => {
+      let newType = f.type;
+      if (newCat === 'clothing') newType = 'clothing';
+      else if (newCat === 'shoes') newType = 'shoes';
+      else if (newCat === 'accessories' && f.type !== 'perfume' && f.type !== 'bags' && f.type !== 'watches') {
+        newType = 'bags';
+      }
+
+      const availSubs = (SUBCATEGORIES[`${f.gender}/${newCat}`] || []).filter((s) => s.slug !== 'all');
+      const targetSub = availSubs[0]?.slug || '';
+      const cfg = TYPE_CONFIG[newType] || TYPE_CONFIG.general;
+      const defaultSizes = cfg ? Object.values(cfg.getPresets(f.gender))[0] : ['مقاس واحد'];
+
+      return {
+        ...f,
+        category: newCat,
+        type: newType,
+        sub: targetSub,
+        sizes: f.type !== newType ? defaultSizes : f.sizes,
+        heelType: newType === 'shoes' ? f.heelType : '',
+        soleMaterial: newType === 'shoes' ? f.soleMaterial : '',
+        fitType: newType === 'clothing' ? f.fitType : '',
+      };
+    });
+  };
+
+  // Handle changing Gender
+  const handleGenderChange = (newGender) => {
+    setForm((f) => {
+      const availCats = CATEGORIES[newGender] || [];
+      const targetCat = availCats.some((c) => c.slug === f.category) ? f.category : (availCats[0]?.slug || 'shoes');
+      const availSubs = (SUBCATEGORIES[`${newGender}/${targetCat}`] || []).filter((s) => s.slug !== 'all');
+      const targetSub = availSubs.some((s) => s.slug === f.sub) ? f.sub : (availSubs[0]?.slug || '');
+
+      let sizes = f.sizes;
+      if (f.type === 'shoes') {
+        const presetsMap = TYPE_CONFIG.shoes.getPresets(newGender);
+        sizes = Object.values(presetsMap)[0] || range(39, 46);
+      }
+
+      return {
+        ...f,
+        gender: newGender,
+        category: targetCat,
+        sub: targetSub,
+        sizes,
+      };
+    });
+  };
 
   // Auto-translate Arabic inputs to English in real-time with online API backup
   const handleArabicNameChange = (val) => {
@@ -288,7 +479,6 @@ export default function ProductForm({ initial, onSave, onCancel }) {
       setStatusText('جارٍ حفظ البيانات…');
       const id = form.id || `p-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
-      // Construct complete record with dynamic details
       const parsedPrice = parseSmartPrice(form.price);
       const parsedOldPrice = form.oldPrice ? parseSmartPrice(form.oldPrice) : null;
 
@@ -313,6 +503,9 @@ export default function ProductForm({ initial, onSave, onCancel }) {
     }
   };
 
+  const currentPresets = activeTypeCfg.getPresets(form.gender);
+  const currentGrid = activeTypeCfg.getGrid(form.gender);
+
   return (
     <div className="admin-modal" onClick={onCancel}>
       <form className="admin-modal__panel admin-modal__panel--lg" onClick={(e) => e.stopPropagation()} onSubmit={submit}>
@@ -325,16 +518,16 @@ export default function ProductForm({ initial, onSave, onCancel }) {
         </header>
 
         <div className="admin-modal__body">
-          {/* STEP 1: Product Type Selector */}
+          {/* STEP 1: Product Type Selector (Adaptive Category & Field Switcher) */}
           <div className="admin-field admin-field--highlight">
-            <span>نوع المنتج (يحدد الخصائص والقياسات المطلوبة)</span>
+            <span>نوع المنتج (يتكيف نموذج القياسات والأسئلة تلقائياً بمجرد الاختيار)</span>
             <div className="admin-type-grid">
               {PRODUCT_TYPES.map((t) => (
                 <button
                   type="button"
                   key={t.id}
                   className={`admin-type-card ${form.type === t.id ? 'is-active' : ''}`}
-                  onClick={() => set('type', t.id)}
+                  onClick={() => handleTypeSelect(t.id)}
                 >
                   <span className="admin-type-card__icon">{t.icon}</span>
                   <span>{t.label}</span>
@@ -347,7 +540,7 @@ export default function ProductForm({ initial, onSave, onCancel }) {
           <div className="admin-grid3">
             <label className="admin-field">
               <span>القسم الرئيسي</span>
-              <select value={form.gender} onChange={(e) => set('gender', e.target.value)}>
+              <select value={form.gender} onChange={(e) => handleGenderChange(e.target.value)}>
                 <option value="men">رجالي</option>
                 <option value="women">نسائي</option>
               </select>
@@ -355,7 +548,7 @@ export default function ProductForm({ initial, onSave, onCancel }) {
 
             <label className="admin-field">
               <span>الفئة</span>
-              <select value={form.category} onChange={(e) => set('category', e.target.value)}>
+              <select value={form.category} onChange={(e) => handleCategoryChange(e.target.value)}>
                 {cats.map((c) => (
                   <option key={c.slug} value={c.slug}>{c.title}</option>
                 ))}
@@ -379,7 +572,7 @@ export default function ProductForm({ initial, onSave, onCancel }) {
               <input
                 value={form.name}
                 onChange={(e) => handleArabicNameChange(e.target.value)}
-                placeholder="مثال: حذاء رياضي أبيض كلاسيكي"
+                placeholder={form.type === 'clothing' ? 'مثال: قميص كتان أبيض رسمي' : 'مثال: حذاء رياضي أبيض كلاسيكي'}
                 required
               />
             </label>
@@ -389,7 +582,7 @@ export default function ProductForm({ initial, onSave, onCancel }) {
               <input
                 value={form.nameEn}
                 onChange={(e) => set('nameEn', e.target.value)}
-                placeholder="White Classic Sneaker"
+                placeholder="Product Name in English"
                 dir="ltr"
               />
             </label>
@@ -509,19 +702,28 @@ export default function ProductForm({ initial, onSave, onCancel }) {
             </div>
           </div>
 
-          {/* STEP 5: Dynamic Questions based on Product Type */}
+          {/* STEP 5: Dynamic Questions based strictly on the selected Product Type */}
           <div className="admin-section-divider">
-            <span>تفاصيل ومواصفات مخصصة لـ ({PRODUCT_TYPES.find((t) => t.id === form.type)?.label})</span>
+            <span>{activeTypeCfg.questionsTitle}</span>
           </div>
 
           {form.type === 'shoes' && (
             <div className="admin-grid3">
               <label className="admin-field">
+                <span>خامة الحذاء الخارجية</span>
+                <input
+                  value={form.material}
+                  onChange={(e) => handleArabicMaterialChange(e.target.value)}
+                  placeholder="جلد طبيعي، شمواه، شبك تقني..."
+                />
+              </label>
+
+              <label className="admin-field">
                 <span>نوع النعل / الكعب</span>
                 <input
                   value={form.heelType || ''}
                   onChange={(e) => set('heelType', e.target.value)}
-                  placeholder="مثال: فلات، كعب عالي 7 سم، نعل مريح..."
+                  placeholder="فلات، كعب عالي، نعل مريح..."
                 />
               </label>
 
@@ -531,15 +733,6 @@ export default function ProductForm({ initial, onSave, onCancel }) {
                   value={form.soleMaterial || ''}
                   onChange={(e) => set('soleMaterial', e.target.value)}
                   placeholder="مطاط مقاوم للانزلاق، كريب..."
-                />
-              </label>
-
-              <label className="admin-field">
-                <span>خامة الحذاء الخارجية</span>
-                <input
-                  value={form.material}
-                  onChange={(e) => handleArabicMaterialChange(e.target.value)}
-                  placeholder="جلد طبيعي، شمواه، شبك..."
                 />
               </label>
             </div>
@@ -552,7 +745,7 @@ export default function ProductForm({ initial, onSave, onCancel }) {
                 <input
                   value={form.material}
                   onChange={(e) => handleArabicMaterialChange(e.target.value)}
-                  placeholder="قطن 100%، كتان، صوف مخلوط..."
+                  placeholder="قطن 100%، كتان طبيعي، صوف، حرير..."
                 />
               </label>
 
@@ -561,17 +754,16 @@ export default function ProductForm({ initial, onSave, onCancel }) {
                 <input
                   value={form.fitType || ''}
                   onChange={(e) => set('fitType', e.target.value)}
-                  placeholder="سليم فيت (Slim)، أوفرسايز، كلاسيك..."
+                  placeholder="سليم فيت (Slim)، أوفرسايز، كلاسيك منتظم..."
                 />
               </label>
 
               <label className="admin-field">
-                <span>الخامة بالإنجليزية</span>
+                <span>النمط والتصميم</span>
                 <input
-                  value={form.materialEn}
-                  onChange={(e) => set('materialEn', e.target.value)}
-                  placeholder="100% Cotton, Linen..."
-                  dir="ltr"
+                  value={form.clothingStyle || ''}
+                  onChange={(e) => set('clothingStyle', e.target.value)}
+                  placeholder="سادة، كاروهات، أكمام طويلة، كاجوال..."
                 />
               </label>
             </div>
@@ -593,7 +785,7 @@ export default function ProductForm({ initial, onSave, onCancel }) {
                 <input
                   value={form.perfumeConcentration || ''}
                   onChange={(e) => set('perfumeConcentration', e.target.value)}
-                  placeholder="Eau de Parfum / العطر الفاخر"
+                  placeholder="Eau de Parfum / Parfum"
                 />
               </label>
 
@@ -602,7 +794,92 @@ export default function ProductForm({ initial, onSave, onCancel }) {
                 <input
                   value={form.perfumeNotes || ''}
                   onChange={(e) => set('perfumeNotes', e.target.value)}
-                  placeholder="عود، مسك، عنبر، صندل، حمضيات..."
+                  placeholder="عود، مسك، عنبر، صندل، فانيلا..."
+                />
+              </label>
+            </div>
+          )}
+
+          {form.type === 'bags' && (
+            <div className="admin-grid3">
+              <label className="admin-field">
+                <span>خامة الحقيبة الخارجية</span>
+                <input
+                  value={form.material}
+                  onChange={(e) => handleArabicMaterialChange(e.target.value)}
+                  placeholder="جلد طبيعي، جلد سافيانو، كانفاس..."
+                />
+              </label>
+
+              <label className="admin-field">
+                <span>نوع الإغلاق والحزام</span>
+                <input
+                  value={form.bagClosure || ''}
+                  onChange={(e) => set('bagClosure', e.target.value)}
+                  placeholder="سحاب معدني، قفل مغناطيسي، حزام كتف..."
+                />
+              </label>
+
+              <label className="admin-field">
+                <span>أبعاد الحقيبة ومقاسها</span>
+                <input
+                  value={form.bagDimensions || ''}
+                  onChange={(e) => set('bagDimensions', e.target.value)}
+                  placeholder="العرض 25 سم × الارتفاع 18 سم..."
+                />
+              </label>
+            </div>
+          )}
+
+          {form.type === 'watches' && (
+            <div className="admin-grid3">
+              <label className="admin-field">
+                <span>خامة السوار والإطار</span>
+                <input
+                  value={form.material}
+                  onChange={(e) => handleArabicMaterialChange(e.target.value)}
+                  placeholder="ستانلس ستيل، جلد طبيعي، سيليكون..."
+                />
+              </label>
+
+              <label className="admin-field">
+                <span>نوع الحركة والماكينة</span>
+                <input
+                  value={form.watchMovement || ''}
+                  onChange={(e) => set('watchMovement', e.target.value)}
+                  placeholder="كوارتز ياباني، أوتوماتيك، ميكانيكي..."
+                />
+              </label>
+
+              <label className="admin-field">
+                <span>مقاومة الماء</span>
+                <input
+                  value={form.watchWaterResistance || ''}
+                  onChange={(e) => set('watchWaterResistance', e.target.value)}
+                  placeholder="3 ATM, 50m, مقاوم للرذاذ..."
+                />
+              </label>
+            </div>
+          )}
+
+          {form.type === 'general' && (
+            <div className="admin-grid2">
+              <label className="admin-field">
+                <span>خامة ومادة الصنع</span>
+                <input
+                  value={form.material}
+                  onChange={(e) => handleArabicMaterialChange(e.target.value)}
+                  placeholder="المعدن، القماش، الخامات المستخدمة..."
+                />
+              </label>
+
+              <label className="admin-field">
+                <span>الخامة بالإنجليزية</span>
+                <input
+                  value={form.materialEn}
+                  onChange={(e) => set('materialEn', e.target.value)}
+                  placeholder="Material in English..."
+                  dir="ltr"
                 />
               </label>
             </div>
@@ -647,11 +924,11 @@ export default function ProductForm({ initial, onSave, onCancel }) {
             </div>
           </div>
 
-          {/* STEP 7: Multi-Size Picker */}
+          {/* STEP 7: Multi-Size Picker (Adaptive Presets and Grid per Product Type) */}
           <div className="admin-field">
-            <span>القياسات الأحجام المتاحة</span>
+            <span>القياسات والأحجام المتاحة لـ ({activeTypeCfg.label})</span>
             <div className="admin-chips admin-chips--presets">
-              {Object.entries(SIZE_PRESETS).map(([label, arr]) => (
+              {Object.entries(currentPresets).map(([label, arr]) => (
                 <button
                   type="button"
                   key={label}
@@ -664,8 +941,7 @@ export default function ProductForm({ initial, onSave, onCancel }) {
             </div>
 
             <div className="admin-sizes-selector">
-              {/* Grid 35–55 + letters + any custom sizes the admin added */}
-              {[...SIZE_GRID, ...form.sizes.filter((s) => !SIZE_GRID.includes(s))].map((sz) => (
+              {[...currentGrid, ...form.sizes.filter((s) => !currentGrid.includes(s))].map((sz) => (
                 <button
                   type="button"
                   key={sz}
@@ -677,7 +953,7 @@ export default function ProductForm({ initial, onSave, onCancel }) {
               ))}
             </div>
 
-            {/* Custom size: type any size and add it */}
+            {/* Custom size input */}
             <div className="admin-size-add">
               <input
                 type="text"
@@ -689,7 +965,7 @@ export default function ProductForm({ initial, onSave, onCancel }) {
                     addCustomSize();
                   }
                 }}
-                placeholder="قياس خاص (مثال: 56، 5XL، Free)…"
+                placeholder={activeTypeCfg.sizePlaceholder}
               />
               <button type="button" className="admin-btn admin-btn--sm" onClick={addCustomSize}>
                 + إضافة قياس

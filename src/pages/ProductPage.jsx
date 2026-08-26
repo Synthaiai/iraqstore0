@@ -288,6 +288,12 @@ export default function ProductPage() {
                   <dd>{product.fitType}</dd>
                 </div>
               )}
+              {product.clothingStyle && (
+                <div className="spec">
+                  <dt>النمط والتصميم</dt>
+                  <dd>{product.clothingStyle}</dd>
+                </div>
+              )}
               {product.perfumeVolume && (
                 <div className="spec">
                   <dt>الحجم / السعة</dt>
@@ -304,6 +310,30 @@ export default function ProductPage() {
                 <div className="spec">
                   <dt>النوتات العطرية</dt>
                   <dd>{product.perfumeNotes}</dd>
+                </div>
+              )}
+              {product.bagClosure && (
+                <div className="spec">
+                  <dt>نوع الإغلاق</dt>
+                  <dd>{product.bagClosure}</dd>
+                </div>
+              )}
+              {product.bagDimensions && (
+                <div className="spec">
+                  <dt>الأبعاد والمقاس</dt>
+                  <dd>{product.bagDimensions}</dd>
+                </div>
+              )}
+              {product.watchMovement && (
+                <div className="spec">
+                  <dt>نوع الماكينة</dt>
+                  <dd>{product.watchMovement}</dd>
+                </div>
+              )}
+              {product.watchWaterResistance && (
+                <div className="spec">
+                  <dt>مقاومة الماء</dt>
+                  <dd>{product.watchWaterResistance}</dd>
                 </div>
               )}
               {(product.customSpecs || []).map((cs, idx) => cs.key && cs.value && (
