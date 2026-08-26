@@ -101,13 +101,65 @@ export default function CategoryTree({ products, onCatalogUpdated }) {
         subs.push(newItem);
       } else {
         const idx = subs.findIndex((s) => s.slug === item.slug);
-        if (idx >= 0) subs[idx] = { ...subs[idx], ...newItem };
-      }
       updatedTree.subcategories[subKey] = subs;
     }
 
     setEditingItem(null);
     persist(updatedTree);
+  };
+
+  const moveSubcategory = (parentGender, parentCat, targetSlug, direction) => {
+    const subKey = `${parentGender}/${parentCat}`;
+    const updatedTree = JSON.parse(JSON.stringify(tree));
+    const subs = [...(updatedTree.subcategories[subKey] || [])];
+    
+    const allItem = subs.find((s) => s.slug === 'all');
+    const realSubs = subs.filter((s) => s.slug !== 'all');
+    const realIdx = realSubs.findIndex((s) => s.slug === targetSlug);
+    if (realIdx < 0) return;
+
+    if (direction === 'top') {
+      const item = realSubs[realIdx];
+      const newReal = [item, ...realSubs.filter((s) => s.slug !== targetSlug)];
+      updatedTree.subcategories[subKey] = allItem ? [allItem, ...newReal] : newReal;
+    } else if (direction === 'bottom') {
+      const item = realSubs[realIdx];
+      const newReal = [...realSubs.filter((s) => s.slug !== targetSlug), item];
+      updatedTree.subcategories[subKey] = allItem ? [allItem, ...newReal] : newReal;
+    } else if (direction === 'up' && realIdx > 0) {
+      const temp = realSubs[realIdx];
+      realSubs[realIdx] = realSubs[realIdx - 1];
+      realSubs[realIdx - 1] = temp;
+      updatedTree.subcategories[subKey] = allItem ? [allItem, ...realSubs] : realSubs;
+    } else if (direction === 'down' && realIdx < realSubs.length - 1) {
+      const temp = realSubs[realIdx];
+      realSubs[realIdx] = realSubs[realIdx + 1];
+      realSubs[realIdx + 1] = temp;
+      updatedTree.subcategories[subKey] = allItem ? [allItem, ...realSubs] : realSubs;
+    }
+
+    persist(updatedTree);
+  };
+
+  const moveCategory = (parentGender, targetSlug, direction) => {
+    const updatedTree = JSON.parse(JSON.stringify(tree));
+    const cats = [...(updatedTree.categories[parentGender] || [])];
+    const idx = cats.findIndex((c) => c.slug === targetSlug);
+    if (idx < 0) return;
+
+    if (direction === 'up' && idx > 0) {
+      const temp = cats[idx];
+      cats[idx] = cats[idx - 1];
+      cats[idx - 1] = temp;
+      updatedTree.categories[parentGender] = cats;
+      persist(updatedTree);
+    } else if (direction === 'down' && idx < cats.length - 1) {
+      const temp = cats[idx];
+      cats[idx] = cats[idx + 1];
+      cats[idx + 1] = temp;
+      updatedTree.categories[parentGender] = cats;
+      persist(updatedTree);
+    }
   };
 
   const deleteItem = (type, parentGender, parentCat, targetSlug) => {
@@ -148,9 +200,9 @@ export default function CategoryTree({ products, onCatalogUpdated }) {
     <div className="admin-panel">
       <div className="admin-tree-head">
         <div>
-          <h3>إدارة شجرة الأقسام وإضافة صور الأقسام</h3>
+          <h3>إدارة شجرة الأقسام وترتيب الأقسام الفرعية والصور</h3>
           <p className="admin-note">
-            يمكنك إضافة صورة مميزة ومضغوطة تلقائياً لكل قسم وفئة، وتظهر فوراً في ترويسة وفلاتر المتجر.
+            يمكنك رفع صور الغلاف، والتحكم بترتيب ظهور الأقسام الفرعية (صعود/نزول/الأول/الأخير) لتظهر للزبون بالترتيب الذي تحدده فوراً.
           </p>
         </div>
         <div className="admin-tree-head__actions">
@@ -217,7 +269,7 @@ export default function CategoryTree({ products, onCatalogUpdated }) {
             </header>
 
             <div className="admin-tree-node__body">
-              {(tree.categories[gender.slug] || []).map((cat) => (
+              {(tree.categories[gender.slug] || []).map((cat, cIdx, cArr) => (
                 <div className="admin-tree-node admin-tree-node--category" key={cat.slug}>
                   <header className="admin-tree-node__head">
                     <div className="admin-tree-node__info">
@@ -230,6 +282,22 @@ export default function CategoryTree({ products, onCatalogUpdated }) {
                       <span className="admin-count">{countProducts(gender.slug, cat.slug)}</span>
                     </div>
                     <div className="admin-tree-node__actions">
+                      <button
+                        className="admin-icon-btn"
+                        onClick={() => moveCategory(gender.slug, cat.slug, 'up')}
+                        disabled={cIdx === 0}
+                        title="تحريك الفئة للأعلى"
+                      >
+                        ▲
+                      </button>
+                      <button
+                        className="admin-icon-btn"
+                        onClick={() => moveCategory(gender.slug, cat.slug, 'down')}
+                        disabled={cIdx === cArr.length - 1}
+                        title="تحريك الفئة للأسفل"
+                      >
+                        ▼
+                      </button>
                       <button
                         className="admin-btn admin-btn--sm"
                         onClick={() =>
@@ -269,45 +337,85 @@ export default function CategoryTree({ products, onCatalogUpdated }) {
                   </header>
 
                   <div className="admin-tree-node__subs">
-                    {(tree.subcategories[`${gender.slug}/${cat.slug}`] || [])
-                      .filter((s) => s.slug !== 'all')
-                      .map((sub) => (
-                        <div className="admin-tree-sub" key={sub.slug}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                            {sub.cover && (
-                              <img src={sub.cover} alt="" className="admin-tree-node__thumb admin-tree-node__thumb--sm" />
-                            )}
-                            <span className="admin-tree-sub__title">
-                              {sub.title} <small>({sub.latin})</small>
-                            </span>
+                    {(() => {
+                      const subsList = (tree.subcategories[`${gender.slug}/${cat.slug}`] || []).filter(
+                        (s) => s.slug !== 'all'
+                      );
+                      return subsList.map((sub, sIdx) => {
+                        const isFirst = sIdx === 0;
+                        const isLast = sIdx === subsList.length - 1;
+                        return (
+                          <div className="admin-tree-sub" key={sub.slug}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flex: 1, minWidth: 0 }}>
+                              <span className="admin-rank-pill" title="ترتيب الظهور للزبون">#{sIdx + 1}</span>
+                              {sub.cover && (
+                                <img src={sub.cover} alt="" className="admin-tree-node__thumb admin-tree-node__thumb--sm" />
+                              )}
+                              <span className="admin-tree-sub__title" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                <strong>{sub.title}</strong> <small>({sub.latin})</small>
+                              </span>
+                            </div>
+                            <span className="admin-count" style={{ marginInline: '0.3rem' }} title="عدد المنتجات">{countProducts(gender.slug, cat.slug, sub.slug)}</span>
+                            <div className="admin-tree-sub__actions">
+                              <button
+                                className="admin-icon-btn"
+                                onClick={() => moveSubcategory(gender.slug, cat.slug, sub.slug, 'top')}
+                                disabled={isFirst}
+                                title="اجعل هذا القسم في البداية (الأول 🔝)"
+                              >
+                                🔝
+                              </button>
+                              <button
+                                className="admin-icon-btn"
+                                onClick={() => moveSubcategory(gender.slug, cat.slug, sub.slug, 'up')}
+                                disabled={isFirst}
+                                title="صعود خطوة للأعلى (▲)"
+                              >
+                                ▲
+                              </button>
+                              <button
+                                className="admin-icon-btn"
+                                onClick={() => moveSubcategory(gender.slug, cat.slug, sub.slug, 'down')}
+                                disabled={isLast}
+                                title="نزول خطوة للأسفل (▼)"
+                              >
+                                ▼
+                              </button>
+                              <button
+                                className="admin-icon-btn"
+                                onClick={() => moveSubcategory(gender.slug, cat.slug, sub.slug, 'bottom')}
+                                disabled={isLast}
+                                title="نقل للنهاية (الأخير 🔚)"
+                              >
+                                🔚
+                              </button>
+                              <button
+                                className="admin-icon-btn"
+                                onClick={() =>
+                                  setEditingItem({
+                                    type: 'sub',
+                                    parentGender: gender.slug,
+                                    parentCat: cat.slug,
+                                    isNew: false,
+                                    item: sub,
+                                  })
+                                }
+                                title="تعديل والصورة ✏️"
+                              >
+                                ✏️
+                              </button>
+                              <button
+                                className="admin-icon-btn admin-icon-btn--danger"
+                                onClick={() => deleteItem('sub', gender.slug, cat.slug, sub.slug)}
+                                title="حذف 🗑️"
+                              >
+                                🗑️
+                              </button>
+                            </div>
                           </div>
-                          <span className="admin-count">{countProducts(gender.slug, cat.slug, sub.slug)}</span>
-                          <div className="admin-tree-sub__actions">
-                            <button
-                              className="admin-icon-btn"
-                              onClick={() =>
-                                setEditingItem({
-                                  type: 'sub',
-                                  parentGender: gender.slug,
-                                  parentCat: cat.slug,
-                                  isNew: false,
-                                  item: sub,
-                                })
-                              }
-                              title="تعديل والصورة"
-                            >
-                              ✏️
-                            </button>
-                            <button
-                              className="admin-icon-btn admin-icon-btn--danger"
-                              onClick={() => deleteItem('sub', gender.slug, cat.slug, sub.slug)}
-                              title="حذف"
-                            >
-                              🗑️
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      });
+                    })()}
                   </div>
                 </div>
               ))}

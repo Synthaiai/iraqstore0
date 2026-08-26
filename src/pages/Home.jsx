@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { GENDERS } from '../data/catalog';
 import { POOLS, heroSrcSet, img, imgWide, srcSet } from '../data/images';
@@ -16,6 +17,67 @@ export default function Home() {
   const arrivals = newArrivals(4);
   const catName = (g) => (lang === 'en' ? g.latin : g.title);
   const portalMeta = lang === 'en' ? 'Footwear · Clothing · Accessories' : 'أحذية · ملابس · إكسسوارات';
+
+  const scrollToShop = (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    const el = document.getElementById('shop');
+    if (el) {
+      const headerOffset = 75;
+      const elementPosition = el.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+      window.scrollTo({
+        top: Math.max(0, offsetPosition),
+        behavior: 'smooth',
+      });
+    }
+  };
+
+  useEffect(() => {
+    let touchStartY = 0;
+    let isSnapping = false;
+
+    const handleTouchStart = (e) => {
+      if (e.touches && e.touches[0]) {
+        touchStartY = e.touches[0].clientY;
+      }
+    };
+
+    const handleTouchMove = (e) => {
+      if (isSnapping) return;
+      if (!e.touches || !e.touches[0]) return;
+      const currentY = e.touches[0].clientY;
+      const diff = touchStartY - currentY;
+      // If user is at top of page / hero area and swipes down once
+      if (window.scrollY < 80 && diff > 30) {
+        isSnapping = true;
+        scrollToShop();
+        setTimeout(() => {
+          isSnapping = false;
+        }, 900);
+      }
+    };
+
+    const handleWheel = (e) => {
+      if (isSnapping) return;
+      if (window.scrollY < 60 && e.deltaY > 15) {
+        isSnapping = true;
+        scrollToShop();
+        setTimeout(() => {
+          isSnapping = false;
+        }, 900);
+      }
+    };
+
+    window.addEventListener('touchstart', handleTouchStart, { passive: true });
+    window.addEventListener('touchmove', handleTouchMove, { passive: true });
+    window.addEventListener('wheel', handleWheel, { passive: true });
+
+    return () => {
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('wheel', handleWheel);
+    };
+  }, []);
 
   const strip = [
     { to: '/g/men/shoes/formal', title: 'أحذية رسمية', titleEn: 'Formal shoes', cover: POOLS.mFormal[1], count: countProducts('men', 'shoes', 'formal') },
@@ -52,15 +114,21 @@ export default function Home() {
           </h1>
           <p className="hero__lede">{t('heroLede')}</p>
           <div className="hero__cta">
-            <a href="#shop" className="btn btn--light btn--lg">
+            <a href="#shop" onClick={scrollToShop} className="btn btn--light btn--lg">
               {t('shopNow')}
             </a>
           </div>
         </div>
 
-        <span className="hero__hint" aria-hidden>
+        <button
+          type="button"
+          onClick={scrollToShop}
+          className="hero__hint"
+          aria-label={t('scroll')}
+          style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+        >
           {t('scroll')}
-        </span>
+        </button>
       </section>
 
       {/* ============ The two doors ============ */}

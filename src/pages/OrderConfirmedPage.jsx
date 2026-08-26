@@ -48,7 +48,37 @@ export default function OrderConfirmedPage() {
           <span>{t('paymentLabel')}</span>
           <strong>{state.paymentLabel || (state.payment === 'card' ? 'الدفع عن طريق الماستر الرافدين' : t('cod'))}</strong>
         </div>
-        <div className="confirm__row">
+
+        {/* Ordered items breakdown */}
+        {state.cart && state.cart.length > 0 && (
+          <div style={{ marginBlock: '0.75rem', borderTop: '1px dashed var(--line)', paddingTop: '0.75rem' }}>
+            <div style={{ fontSize: '0.88rem', color: 'var(--mute)', marginBottom: '0.5rem' }}>
+              المنتجات المطلوبة ({state.cart.length}):
+            </div>
+            {state.cart.map((line, idx) => (
+              <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.6rem', padding: '0.35rem 0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <img
+                    src={(line.product?.images && line.product.images[0]) || line.product?.image || line.image || '/logo.png'}
+                    alt=""
+                    style={{ width: '36px', height: '36px', borderRadius: '6px', objectFit: 'cover' }}
+                  />
+                  <div>
+                    <strong style={{ fontSize: '0.9rem', display: 'block' }}>{line.product?.name || line.name}</strong>
+                    <small style={{ color: 'var(--dim)', fontSize: '0.8rem' }}>
+                      {line.color} · {t('sizeLabel')} {line.size} × {line.qty}
+                    </small>
+                  </div>
+                </div>
+                <span style={{ fontSize: '0.9rem', fontWeight: '600' }}>
+                  {formatPrice((line.product?.price || line.price || 0) * line.qty, lang)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="confirm__row" style={{ borderTop: '1px solid var(--line)', paddingTop: '0.6rem' }}>
           <span>مجموع المنتجات</span>
           <strong>{formatPrice(state.subtotal, lang)}</strong>
         </div>
@@ -64,22 +94,21 @@ export default function OrderConfirmedPage() {
 
       <div className="confirm__note">
         <Truck />
-        <span>{state.payment === 'card' ? 'سيتم التواصل معك لإتمام دفع الماستر كارد والشحن.' : 'الدفع عند الاستلام. سيتم التواصل معك هاتفياً لتأكيد موعد التوصيل.'}</span>
+        <span>{state.payment === 'card' ? 'سيتم التواصل معك هاتفياً لتأكيد شحن طلبك.' : 'الدفع عند الاستلام. سيتم التواصل معك هاتفياً لتأكيد موعد التوصيل.'}</span>
       </div>
 
       <div className="confirm__actions" style={{ flexDirection: 'column', gap: '0.75rem', alignItems: 'center' }}>
-        <a
-          href={`https://wa.me/${STORE_CONTACT.whatsappNumber}?text=${encodeURIComponent(`مرحباً، لدي استفسار بخصوص طلبي رقم #${state.orderNo}`)}`}
-          target="_blank"
-          rel="noopener noreferrer"
+        <button
+          type="button"
           className="btn btn--burgundy"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
+          onClick={resendWhatsApp}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', width: '100%', maxWidth: '360px', justifyContent: 'center' }}
         >
           <Whatsapp />
-          مراسلة خدمة العملاء عبر الواتساب للاستفسار 💬
-        </a>
+          إرسال نسخة الفاتورة عبر الواتساب (اختياري) 📱
+        </button>
 
-        <Link to="/" className="btn btn--ghost">
+        <Link to="/" className="btn btn--ghost" style={{ width: '100%', maxWidth: '360px', textAlign: 'center' }}>
           العودة لتصفح المتجر 🛍️
         </Link>
       </div>

@@ -105,13 +105,15 @@ export default function CheckoutPage() {
     };
 
     // 1. Save order to Firebase / LocalStorage for admin dashboard in real-time
-    await saveOrder(orderData).catch((e) => console.warn('Order save failed:', e));
+    try {
+      await saveOrder(orderData);
+    } catch (err) {
+      console.warn('Order save fallback:', err);
+    }
 
-    // 2. Open WhatsApp invoice directly
-    openWhatsAppInvoice(orderData);
-
-    // 3. Clear cart and navigate to confirmation
+    // 2. Clear cart and navigate directly to confirmation
     clearCart();
+    setSubmitting(false);
     navigate('/order-confirmed', { state: orderData, replace: true });
   };
 
