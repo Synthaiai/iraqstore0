@@ -77,6 +77,29 @@ function setLocalProducts(products) {
   }
 }
 
+const RTDB_REST_URL = 'https://store-29692-default-rtdb.firebaseio.com/products.json';
+
+export async function fetchFreshSnapshot() {
+  try {
+    const res = await fetch(`${RTDB_REST_URL}?cacheBust=${Date.now()}`, {
+      headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && typeof data === 'object') {
+        const list = Object.values(data);
+        if (list.length > 0) {
+          setLocalProducts(list);
+          return list;
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('REST fetch fallback error:', e);
+  }
+  return null;
+}
+
 /* ---------------- Products Realtime & Fallback ---------------- */
 
 export function listenProducts(cb) {
@@ -94,7 +117,34 @@ export function listenProducts(cb) {
     });
   }
 
-  // 2. Realtime sync online for ALL users via Firebase Realtime Database
+  // 2. Immediate REST snapshot in parallel to bypass throttled mobile WebSockets
+  fetchFreshSnapshot().then((fresh) => {
+    if (fresh && fresh.length) {
+      initialLoaded = true;
+      notifyStatus('online');
+      cb(fresh);
+    }
+  });
+
+  // 3. Listen for mobile tab reactivation (unlocking phone / returning to browser tab)
+  if (typeof window !== 'undefined') {
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchFreshSnapshot().then((fresh) => {
+          if (fresh && fresh.length) cb(fresh);
+        });
+      }
+    };
+    const onOnline = () => {
+      fetchFreshSnapshot().then((fresh) => {
+        if (fresh && fresh.length) cb(fresh);
+      });
+    };
+    window.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('online', onOnline);
+  }
+
+  // 4. Realtime sync online for ALL users via Firebase Realtime Database
   try {
     const unsub = onValue(
       ref(db, 'products'),
@@ -105,20 +155,9 @@ export function listenProducts(cb) {
         
         if (val && typeof val === 'object' && Object.keys(val).length > 0) {
           const cloudList = Object.values(val);
-          // Merge with any local products that may not have finished syncing
-          const currentLocal = memoryProductsCache || [];
-          const mergedMap = new Map();
-          cloudList.forEach((p) => {
-            if (p && p.id) mergedMap.set(String(p.id), p);
-          });
-          currentLocal.forEach((p) => {
-            if (p && p.id && !mergedMap.has(String(p.id))) {
-              mergedMap.set(String(p.id), p);
-            }
-          });
-          const finalList = Array.from(mergedMap.values());
-          setLocalProducts(finalList);
-          cb(finalList);
+          // Directly apply cloud truth so deleted/updated products are strictly reflected on all devices
+          setLocalProducts(cloudList);
+          cb(cloudList);
         } else {
           // Cloud has no products or null — NEVER wipe local cache!
           getIDBProducts().then((cached) => {
