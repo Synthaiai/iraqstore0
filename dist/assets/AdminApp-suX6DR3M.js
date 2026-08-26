@@ -861,7 +861,16 @@ function OrdersPanel_V3({ orders: initialOrders, onStatusChange, onDeleteOrder }
     ]
   });
 }
-function is(){
+const ls = {
+  'auth/invalid-credential': 'البريد الإلكتروني أو كلمة المرور غير صحيحة',
+  'auth/user-not-found': 'لم يتم العثور على حساب بهذا البريد',
+  'auth/wrong-password': 'كلمة المرور غير صحيحة',
+  'auth/invalid-email': 'صيغة البريد الإلكتروني غير صحيحة',
+  'auth/too-many-requests': 'تم حظر المحاولات مؤقتاً لكثرة المحاولات الخاطئة. حاول لاحقاً',
+  'auth/network-request-failed': 'فشل الاتصال بالإنترنت'
+};
+
+function is() {
   const { user: i, logout: l } = Y();
   const [o, n] = u.useState([]);
   const [orders, setOrders] = u.useState(() => {
@@ -941,4 +950,135 @@ function is(){
     ]
   });
 }
-function me({notAllowed:i}){const{login:l,logout:o,user:n}=Y(),[c,d]=u.useState(""),[f,N]=u.useState(""),[v,S]=u.useState(!1),[E,C]=u.useState(""),w=async p=>{p.preventDefault(),S(!0),C("");try{await l(c.trim(),f)}catch(h){C(ls[h.code]||"تعذّر تسجيل الدخول")}finally{S(!1)}};return e.jsx("div",{className:"admin-auth",children:e.jsxs("div",{className:"admin-auth__card",children:[e.jsxs("div",{className:"admin-auth__brand",children:[e.jsx("img",{src:"/logo.png",alt:"",width:"52",height:"52"}),e.jsxs("div",{children:[e.jsx("strong",{children:"IRAQI STORE"}),e.jsx("span",{children:"لوحة الإدارة"})]})]}),i?e.jsxs(e.Fragment,{children:[e.jsxs("p",{className:"admin-auth__msg",children:["الحساب ",e.jsx("b",{children:n==null?void 0:n.email})," غير مخوّل للوصول إلى لوحة الإدارة."]}),e.jsx("button",{type:"button",className:"admin-btn admin-btn--ghost",onClick:o,children:"تسجيل الخروج"})]}):e.jsxs("form",{onSubmit:w,className:"admin-auth__form",children:[e.jsxs("label",{className:"admin-field",children:[e.jsx("span",{children:"البريد الإلكتروني"}),e.jsx("input",{type:"email",value:c,onChange:p=>d(p.target.value),placeholder:"admin@example.com",autoComplete:"username",dir:"ltr",required:!0})]}),e.jsxs("label",{className:"admin-field",children:[e.jsx("span",{children:"كلمة المرور"}),e.jsx("input",{type:"password",value:f,onChange:p=>N(p.target.value),placeholder:"••••••••",autoComplete:"current-password",dir:"ltr",required:!0})]}),E&&e.jsx("p",{className:"admin-auth__error",children:E}),e.jsx("button",{type:"submit",className:"admin-btn admin-btn--primary",disabled:v,children:v?"جارٍ الدخول…":"تسجيل الدخول"})]})]})})}function rs(){const{ready:i,user:l,isAdmin:o}=Y();return u.useEffect(()=>(document.documentElement.setAttribute("data-admin","on"),()=>document.documentElement.removeAttribute("data-admin")),[]),i?l?o?e.jsx(is,{}):e.jsx(me,{notAllowed:!0}):e.jsx(me,{}):e.jsx("div",{className:"admin-auth",children:e.jsx("div",{className:"admin-spinner","aria-label":"جارٍ التحميل"})})}function ds(){return e.jsx(Qe,{children:e.jsx(rs,{})})}export{ds as default};
+
+function me({ notAllowed: i }) {
+  const { login: l, logout: o, user: n } = Y();
+  const [c, d] = u.useState("");
+  const [f, N] = u.useState("");
+  const [v, S] = u.useState(!1);
+  const [E, C] = u.useState("");
+
+  const w = async p => {
+    p.preventDefault();
+    S(!0);
+    C("");
+    try {
+      await l(c.trim(), f);
+    } catch(h) {
+      C((ls && ls[h.code]) || "تعذّر تسجيل الدخول");
+    } finally {
+      S(!1);
+    }
+  };
+
+  return e.jsx("div", {
+    className: "admin-auth",
+    children: e.jsxs("div", {
+      className: "admin-auth__card",
+      children: [
+        e.jsxs("div", {
+          className: "admin-auth__brand",
+          children: [
+            e.jsx("img", { src: "/logo.png", alt: "", width: "52", height: "52" }),
+            e.jsxs("div", {
+              children: [
+                e.jsx("strong", { children: "IRAQI STORE" }),
+                e.jsx("span", { children: "لوحة الإدارة" })
+              ]
+            })
+          ]
+        }),
+        i ? e.jsxs(e.Fragment, {
+          children: [
+            e.jsxs("p", {
+              className: "admin-auth__msg",
+              children: ["الحساب ", e.jsx("b", { children: n == null ? void 0 : n.email }), " غير مخوّل للوصول إلى لوحة الإدارة."]
+            }),
+            e.jsx("button", {
+              type: "button",
+              className: "admin-btn admin-btn--ghost",
+              onClick: o,
+              children: "تسجيل الخروج"
+            })
+          ]
+        }) : e.jsxs("form", {
+          onSubmit: w,
+          className: "admin-auth__form",
+          children: [
+            e.jsxs("label", {
+              className: "admin-field",
+              children: [
+                e.jsx("span", { children: "البريد الإلكتروني" }),
+                e.jsx("input", {
+                  type: "email",
+                  value: c,
+                  onChange: p => d(p.target.value),
+                  placeholder: "admin@example.com",
+                  autoComplete: "username",
+                  dir: "ltr",
+                  required: !0
+                })
+              ]
+            }),
+            e.jsxs("label", {
+              className: "admin-field",
+              children: [
+                e.jsx("span", { children: "كلمة المرور" }),
+                e.jsx("input", {
+                  type: "password",
+                  value: f,
+                  onChange: p => N(p.target.value),
+                  placeholder: "••••••••",
+                  autoComplete: "current-password",
+                  dir: "ltr",
+                  required: !0
+                })
+              ]
+            }),
+            E && e.jsx("p", { className: "admin-auth__error", children: E }),
+            e.jsx("button", {
+              type: "submit",
+              className: "admin-btn admin-btn--primary",
+              disabled: v,
+              children: v ? "جارٍ الدخول…" : "تسجيل الدخول"
+            })
+          ]
+        })
+      ]
+    })
+  });
+}
+
+function rs() {
+  const { ready: i, user: l, isAdmin: o } = Y();
+
+  u.useEffect(() => {
+    document.documentElement.setAttribute("data-admin", "on");
+    return () => {
+      document.documentElement.removeAttribute("data-admin");
+    };
+  }, []);
+
+  if (!i) {
+    return e.jsx("div", {
+      className: "admin-auth",
+      children: e.jsx("div", { className: "admin-spinner", "aria-label": "جارٍ التحميل" })
+    });
+  }
+
+  if (!l) {
+    return e.jsx(me, {});
+  }
+
+  if (!o) {
+    return e.jsx(me, { notAllowed: !0 });
+  }
+
+  return e.jsx(is, {});
+}
+
+function ds() {
+  return e.jsx(Qe, { children: e.jsx(rs, {}) });
+}
+
+export { ds as default };
