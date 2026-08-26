@@ -51,7 +51,7 @@ export default function ProductCard({ product, index = 0 }) {
         <Link to={`/product/${product.id}`} aria-label={name}>
           <Img
             className="pcard__img"
-            src={product.image}
+            src={(product.images && product.images[0]) || product.image || '/logo.png'}
             srcSet={product.imageSet}
             sizes={CARD_SIZES}
             alt={name}
@@ -60,7 +60,7 @@ export default function ProductCard({ product, index = 0 }) {
           {wantAlt && (
             <Img
               className="pcard__img pcard__img--alt"
-              src={product.imageAlt}
+              src={(product.images && (product.images[1] || product.images[0])) || product.imageAlt || product.image || '/logo.png'}
               srcSet={product.imageAltSet}
               sizes={CARD_SIZES}
               alt=""

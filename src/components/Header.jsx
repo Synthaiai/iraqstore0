@@ -189,7 +189,7 @@ export default function Header() {
                       className="search-hit"
                       onClick={() => go(`/product/${p.id}`)}
                     >
-                      <img src={p.thumbs[0]} alt="" loading="lazy" />
+                      <img src={(p.images && p.images[0]) || (p.thumbs && p.thumbs[0]) || p.image || '/logo.png'} alt="" loading="lazy" />
                       <span style={{ textAlign: 'start' }}>
                         <span className="search-hit__name">{tf(p, 'name')}</span>
                         <br />

@@ -60,7 +60,7 @@ export default function ProductBrowser({ pool, resetKey }) {
 
   const products = useMemo(() => {
     const list = pool.filter((p) => {
-      if (p.price > filters.maxPrice) return false;
+      if (filters.maxPrice && bounds.max && filters.maxPrice < bounds.max && p.price > filters.maxPrice) return false;
       if (filters.onSale && !p.oldPrice) return false;
       if (filters.isNew && p.badge !== 'new') return false;
       if (filters.colors.length && !p.colors.some((cl) => filters.colors.includes(cl.name))) return false;

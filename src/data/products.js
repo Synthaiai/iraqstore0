@@ -1043,6 +1043,14 @@ export function normalizeProduct(raw) {
     sortOrder: raw.sortOrder,
     status: raw.status || 'active',
     stockQuantity: raw.stockQuantity,
+    type: raw.type || 'general',
+    heelType: raw.heelType || '',
+    soleMaterial: raw.soleMaterial || '',
+    fitType: raw.fitType || '',
+    perfumeVolume: raw.perfumeVolume || '',
+    perfumeConcentration: raw.perfumeConcentration || '',
+    perfumeNotes: raw.perfumeNotes || '',
+    customSpecs: Array.isArray(raw.customSpecs) ? raw.customSpecs : [],
   };
 
   let normalized;
@@ -1085,7 +1093,7 @@ export function normalizeProduct(raw) {
 /** Strip a storefront product down to the fields we persist to the database. */
 export function toRecord(p) {
   return {
-    id: p.id,
+    id: String(p.id),
     gender: p.gender,
     category: p.category,
     sub: p.sub,
@@ -1093,20 +1101,28 @@ export function toRecord(p) {
     nameEn: p.nameEn,
     blurb: p.blurb,
     blurbEn: p.blurbEn,
-    price: p.price,
-    oldPrice: p.oldPrice || null,
-    rating: p.rating,
-    reviews: p.reviews,
+    price: Number(p.price) || 0,
+    oldPrice: p.oldPrice ? Number(p.oldPrice) : null,
+    rating: p.rating != null ? Number(p.rating) : 4.8,
+    reviews: p.reviews != null ? Number(p.reviews) : 12,
     badge: p.badge || null,
-    colors: p.colors,
-    sizes: p.sizes,
-    material: p.material,
-    materialEn: p.materialEn,
+    colors: p.colors || [],
+    sizes: p.sizes || [],
+    material: p.material || '',
+    materialEn: p.materialEn || '',
     sortOrder: p.sortOrder,
-    status: p.status,
+    status: p.status || 'active',
     stockQuantity: p.stockQuantity,
     gallery: p.gallery || null,
-    images: p.images || null,
+    images: p.images || (p.image ? [p.image] : []),
+    type: p.type || 'general',
+    heelType: p.heelType || '',
+    soleMaterial: p.soleMaterial || '',
+    fitType: p.fitType || '',
+    perfumeVolume: p.perfumeVolume || '',
+    perfumeConcentration: p.perfumeConcentration || '',
+    perfumeNotes: p.perfumeNotes || '',
+    customSpecs: Array.isArray(p.customSpecs) ? p.customSpecs : [],
   };
 }
 
@@ -1169,19 +1185,22 @@ export function newArrivals(limit = 8) {
 }
 
 export function searchProducts(term, limit = 8) {
+  if (!term || typeof term !== 'string') return [];
   const q = term.trim();
   if (q.length < 2) return [];
   const lower = q.toLowerCase();
   const res = [];
   for (let i = 0; i < PRODUCTS.length; i++) {
     const p = PRODUCTS[i];
-    if (
-      p.name.includes(q) ||
-      p.blurb.includes(q) ||
-      (p.material && p.material.includes(q)) ||
-      (p.nameEn && p.nameEn.toLowerCase().includes(lower)) ||
-      (p.blurbEn && p.blurbEn.toLowerCase().includes(lower))
-    ) {
+    if (!p || p.status === 'draft') continue;
+    const nameMatch = (p.name || '').toLowerCase().includes(lower);
+    const nameEnMatch = (p.nameEn || '').toLowerCase().includes(lower);
+    const catMatch = (p.category || '').toLowerCase().includes(lower);
+    const subMatch = (p.sub || '').toLowerCase().includes(lower);
+    const blurbMatch = (p.blurb || '').toLowerCase().includes(lower);
+    const blurbEnMatch = (p.blurbEn || '').toLowerCase().includes(lower);
+    const matMatch = (p.material || '').toLowerCase().includes(lower);
+    if (nameMatch || nameEnMatch || catMatch || subMatch || blurbMatch || blurbEnMatch || matMatch) {
       res.push(p);
       if (res.length >= limit) break;
     }

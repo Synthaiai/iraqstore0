@@ -56,9 +56,16 @@ export default function ProductPage() {
   const colors = Array.isArray(product.colors) ? product.colors : [];
   const sizes = Array.isArray(product.sizes) ? product.sizes : [];
   const sizesEn = Array.isArray(product.sizesEn) ? product.sizesEn : sizes;
-  const large = Array.isArray(product.large) && product.large.length ? product.large : [product.image].filter(Boolean);
+  const rawImgs = (Array.isArray(product.images) && product.images.length)
+    ? product.images
+    : (Array.isArray(product.gallery) && product.gallery.length)
+      ? product.gallery
+      : (Array.isArray(product.large) && product.large.length)
+        ? product.large
+        : [product.image].filter(Boolean);
+  const large = rawImgs.length ? rawImgs : ['/logo.png'];
   const largeSet = Array.isArray(product.largeSet) ? product.largeSet : [];
-  const thumbs = Array.isArray(product.thumbs) && product.thumbs.length ? product.thumbs : large;
+  const thumbs = (Array.isArray(product.thumbs) && product.thumbs.length === large.length) ? product.thumbs : large;
 
   const g = getGender(product.gender);
   const c = getCategory(product.gender, product.category);
@@ -257,10 +264,54 @@ export default function ProductPage() {
             <div className="pdp__divider" />
 
             <dl className="specs">
-              <div className="spec">
-                <dt>{t('material')}</dt>
-                <dd>{tf(product, 'material')}</dd>
-              </div>
+              {product.material && (
+                <div className="spec">
+                  <dt>{t('material')}</dt>
+                  <dd>{tf(product, 'material')}</dd>
+                </div>
+              )}
+              {product.heelType && (
+                <div className="spec">
+                  <dt>نوع الكعب / النعل</dt>
+                  <dd>{product.heelType}</dd>
+                </div>
+              )}
+              {product.soleMaterial && (
+                <div className="spec">
+                  <dt>خامة النعل</dt>
+                  <dd>{product.soleMaterial}</dd>
+                </div>
+              )}
+              {product.fitType && (
+                <div className="spec">
+                  <dt>نوع القَصّة</dt>
+                  <dd>{product.fitType}</dd>
+                </div>
+              )}
+              {product.perfumeVolume && (
+                <div className="spec">
+                  <dt>الحجم / السعة</dt>
+                  <dd>{product.perfumeVolume}</dd>
+                </div>
+              )}
+              {product.perfumeConcentration && (
+                <div className="spec">
+                  <dt>درجة التركيز</dt>
+                  <dd>{product.perfumeConcentration}</dd>
+                </div>
+              )}
+              {product.perfumeNotes && (
+                <div className="spec">
+                  <dt>النوتات العطرية</dt>
+                  <dd>{product.perfumeNotes}</dd>
+                </div>
+              )}
+              {(product.customSpecs || []).map((cs, idx) => cs.key && cs.value && (
+                <div className="spec" key={idx}>
+                  <dt>{cs.key}</dt>
+                  <dd>{cs.value}</dd>
+                </div>
+              ))}
               <div className="spec">
                 <dt>{t('availableColors')}</dt>
                 <dd>{colors.map((cl) => tf(cl, 'name')).join(' · ')}</dd>
@@ -268,7 +319,7 @@ export default function ProductPage() {
               <div className="spec">
                 <dt>{t('section')}</dt>
                 <dd>
-                  {lang === 'en' ? g.latin : g.title} · {lang === 'en' ? c.latin : c.title}
+                  {lang === 'en' ? g?.latin : g?.title} · {lang === 'en' ? c?.latin : c?.title}
                 </dd>
               </div>
               <div className="spec">
