@@ -62,9 +62,25 @@ export function deliveryFee(governorate, customFeesMap) {
 }
 
 /**
- * Iraqi mobile numbers: 11 digits starting 07 (e.g. 0770/0771/0780/0790…).
+ * Iraqi mobile numbers: supports 07xxxxxxxxx, +9647xxxxxxxxx, 009647xxxxxxxxx, 7xxxxxxxxx,
+ * and converts Arabic-Indic numerals automatically.
  */
 export function isValidIraqiPhone(raw) {
-  const digits = String(raw).replace(/[\s-]/g, '');
+  if (!raw) return false;
+  let s = String(raw).trim();
+  // Normalize Arabic-Indic digits to Latin
+  const arabicDigits = ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'];
+  arabicDigits.forEach((d, i) => {
+    s = s.replaceAll(d, String(i));
+  });
+  // Strip non-digits
+  let digits = s.replace(/\D/g, '');
+  // Normalize +964 or 00964 prefixes
+  if (digits.startsWith('964')) {
+    digits = '0' + digits.slice(3);
+  }
+  if (!digits.startsWith('0') && digits.startsWith('7') && digits.length === 10) {
+    digits = '0' + digits;
+  }
   return /^07\d{9}$/.test(digits);
 }

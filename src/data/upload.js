@@ -30,6 +30,12 @@ export async function uploadImage(file, folder = 'products') {
   } catch (err) {
     console.warn('Firebase Storage upload failed or timed out — using compressed data URL:', err);
     // Fallback to compressed base64 data URL so image saving NEVER fails or hangs!
-    return dataUrl || URL.createObjectURL(targetFile);
+    if (dataUrl) return dataUrl;
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target.result);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(targetFile);
+    });
   }
 }

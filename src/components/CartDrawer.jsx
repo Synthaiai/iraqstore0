@@ -71,7 +71,7 @@ export default function CartDrawer() {
                 return (
                   <div className="cart-line" key={line.key}>
                     <Link to={`/product/${line.product.id}`} className="cart-line__img" onClick={closeCart}>
-                      <img src={(line.product.thumbs && line.product.thumbs[0]) || line.product.image} alt={tf(line.product, 'name')} loading="lazy" />
+                      <img src={(line.product.images && line.product.images[0]) || (line.product.thumbs && line.product.thumbs[0]) || line.product.image || '/logo.png'} alt={tf(line.product, 'name')} loading="lazy" />
                     </Link>
 
                     <div className="cart-line__body">

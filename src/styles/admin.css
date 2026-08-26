@@ -1676,6 +1676,160 @@
   font-size: 1.1rem;
 }
 
+/* ---------- Product Reorder Panel Styles ---------- */
+.admin-reorder-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin-top: 1rem;
+}
+
+.admin-reorder-card {
+  display: grid;
+  grid-template-columns: 32px 85px 56px 1fr auto auto;
+  align-items: center;
+  gap: 0.9rem;
+  background: var(--a-surface);
+  border: 1px solid var(--a-line);
+  border-radius: var(--a-radius-sm);
+  padding: 0.65rem 1rem;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.admin-reorder-card:hover {
+  border-color: var(--a-line-2);
+  background: var(--a-surface-2);
+}
+
+.admin-reorder-card.is-dragging {
+  opacity: 0.4;
+  border-style: dashed;
+  border-color: var(--a-accent);
+}
+
+.admin-reorder-card.is-dragover {
+  border-color: var(--a-accent);
+  background: rgba(226, 59, 66, 0.08);
+  transform: scale(1.01);
+}
+
+.admin-reorder-handle {
+  cursor: grab;
+  font-size: 1.3rem;
+  color: var(--a-mute);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.2rem;
+  border-radius: 4px;
+}
+
+.admin-reorder-handle:hover {
+  color: var(--a-text);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.admin-reorder-rank {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.admin-rank-num {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--a-accent-2);
+  min-width: 28px;
+}
+
+.admin-rank-input {
+  width: 44px;
+  padding: 0.2rem 0.35rem;
+  background: var(--a-bg);
+  border: 1px solid var(--a-line-2);
+  border-radius: 6px;
+  color: var(--a-text);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.admin-reorder-thumb {
+  width: 54px;
+  height: 54px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--a-surface-2);
+  border: 1px solid var(--a-line-2);
+}
+
+.admin-reorder-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.admin-reorder-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.admin-reorder-title-row strong {
+  font-size: 0.95rem;
+  color: var(--a-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.admin-reorder-sub-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.82rem;
+  color: var(--a-dim);
+}
+
+.admin-reorder-price {
+  font-size: 1rem;
+  color: var(--a-text);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.admin-reorder-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+@media (max-width: 768px) {
+  .admin-reorder-card {
+    grid-template-columns: 24px 70px 48px 1fr;
+    gap: 0.5rem;
+    padding: 0.6rem 0.75rem;
+  }
+
+  .admin-reorder-price {
+    grid-column: 1 / -1;
+    font-size: 0.9rem;
+  }
+
+  .admin-reorder-actions {
+    grid-column: 1 / -1;
+    justify-content: stretch;
+  }
+
+  .admin-reorder-actions .admin-btn {
+    flex: 1;
+    font-size: 0.78rem;
+    padding: 0.4rem;
+  }
+}
+
 
 
 

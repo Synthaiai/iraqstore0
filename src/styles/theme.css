@@ -15,17 +15,42 @@
   --line: #2c2c34;
   --line-strong: #3d3d46;
 
-  --ink-900: #f4f3f1;
-  --ink-800: #e7e5e2;
-  --ink-700: #ceccc9;
-  --ink-600: #a8a6a3;
-  --ink-400: #8c8a88;
-  --ink-300: #6a6866;
+  --ink-900: #ffffff;
+  --ink-800: #f4f3f1;
+  --ink-700: #dedcd9;
+  --ink-600: #b5b3b0;
+  --ink-400: #969492;
+  --ink-300: #73716f;
 
-  /* Burgundy-100 is used as a light tinted surface (active filter, payment) —
-     remap to a dark burgundy tint so text stays readable. */
+  /* Burgundy and red tones in dark mode: bright, vibrant, high-contrast */
+  --burgundy-900: #4a0d14;
+  --burgundy-800: #6e111c;
+  --burgundy-700: #ff4757;
+  --burgundy-600: #ff6b81;
+  --burgundy-500: #ffa4b2;
   --burgundy-100: #2a1015;
-  --brand-red: #e23b42;
+  --brand-red: #ff3b47;
+}
+
+/* High visibility prices in dark mode */
+:root[data-theme='dark'] .price {
+  color: #ffffff;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+:root[data-theme='dark'] .price--old {
+  color: #9ea1ab;
+  font-weight: 600;
+}
+
+:root[data-theme='dark'] .pcard:hover .pcard__name,
+:root[data-theme='dark'] .pcard:focus-within .pcard__name {
+  color: #ff6b81;
+}
+
+:root[data-theme='dark'] .pcard__desc {
+  color: #a8abb5;
 }
 
 /* ---- Buttons ---- */

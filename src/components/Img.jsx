@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 /**
  * Progressive image for slow connections.
@@ -22,6 +22,10 @@ export default function Img({
 }) {
   const [state, setState] = useState('loading');
 
+  useEffect(() => {
+    setState('loading');
+  }, [src]);
+
   return (
     <span
       className={`imgw ${className} ${state === 'loading' ? 'is-loading' : ''} ${
@@ -30,7 +34,7 @@ export default function Img({
       {...rest}
     >
       <img
-        src={src}
+        src={src || '/logo.png'}
         srcSet={srcSet}
         sizes={sizes}
         alt={alt}

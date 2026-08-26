@@ -80,7 +80,10 @@ export default function ProductBrowser({ pool, resetKey }) {
         return sorted.sort((a, b) => (b.badge === 'new') - (a.badge === 'new'));
       default:
         return sorted.sort(
-          (a, b) => (BADGE_ORDER[a.badge] ?? 9) - (BADGE_ORDER[b.badge] ?? 9) || b.rating - a.rating
+          (a, b) =>
+            (a.sortOrder ?? 9999) - (b.sortOrder ?? 9999) ||
+            (BADGE_ORDER[a.badge] ?? 9) - (BADGE_ORDER[b.badge] ?? 9) ||
+            b.rating - a.rating
         );
     }
   }, [pool, filters, sort]);

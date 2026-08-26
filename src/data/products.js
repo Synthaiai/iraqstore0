@@ -993,6 +993,7 @@ const NORMALIZED_CACHE = new Map();
 export function setLiveProducts(list) {
   PRODUCTS = list || [];
   PRODUCTS_MAP.clear();
+  NORMALIZED_CACHE.clear();
   for (let i = 0; i < PRODUCTS.length; i++) {
     const p = PRODUCTS[i];
     if (p && p.id != null) {
@@ -1009,7 +1010,8 @@ export function normalizeProduct(raw) {
   if (!raw || !raw.id) return null;
   if (raw.image && raw.thumbs) return raw; // already a full in-memory seed product
 
-  const cacheKey = `${raw.id}_${raw.price}_${raw.name}_${Array.isArray(raw.images) ? raw.images.length : 0}`;
+  const imagesHash = Array.isArray(raw.images) ? raw.images.join('|') : (raw.image || '');
+  const cacheKey = `${raw.id}_${raw.price}_${raw.name}_${raw.sortOrder}_${raw.status}_${imagesHash}`;
   if (NORMALIZED_CACHE.has(cacheKey)) {
     return NORMALIZED_CACHE.get(cacheKey);
   }
@@ -1059,11 +1061,14 @@ export function normalizeProduct(raw) {
       largeSet: gallery.map((g) => srcSet(g, [420, 640, 900, 1200], 5 / 4, 58)),
     };
   } else {
-    const urls = (Array.isArray(raw.images) ? raw.images.filter(Boolean) : []).slice(0, 4);
+    let urls = (Array.isArray(raw.images) ? raw.images.filter(Boolean) : []);
+    if (!urls.length && raw.image) {
+      urls = [raw.image];
+    }
     const pad = urls.length ? urls : [img(POOLS.mShirts[0], 420, 560)];
     normalized = {
       ...base,
-      images: urls,
+      images: urls.length ? urls : pad,
       image: pad[0],
       imageSet: undefined,
       imageAlt: pad[1] || pad[0],

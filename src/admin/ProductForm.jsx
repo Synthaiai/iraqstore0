@@ -87,7 +87,18 @@ const empty = {
 };
 
 export default function ProductForm({ initial, onSave, onCancel }) {
-  const [form, setForm] = useState(() => ({ ...empty, ...(initial || {}) }));
+  const [form, setForm] = useState(() => {
+    const init = initial || {};
+    let existingImages = [];
+    if (Array.isArray(init.images) && init.images.length) {
+      existingImages = init.images.filter(Boolean);
+    } else if (init.image) {
+      existingImages = [init.image];
+    } else if (Array.isArray(init.gallery) && init.gallery.length) {
+      existingImages = init.gallery.filter(Boolean);
+    }
+    return { ...empty, ...init, images: existingImages };
+  });
   const [files, setFiles] = useState([]);
   const [compressionStats, setCompressionStats] = useState(null);
   const [busy, setBusy] = useState(false);

@@ -56,12 +56,7 @@ export async function setIDBProducts(products) {
     store.clear();
     products.forEach((p) => {
       if (p && p.id) {
-        // Strip out heavy base64 data URLs before caching to keep memory low
-        let cleanP = p;
-        if (Array.isArray(p.images) && p.images.some((u) => typeof u === 'string' && u.startsWith('data:'))) {
-          cleanP = { ...p, images: p.images.filter((u) => typeof u === 'string' && !u.startsWith('data:')) };
-        }
-        store.put(cleanP);
+        store.put(p);
       }
     });
     return new Promise((resolve) => {

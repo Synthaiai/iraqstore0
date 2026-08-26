@@ -7,6 +7,7 @@ import {
   deleteProduct,
   getConnectionStatus,
   listenCatalog,
+  listenOrders,
   listenProducts,
   saveProduct,
   saveProductsBatch,
@@ -15,9 +16,12 @@ import {
   subscribeConnectionStatus,
 } from '../data/remote';
 import { uploadImage } from '../data/upload';
+import AnalyticsPanel from './AnalyticsPanel';
 import CategoryTree from './CategoryTree';
 import DeliveryFeesPanel from './DeliveryFeesPanel';
+import OrdersPanel from './OrdersPanel';
 import ProductForm from './ProductForm';
+import ProductReorderPanel from './ProductReorderPanel';
 
 function ConnectionStatusBadge() {
   const [status, setStatus] = useState(() => getConnectionStatus());
@@ -411,15 +415,18 @@ function SettingsPanel({ productCount, products }) {
 export default function Dashboard() {
   const { user, logout } = useAuth();
   const [products, setProducts] = useState([]);
+  const [orders, setOrders] = useState([]);
   const [tab, setTab] = useState('products');
 
   useEffect(() => {
     const unsubP = listenProducts(setProducts);
+    const unsubO = listenOrders(setOrders);
     const unsubC = listenCatalog((tree) => {
       if (tree) updateCatalogStore(tree);
     });
     return () => {
       unsubP();
+      unsubO();
       unsubC();
     };
   }, []);
@@ -443,6 +450,24 @@ export default function Dashboard() {
             📦 المنتجات والمخزون ({products.length})
           </button>
           <button
+            className={tab === 'reorder' ? 'is-active' : ''}
+            onClick={() => setTab('reorder')}
+          >
+            ↕️ ترتيب المنتجات
+          </button>
+          <button
+            className={tab === 'orders' ? 'is-active' : ''}
+            onClick={() => setTab('orders')}
+          >
+            🛍️ الطلبات ({orders.length})
+          </button>
+          <button
+            className={tab === 'analytics' ? 'is-active' : ''}
+            onClick={() => setTab('analytics')}
+          >
+            📊 الإحصائيات
+          </button>
+          <button
             className={tab === 'tree' ? 'is-active' : ''}
             onClick={() => setTab('tree')}
           >
@@ -452,7 +477,7 @@ export default function Dashboard() {
             className={tab === 'delivery' ? 'is-active' : ''}
             onClick={() => setTab('delivery')}
           >
-            🚚 أسعار التوصيل للمحافظات
+            🚚 أسعار التوصيل
           </button>
           <button
             className={tab === 'settings' ? 'is-active' : ''}
@@ -475,6 +500,9 @@ export default function Dashboard() {
 
       <main className="admin-main">
         {tab === 'products' && <ProductsPanel products={products} />}
+        {tab === 'reorder' && <ProductReorderPanel products={products} />}
+        {tab === 'orders' && <OrdersPanel orders={orders} />}
+        {tab === 'analytics' && <AnalyticsPanel products={products} orders={orders} />}
         {tab === 'tree' && <CategoryTree products={products} />}
         {tab === 'delivery' && <DeliveryFeesPanel />}
         {tab === 'settings' && (
