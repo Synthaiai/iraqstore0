@@ -290,11 +290,11 @@ export default function CheckoutPage() {
                 }}
               >
                 {submitting ? (
-                  'جارٍ تحويل الفاتورة للواتساب…'
+                  lang === 'en' ? 'Processing order…' : 'جارٍ إتمام الطلب…'
                 ) : (
                   <>
                     <Whatsapp />
-                    إرسال الطلب عبر الواتساب — {formatPrice(total, lang)}
+                    {lang === 'en' ? 'Complete Order' : 'إتمام الطلب'} — {formatPrice(total, lang)}
                   </>
                 )}
               </button>
@@ -355,11 +355,11 @@ export default function CheckoutPage() {
               disabled={submitting}
             >
               {submitting ? (
-                'جارٍ تحويل الفاتورة للواتساب…'
+                lang === 'en' ? 'Processing order…' : 'جارٍ إتمام الطلب…'
               ) : (
                 <>
                   <Whatsapp />
-                  إرسال الطلب عبر الواتساب — {formatPrice(total, lang)}
+                  {lang === 'en' ? 'Complete Order' : 'إتمام الطلب'} — {formatPrice(total, lang)}
                 </>
               )}
             </button>
