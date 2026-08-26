@@ -1,8 +1,8 @@
 <!doctype html>
 <html lang="ar" dir="rtl">
   <head>
-
     <script>
+      // Single Page App redirect for GitHub Pages deep linking & refreshes
       (function(){
         var redirect = sessionStorage.redirect;
         delete sessionStorage.redirect;
@@ -16,7 +16,6 @@
         }
       })();
     </script>
-
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
@@ -28,18 +27,10 @@
       content="IRAQI STORE | عراقي ستور — متجر إلكتروني لبيع الملابس والأحذية والإكسسوارات الرجالية والنسائية."
     />
     <title>IRAQI STORE | عراقي ستور</title>
-
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <!-- Product imagery all comes from one host; warming the connection saves a
-         DNS + TLS round trip before the first card can start downloading. -->
     <link rel="preconnect" href="https://images.unsplash.com" crossorigin />
     <link rel="dns-prefetch" href="https://images.unsplash.com" />
-    <!-- One family across the whole site: IBM Plex Sans Arabic ships matching
-         Latin glyphs, so Arabic and Latin never disagree on weight or rhythm. -->
-    <!-- Arabic: IBM Plex Sans Arabic. Latin: Plus Jakarta Sans — a modern,
-         softly-rounded humanist grotesque that reads far better in English than
-         the Plex Latin glyphs. `display=swap` avoids a blank first paint. -->
     <link
       href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
@@ -49,29 +40,23 @@
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%230B0B0C'/%3E%3Ccircle cx='32' cy='32' r='27' fill='none' stroke='%23D81F26' stroke-width='4'/%3E%3Ccircle cx='32' cy='32' r='18' fill='none' stroke='%23D81F26' stroke-width='3'/%3E%3Ctext x='32' y='43' font-family='sans-serif' font-size='28' font-weight='700' fill='%23D81F26' text-anchor='middle'%3ES%3C/text%3E%3C/svg%3E"
     />
     <script>
-      // Universal fix for browser extensions & Google Translate breaking React removeChild
       if (typeof Node === 'function' && Node.prototype) {
         const originalRemoveChild = Node.prototype.removeChild;
         Node.prototype.removeChild = function (child) {
-          if (child.parentNode !== this) {
-            console.warn('removeChild prevented from mismatched parent', child, this);
-            return child;
-          }
+          if (child.parentNode !== this) return child;
           return originalRemoveChild.apply(this, arguments);
         };
         const originalInsertBefore = Node.prototype.insertBefore;
         Node.prototype.insertBefore = function (newNode, referenceNode) {
-          if (referenceNode && referenceNode.parentNode !== this) {
-            console.warn('insertBefore prevented from mismatched parent', referenceNode, this);
-            return newNode;
-          }
+          if (referenceNode && referenceNode.parentNode !== this) return newNode;
           return originalInsertBefore.apply(this, arguments);
         };
       }
     </script>
+    <script type="module" crossorigin src="./assets/index-v5-iraqstore.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-v5-iraqstore.css">
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
