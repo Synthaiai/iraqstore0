@@ -3173,13 +3173,20 @@ function GA(t){
 }
 async function fetchCloudOrdersSnapshot(cb){
   try{
-    let url = "https://store-29692-default-rtdb.firebaseio.com/orders.json";
-    if (b2 && b2.currentUser) {
-      try {
-        const token = await b2.currentUser.getIdToken(false);
-        if (token) url += "?auth=" + token;
-      } catch(_) {}
+    let token = null;
+    if (b2) {
+      if (b2.currentUser) {
+        try { token = await b2.currentUser.getIdToken(false); } catch(_) {}
+      } else if (b2.authStateReady) {
+        try {
+          await b2.authStateReady();
+          if (b2.currentUser) token = await b2.currentUser.getIdToken(false);
+        } catch(_) {}
+      }
     }
+    let url = "https://store-29692-default-rtdb.firebaseio.com/orders.json";
+    if (token) url += "?auth=" + token;
+    
     const res = await fetch(url + (url.includes('?') ? '&' : '?') + "t=" + Date.now(), {
       headers: { "Cache-Control": "no-cache", "Pragma": "no-cache" }
     });
@@ -3213,13 +3220,9 @@ function Uw(t){
   try{window.__iraqstore_orders=r;}catch(_){}
   try{window.dispatchEvent(new CustomEvent('iraqstore_orders_updated',{detail:r}));}catch(_){}
   
-  // 2. Non-blocking Background Cloud Save (Fire & Forget concurrently)
+  // 2. Guaranteed Cloud Save (both Firebase REST and WebSocket)
   setTimeout(() => {
-    // A) Firebase WebSocket
-    try {
-      Co(Jt(Xt,"orders/" + fullOrder.id), fullOrder).catch(() => {});
-    } catch(_) {}
-    // B) Direct Firebase REST PUT with keepalive
+    // A) Direct Firebase REST PUT with keepalive
     try {
       fetch("https://store-29692-default-rtdb.firebaseio.com/orders/" + fullOrder.id + ".json", {
         method: "PUT",
@@ -3228,50 +3231,80 @@ function Uw(t){
         keepalive: true
       }).catch(() => {});
     } catch(_) {}
+    // B) Firebase WebSocket set
+    try {
+      Co(Jt(Xt,"orders/" + fullOrder.id), fullOrder).catch(() => {});
+    } catch(_) {}
   }, 0);
 
   return Promise.resolve(fullOrder);
 }
 function listenOrders(t){
+  // Provide cached orders immediately
   t(HA());
+  
+  // Try fetching cloud snapshot
   fetchCloudOrdersSnapshot(t);
   
-  if(typeof window!=="undefined"){
-    const handler=e=>t(e.detail||HA());
-    window.addEventListener('iraqstore_orders_updated',handler);
-    window.addEventListener('storage',e=>{if(e.key===Fw)t(HA());});
-    window.addEventListener('visibilitychange',()=>{
-      if(document.visibilityState==='visible') fetchCloudOrdersSnapshot(t);
+  let unsubWs = () => {};
+  
+  // Setup realtime listener function
+  const setupRealtime = () => {
+    try {
+      if (unsubWs) { try { unsubWs(); } catch(_) {} }
+      unsubWs = mf(Jt(Xt, "orders"), n => {
+        const r = n.val();
+        if (r && typeof r === 'object') {
+          const list = Object.values(r);
+          list.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+          GA(list);
+          try { window.__iraqstore_orders = list; } catch(_) {}
+          t(list);
+        }
+      }, () => {
+        fetchCloudOrdersSnapshot(t);
+      });
+    } catch(_) {}
+  };
+  
+  setupRealtime();
+  
+  // When auth changes (e.g. admin logs in or session restores), re-sync & re-attach listener
+  try {
+    if (b2 && typeof y2 === 'function') {
+      y2(b2, user => {
+        if (user) {
+          fetchCloudOrdersSnapshot(t);
+          setupRealtime();
+        }
+      });
+    }
+  } catch(_) {}
+  
+  if (typeof window !== "undefined") {
+    const handler = e => t(e.detail || HA());
+    window.addEventListener('iraqstore_orders_updated', handler);
+    window.addEventListener('storage', e => { if (e.key === Fw) t(HA()); });
+    window.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') fetchCloudOrdersSnapshot(t);
     });
-    window.addEventListener('online',()=>fetchCloudOrdersSnapshot(t));
+    window.addEventListener('online', () => fetchCloudOrdersSnapshot(t));
     
-    // Fast background sync every 3.5 seconds while admin/store is open
-    const interval = setInterval(() => {
+    // Background polling interval every 3 seconds
+    if (window.__iraqstore_orders_sync_interval) clearInterval(window.__iraqstore_orders_sync_interval);
+    window.__iraqstore_orders_sync_interval = setInterval(() => {
       if (document.visibilityState === 'visible') {
         fetchCloudOrdersSnapshot(t);
       }
-    }, 3500);
-    window.__iraqstore_orders_sync_interval = interval;
+    }, 3000);
   }
   
-  try{
-    return mf(Jt(Xt,"orders"),n=>{
-      const r=n.val();
-      if(r){
-        const list=Object.values(r);
-        list.sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
-        GA(list);
-        try{window.__iraqstore_orders=list;}catch(_){}
-        t(list);
-      }
-    },r=>{
-      fetchCloudOrdersSnapshot(t).then(list=>{
-        if(!list) t(HA());
-      });
-    });
-  }catch(n){
-    return()=>{};
-  }
+  return () => {
+    if (unsubWs) unsubWs();
+    if (typeof window !== "undefined" && window.__iraqstore_orders_sync_interval) {
+      clearInterval(window.__iraqstore_orders_sync_interval);
+    }
+  };
 }
 async function updateOrderStatus(t,e){
   const n=HA().map(s=>(s.id===t||s.orderNo===t)?{...s,status:e}:s);
@@ -3280,22 +3313,21 @@ async function updateOrderStatus(t,e){
   try{window.dispatchEvent(new CustomEvent('iraqstore_orders_updated',{detail:n}));}catch(_){}
   setTimeout(async () => {
     try{
+      let url = "https://store-29692-default-rtdb.firebaseio.com/orders/" + t + ".json";
+      if (b2 && b2.currentUser) {
+        const token = await b2.currentUser.getIdToken(false);
+        if (token) url += "?auth=" + token;
+      }
+      await fetch(url, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: e })
+      });
+    } catch(_) {}
+    try {
       await $r(B0(Jt(Xt,"orders/"+t),{status:e}),4e3);
       He("online");
-    }catch(s){
-      try {
-        let url = "https://store-29692-default-rtdb.firebaseio.com/orders/" + t + ".json";
-        if (b2 && b2.currentUser) {
-          const token = await b2.currentUser.getIdToken(false);
-          if (token) url += "?auth=" + token;
-        }
-        await fetch(url, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status: e })
-        });
-      } catch(_) {}
-    }
+    } catch(_) {}
   }, 0);
   return!0;
 }
@@ -3306,18 +3338,17 @@ async function deleteOrder(t){
   try{window.dispatchEvent(new CustomEvent('iraqstore_orders_updated',{detail:n}));}catch(_){}
   setTimeout(async () => {
     try{
+      let url = "https://store-29692-default-rtdb.firebaseio.com/orders/" + t + ".json";
+      if (b2 && b2.currentUser) {
+        const token = await b2.currentUser.getIdToken(false);
+        if (token) url += "?auth=" + token;
+      }
+      await fetch(url, { method: "DELETE" });
+    } catch(_) {}
+    try {
       await $r(HI(Jt(Xt,"orders/"+t)),4e3);
       He("online");
-    }catch(s){
-      try {
-        let url = "https://store-29692-default-rtdb.firebaseio.com/orders/" + t + ".json";
-        if (b2 && b2.currentUser) {
-          const token = await b2.currentUser.getIdToken(false);
-          if (token) url += "?auth=" + token;
-        }
-        await fetch(url, { method: "DELETE" });
-      } catch(_) {}
-    }
+    } catch(_) {}
   }, 0);
   return!0;
 }

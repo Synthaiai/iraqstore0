@@ -439,10 +439,42 @@ export async function fetchCloudOrdersSnapshot(cb) {
 }
 
 export function listenOrders(cb) {
-  let initialLoaded = false;
-  const cached = getLocalOrders();
-  cb(cached);
+  cb(getLocalOrders());
   fetchCloudOrdersSnapshot(cb);
+
+  let unsubWs = () => {};
+  const setupRealtime = () => {
+    try {
+      if (unsubWs) { try { unsubWs(); } catch (_) {} }
+      unsubWs = onValue(
+        ref(db, 'orders'),
+        (snap) => {
+          notifyStatus('online');
+          const val = snap.val();
+          if (val && typeof val === 'object') {
+            const list = Object.values(val);
+            list.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+            setLocalOrders(list);
+            cb(list);
+          }
+        },
+        () => {
+          fetchCloudOrdersSnapshot(cb);
+        }
+      );
+    } catch (_) {}
+  };
+
+  setupRealtime();
+
+  try {
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        fetchCloudOrdersSnapshot(cb);
+        setupRealtime();
+      }
+    });
+  } catch (_) {}
 
   if (typeof window !== 'undefined') {
     const handler = (e) => cb(e.detail || getLocalOrders());
@@ -454,34 +486,21 @@ export function listenOrders(cb) {
       if (document.visibilityState === 'visible') fetchCloudOrdersSnapshot(cb);
     });
     window.addEventListener('online', () => fetchCloudOrdersSnapshot(cb));
+
+    if (window.__iraqstore_orders_sync_interval) clearInterval(window.__iraqstore_orders_sync_interval);
+    window.__iraqstore_orders_sync_interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchCloudOrdersSnapshot(cb);
+      }
+    }, 3000);
   }
 
-  try {
-    const unsub = onValue(
-      ref(db, 'orders'),
-      (snap) => {
-        initialLoaded = true;
-        notifyStatus('online');
-        const val = snap.val();
-        const list = val ? Object.values(val) : [];
-        list.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-        setLocalOrders(list);
-        cb(list);
-      },
-      (error) => {
-        console.warn('Firebase orders read error:', error);
-        notifyStatus('offline');
-        fetchCloudOrdersSnapshot(cb).then((list) => {
-          if (!list && !initialLoaded) cb(getLocalOrders());
-        });
-      }
-    );
-    return unsub;
-  } catch (err) {
-    console.warn('Firebase orders connection failed:', err);
-    notifyStatus('offline');
-    return () => {};
-  }
+  return () => {
+    if (unsubWs) unsubWs();
+    if (typeof window !== 'undefined' && window.__iraqstore_orders_sync_interval) {
+      clearInterval(window.__iraqstore_orders_sync_interval);
+    }
+  };
 }
 
 export function saveOrder(orderRecord) {
