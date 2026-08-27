@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatPrice } from '../data/products';
-import { deleteOrder, updateOrderStatus } from '../data/remote';
+import { deleteOrder, fetchCloudOrdersSnapshot, updateOrderStatus } from '../data/remote';
 
 const STATUS_LABELS = {
   new: { label: 'طلب جديد 🆕', badge: 'admin-status--new' },
@@ -38,12 +38,14 @@ function playNewOrderSound() {
   } catch (_) {}
 }
 
-export default function OrdersPanel({ orders }) {
+export default function OrdersPanel({ orders = [] }) {
   const [q, setQ] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [printOrder, setPrintOrder] = useState(null);
   const [newOrderAlert, setNewOrderAlert] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [msg, setMsg] = useState('');
   const seenIdsRef = useRef(new Set((orders || []).map((o) => o.id || o.orderNo)));
   const initializedRef = useRef(false);
   const alertTimerRef = useRef(null);
@@ -52,48 +54,85 @@ export default function OrdersPanel({ orders }) {
     if (!initializedRef.current) {
       initializedRef.current = true;
       (orders || []).forEach((o) => {
-        const id = o.id || o.orderNo;
+        const id = o?.id || o?.orderNo;
         if (id) seenIdsRef.current.add(id);
       });
       return;
     }
 
     const newArrivals = (orders || []).filter((o) => {
-      const id = o.id || o.orderNo;
+      const id = o?.id || o?.orderNo;
       return id && !seenIdsRef.current.has(id);
     });
 
     if (newArrivals.length > 0) {
       newArrivals.forEach((o) => {
-        const id = o.id || o.orderNo;
+        const id = o?.id || o?.orderNo;
         if (id) seenIdsRef.current.add(id);
       });
       playNewOrderSound();
       const newest = newArrivals[0];
       setNewOrderAlert(newest);
       if (alertTimerRef.current) clearTimeout(alertTimerRef.current);
-      alertTimerRef.current = setTimeout(() => setNewOrderAlert(null), 5000);
+      alertTimerRef.current = setTimeout(() => setNewOrderAlert(null), 8000);
     }
   }, [orders]);
 
+  const syncCloudOrders = async () => {
+    setIsRefreshing(true);
+    setMsg('جارٍ مزامنة وجلب الطلبات السحابية...');
+    try {
+      const fresh = await fetchCloudOrdersSnapshot();
+      if (fresh && Array.isArray(fresh)) {
+        setMsg(`تمت المزامنة السحابية بنجاح — إجمالي الطلبات: ${fresh.length} ✅`);
+      } else {
+        setMsg('تمت المزامنة السحابية بنجاح ✅');
+      }
+    } catch (err) {
+      setMsg('خطأ أثناء المزامنة: ' + err.message);
+    } finally {
+      setIsRefreshing(false);
+      setTimeout(() => setMsg(''), 4000);
+    }
+  };
+
+  const clearAllOrders = async () => {
+    if (window.confirm('هل أنت متأكد من مسح كافة الطلبات نهائياً من السحابة والتخزين لبدء استقبال الطلبات الجديدة فقط؟')) {
+      try {
+        setMsg('جارٍ مسح كافة الطلبات من السحابة...');
+        for (const ord of (orders || [])) {
+          if (ord) await deleteOrder(ord.id || ord.orderNo);
+        }
+        setMsg('تم مسح جميع الطلبات نهائياً من السحابة والتخزين بنجاح 🧹');
+      } catch (e) {
+        setMsg('تم المسح: ' + e.message);
+      } finally {
+        setTimeout(() => setMsg(''), 4000);
+      }
+    }
+  };
+
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
-    return orders.filter((o) => {
+    return (orders || []).filter((o) => {
+      if (!o) return false;
       const matchQ =
         !s ||
-        (o.orderNo && o.orderNo.toLowerCase().includes(s)) ||
-        (o.name && o.name.toLowerCase().includes(s)) ||
-        (o.phone && o.phone.toLowerCase().includes(s)) ||
-        (o.governorate && o.governorate.toLowerCase().includes(s)) ||
-        (o.city && o.city.toLowerCase().includes(s));
-      const matchStatus = !statusFilter || o.status === statusFilter;
+        (o.orderNo && String(o.orderNo).toLowerCase().includes(s)) ||
+        (o.id && String(o.id).toLowerCase().includes(s)) ||
+        (o.name && String(o.name).toLowerCase().includes(s)) ||
+        (o.phone && String(o.phone).toLowerCase().includes(s)) ||
+        (o.governorate && String(o.governorate).toLowerCase().includes(s)) ||
+        (o.city && String(o.city).toLowerCase().includes(s));
+      const matchStatus = !statusFilter || (o.status || 'new') === statusFilter;
       return matchQ && matchStatus;
     });
   }, [orders, q, statusFilter]);
 
   const counts = useMemo(() => {
-    const res = { total: orders.length, new: 0, processing: 0, shipped: 0, completed: 0, cancelled: 0 };
-    orders.forEach((o) => {
+    const res = { total: (orders || []).length, new: 0, processing: 0, shipped: 0, completed: 0, cancelled: 0 };
+    (orders || []).forEach((o) => {
+      if (!o) return;
       const st = o.status || 'new';
       if (res[st] !== undefined) res[st]++;
     });
@@ -101,23 +140,18 @@ export default function OrdersPanel({ orders }) {
   }, [orders]);
 
   const handleStatusChange = async (orderId, newStatus) => {
-    if (newStatus === 'completed' || newStatus === 'cancelled') {
-      await deleteOrder(orderId);
-      if (selectedOrder && (selectedOrder.id === orderId || selectedOrder.orderNo === orderId)) {
-        setSelectedOrder(null);
-      }
-    } else {
-      await updateOrderStatus(orderId, newStatus);
-      if (selectedOrder && (selectedOrder.id === orderId || selectedOrder.orderNo === orderId)) {
-        setSelectedOrder((prev) => (prev ? { ...prev, status: newStatus } : null));
-      }
+    await updateOrderStatus(orderId, newStatus);
+    if (selectedOrder && (selectedOrder.id === orderId || selectedOrder.orderNo === orderId)) {
+      setSelectedOrder((prev) => (prev ? { ...prev, status: newStatus } : null));
     }
   };
 
   const handleDelete = async (orderId) => {
     if (window.confirm('هل أنت متأكد من حذف هذا الطلب نهائياً؟')) {
+      if (selectedOrder && (selectedOrder.id === orderId || selectedOrder.orderNo === orderId)) {
+        setSelectedOrder(null);
+      }
       await deleteOrder(orderId);
-      if (selectedOrder && selectedOrder.id === orderId) setSelectedOrder(null);
     }
   };
 
@@ -154,66 +188,106 @@ export default function OrdersPanel({ orders }) {
             justifyContent: 'space-between',
             marginBottom: '1rem',
             padding: '0.85rem 1.25rem',
-            borderRadius: '8px',
+            borderRadius: '12px',
             backgroundColor: 'rgba(34, 197, 94, 0.15)',
             border: '1px solid #22c55e',
             color: '#15803d',
             fontWeight: '600',
+            boxShadow: '0 4px 18px rgba(34, 197, 94, 0.25)',
           }}
         >
-          <span>🔔 وصل طلب جديد الآن: #{newOrderAlert.orderNo || newOrderAlert.id} من {newOrderAlert.name} ({formatPrice(newOrderAlert.total, 'ar')})</span>
-          <button
-            type="button"
-            className="admin-btn admin-btn--sm"
-            style={{ padding: '0.2rem 0.6rem' }}
-            onClick={() => setNewOrderAlert(null)}
-          >
-            ✕
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            <span style={{ fontSize: '1.3rem' }}>🔔</span>
+            <span style={{ color: '#15803d' }}>وصل طلب جديد الآن: #{newOrderAlert.orderNo || newOrderAlert.id} من {newOrderAlert.name} ({formatPrice(newOrderAlert.total || newOrderAlert.subtotal, 'ar')})</span>
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button
+              type="button"
+              className="admin-btn admin-btn--sm admin-btn--primary"
+              onClick={() => setSelectedOrder(newOrderAlert)}
+            >
+              معاينة الطلب 👁️
+            </button>
+            <button
+              type="button"
+              className="admin-btn admin-btn--sm admin-btn--ghost"
+              onClick={() => setNewOrderAlert(null)}
+            >
+              إغلاق ✕
+            </button>
+          </div>
         </div>
       )}
 
-      {/* Quick KPI stats row for orders */}
-      <div className="admin-orders-stats">
-        <button
-          className={`admin-stat-chip ${statusFilter === '' ? 'is-active' : ''}`}
-          onClick={() => setStatusFilter('')}
-        >
-          <span>كل الطلبات</span>
-          <strong>{counts.total}</strong>
-        </button>
-        <button
-          className={`admin-stat-chip admin-stat-chip--new ${statusFilter === 'new' ? 'is-active' : ''}`}
-          onClick={() => setStatusFilter('new')}
-        >
-          <span>طلبات جديدة</span>
-          <strong>{counts.new}</strong>
-        </button>
-        <button
-          className={`admin-stat-chip admin-stat-chip--processing ${statusFilter === 'processing' ? 'is-active' : ''}`}
-          onClick={() => setStatusFilter('processing')}
-        >
-          <span>قيد التجهيز</span>
-          <strong>{counts.processing}</strong>
-        </button>
-        <button
-          className={`admin-stat-chip admin-stat-chip--shipped ${statusFilter === 'shipped' ? 'is-active' : ''}`}
-          onClick={() => setStatusFilter('shipped')}
-        >
-          <span>قيد التوصيل</span>
-          <strong>{counts.shipped}</strong>
-        </button>
-        <button
-          className={`admin-stat-chip admin-stat-chip--completed ${statusFilter === 'completed' ? 'is-active' : ''}`}
-          onClick={() => setStatusFilter('completed')}
-        >
-          <span>مكتملة</span>
-          <strong>{counts.completed}</strong>
-        </button>
+      {/* Quick KPI stats row for orders & Action toolbar */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.8rem', marginBottom: '1rem' }}>
+        <div className="admin-orders-stats">
+          <button
+            type="button"
+            className={`admin-stat-chip ${statusFilter === '' ? 'is-active' : ''}`}
+            onClick={() => setStatusFilter('')}
+          >
+            <span>كل الطلبات</span>
+            <strong>{counts.total}</strong>
+          </button>
+          <button
+            type="button"
+            className={`admin-stat-chip admin-stat-chip--new ${statusFilter === 'new' ? 'is-active' : ''}`}
+            onClick={() => setStatusFilter('new')}
+          >
+            <span>طلبات جديدة</span>
+            <strong>{counts.new}</strong>
+          </button>
+          <button
+            type="button"
+            className={`admin-stat-chip admin-stat-chip--processing ${statusFilter === 'processing' ? 'is-active' : ''}`}
+            onClick={() => setStatusFilter('processing')}
+          >
+            <span>قيد التجهيز</span>
+            <strong>{counts.processing}</strong>
+          </button>
+          <button
+            type="button"
+            className={`admin-stat-chip admin-stat-chip--shipped ${statusFilter === 'shipped' ? 'is-active' : ''}`}
+            onClick={() => setStatusFilter('shipped')}
+          >
+            <span>قيد التوصيل</span>
+            <strong>{counts.shipped}</strong>
+          </button>
+          <button
+            type="button"
+            className={`admin-stat-chip admin-stat-chip--completed ${statusFilter === 'completed' ? 'is-active' : ''}`}
+            onClick={() => setStatusFilter('completed')}
+          >
+            <span>مكتملة</span>
+            <strong>{counts.completed}</strong>
+          </button>
+        </div>
+
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <button
+            type="button"
+            className="admin-btn admin-btn--sm admin-btn--primary"
+            onClick={syncCloudOrders}
+            disabled={isRefreshing}
+          >
+            {isRefreshing ? 'جارٍ المزامنة...' : '🔄 مزامنة الطلبات السحابية'}
+          </button>
+          <button
+            type="button"
+            className="admin-btn admin-btn--sm admin-btn--ghost"
+            onClick={clearAllOrders}
+            title="مسح كافة الطلبات القديمة لبدء استقبال الطلبات الحقيقية فقط"
+          >
+            🧹 مسح الطلبات القديمة
+          </button>
+        </div>
       </div>
 
-      {/* Toolbar */}
-      <div className="admin-toolbar" style={{ marginTop: '1.25rem' }}>
+      {msg && <div className="admin-note admin-note--ok" style={{ marginBottom: '1rem' }}>{msg}</div>}
+
+      {/* Search and Filters Toolbar */}
+      <div className="admin-toolbar" style={{ marginTop: '0.5rem' }}>
         <input
           className="admin-search"
           placeholder="ابحث باسم الزبون، رقم الهاتف، رقم الطلب، أو المحافظة..."
@@ -234,13 +308,17 @@ export default function OrdersPanel({ orders }) {
       {/* Orders List */}
       {filtered.length === 0 ? (
         <div className="admin-empty">
-          <p>لا توجد طلبات مطابقة للبحث أو الفلتر الحالي.</p>
+          <p>لا توجد طلبات مسجلة حالياً أو مطابقة للبحث.</p>
         </div>
       ) : (
         <div className="admin-orders-table">
           {filtered.map((order) => {
             const st = STATUS_LABELS[order.status || 'new'] || STATUS_LABELS.new;
-            const items = order.cart || [];
+            const items = Array.isArray(order.cart)
+              ? order.cart
+              : order.cart && typeof order.cart === 'object'
+              ? Object.values(order.cart)
+              : [];
             return (
               <div className="admin-order-card" key={order.id || order.orderNo}>
                 <div className="admin-order-card__head">
@@ -417,24 +495,35 @@ function OrderDetailsModal({ order, onClose, onStatusChange, onPrint }) {
 
           {/* Ordered Products Table */}
           <div className="admin-field">
-            <span>المنتجات المطلوبة ({order.cart?.length || 0})</span>
-            <div className="admin-specs-list">
-              {order.cart?.map((item, idx) => (
-                <div className="admin-row" key={idx} style={{ gridTemplateColumns: '48px 1fr auto auto' }}>
-                  <img
-                    src={item.product?.images?.[0] || item.product?.image || '/logo.png'}
-                    alt=""
-                    className="admin-row__img"
-                  />
-                  <div className="admin-row__main">
-                    <strong>{item.product?.name || item.name}</strong>
-                    <span>اللون: {item.color} | القياس: {item.size}</span>
+            {(() => {
+              const items = Array.isArray(order.cart)
+                ? order.cart
+                : order.cart && typeof order.cart === 'object'
+                ? Object.values(order.cart)
+                : [];
+              return (
+                <>
+                  <span>المنتجات المطلوبة ({items.length})</span>
+                  <div className="admin-specs-list">
+                    {items.map((item, idx) => (
+                      <div className="admin-row" key={idx} style={{ gridTemplateColumns: '48px 1fr auto auto' }}>
+                        <img
+                          src={item.product?.images?.[0] || item.product?.image || '/logo.png'}
+                          alt=""
+                          className="admin-row__img"
+                        />
+                        <div className="admin-row__main">
+                          <strong>{item.product?.name || item.name}</strong>
+                          <span>اللون: {item.color} | القياس: {item.size}</span>
+                        </div>
+                        <span>الكمية: {item.qty}</span>
+                        <strong>{formatPrice((item.product?.price || item.price || 0) * (item.qty || 1))}</strong>
+                      </div>
+                    ))}
                   </div>
-                  <span>الكمية: {item.qty}</span>
-                  <strong>{formatPrice((item.product?.price || item.price) * item.qty)}</strong>
-                </div>
-              ))}
-            </div>
+                </>
+              );
+            })()}
           </div>
         </div>
 
@@ -455,6 +544,12 @@ function PrintInvoiceModal({ order, onClose }) {
   const triggerPrint = () => {
     window.print();
   };
+
+  const items = Array.isArray(order.cart)
+    ? order.cart
+    : order.cart && typeof order.cart === 'object'
+    ? Object.values(order.cart)
+    : [];
 
   return (
     <div className="admin-modal" onClick={onClose}>
@@ -519,14 +614,14 @@ function PrintInvoiceModal({ order, onClose }) {
               </tr>
             </thead>
             <tbody>
-              {order.cart?.map((item, idx) => (
+              {items.map((item, idx) => (
                 <tr key={idx}>
                   <td>{idx + 1}</td>
                   <td>{item.product?.name || item.name}</td>
                   <td>{item.size} / {item.color}</td>
                   <td>{item.qty}</td>
-                  <td>{formatPrice(item.product?.price || item.price)}</td>
-                  <td>{formatPrice((item.product?.price || item.price) * item.qty)}</td>
+                  <td>{formatPrice(item.product?.price || item.price || 0)}</td>
+                  <td>{formatPrice((item.product?.price || item.price || 0) * (item.qty || 1))}</td>
                 </tr>
               ))}
             </tbody>

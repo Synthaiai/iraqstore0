@@ -392,15 +392,102 @@ export async function saveCatalog(tree) {
   return decodedTree;
 }
 
-/* ---------------- Orders Master Store (Zero Flicker, Zero Duplication) ---------------- */
+/* ---------------- Orders Master Store (Zero Flicker, Zero Duplication, Pure Cloud Native) ---------------- */
 
 const masterOrdersMap = new Map();
 const ordersSubscribers = new Set();
 
-function emitOrders() {
+export function normalizeOrderRecord(o) {
+  if (!o || (!o.id && !o.orderNo)) return null;
+  const orderId = String(o.orderNo || o.id);
+
+  // Guarantee cart is always a clean array
+  let cartList = [];
+  if (Array.isArray(o.cart)) {
+    cartList = o.cart;
+  } else if (o.cart && typeof o.cart === 'object') {
+    cartList = Object.values(o.cart);
+  }
+
+  // Guarantee item quantities and prices are valid numbers
+  cartList = cartList.map((item, idx) => ({
+    ...item,
+    key: item.key || `${item.product?.id || 'item'}-${idx}`,
+    qty: Math.max(1, Number(item.qty) || 1),
+    price: Number(item.product?.price || item.price) || 0,
+  }));
+
+  const subtotal = Number(o.subtotal) || 0;
+  const fee = Number(o.fee) || 0;
+  const total = Number(o.total) || (subtotal + fee) || 0;
+  const itemCount = Number(o.itemCount) || cartList.reduce((acc, item) => acc + item.qty, 0) || 1;
+
+  return {
+    ...o,
+    id: orderId,
+    orderNo: orderId,
+    name: o.name || 'زبون',
+    phone: o.phone || '',
+    governorate: o.governorate || '',
+    city: o.city || '',
+    address: o.address || '',
+    notes: o.notes || '',
+    status: o.status || 'new',
+    createdAt: o.createdAt || new Date().toISOString(),
+    cart: cartList,
+    itemCount,
+    subtotal,
+    fee,
+    total,
+    payment: o.payment || 'cod',
+    paymentLabel: o.paymentLabel || (o.payment === 'card' ? 'الدفع عن طريق الماستر الرافدين' : 'الدفع عند الاستلام'),
+  };
+}
+
+// Pre-fill masterOrdersMap from persistent localStorage
+try {
+  const cachedOrders = typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_KEY_ORDERS) : null;
+  if (cachedOrders) {
+    const list = JSON.parse(cachedOrders);
+    if (Array.isArray(list)) {
+      list.forEach((raw) => {
+        const norm = normalizeOrderRecord(raw);
+        if (norm) masterOrdersMap.set(norm.id, norm);
+      });
+    }
+  }
+} catch (_) {}
+
+function persistAndBroadcastOrders() {
   const list = Array.from(masterOrdersMap.values()).sort(
     (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
   );
+
+  // 1. Persistent local storage
+  try {
+    localStorage.setItem(STORAGE_KEY_ORDERS, JSON.stringify(list));
+  } catch (_) {}
+
+  // 2. Global window reference
+  try {
+    window.__iraqstore_orders = list;
+  } catch (_) {}
+
+  // 3. Custom event for local tabs
+  try {
+    window.dispatchEvent(new CustomEvent('iraqstore_orders_updated', { detail: list }));
+  } catch (_) {}
+
+  // 4. Cross-tab BroadcastChannel
+  try {
+    if (typeof BroadcastChannel !== 'undefined') {
+      const bc = new BroadcastChannel('iraqstore_orders_channel');
+      bc.postMessage({ type: 'ORDERS_SYNC', list });
+      bc.close();
+    }
+  } catch (_) {}
+
+  // 5. Notify in-memory subscribers
   ordersSubscribers.forEach((cb) => {
     try {
       cb(list);
@@ -414,19 +501,21 @@ function ingestOrders(incoming) {
   if (!list.length) return;
 
   let hasChanges = false;
-  list.forEach((o) => {
-    if (o && (o.id || o.orderNo)) {
-      const key = String(o.id || o.orderNo);
+  list.forEach((raw) => {
+    const o = normalizeOrderRecord(raw);
+    if (o) {
+      const key = o.id;
       const existing = masterOrdersMap.get(key);
       if (!existing) {
-        masterOrdersMap.set(key, { ...o });
+        masterOrdersMap.set(key, o);
         hasChanges = true;
       } else {
         if (
           existing.status !== o.status ||
           existing.updatedAt !== o.updatedAt ||
           existing.total !== o.total ||
-          existing.notes !== o.notes
+          existing.notes !== o.notes ||
+          JSON.stringify(existing.cart) !== JSON.stringify(o.cart)
         ) {
           masterOrdersMap.set(key, { ...existing, ...o });
           hasChanges = true;
@@ -436,8 +525,29 @@ function ingestOrders(incoming) {
   });
 
   if (hasChanges) {
-    emitOrders();
+    persistAndBroadcastOrders();
   }
+}
+
+// Cross-tab broadcast listener
+if (typeof window !== 'undefined') {
+  try {
+    if (typeof BroadcastChannel !== 'undefined') {
+      const bc = new BroadcastChannel('iraqstore_orders_channel');
+      bc.onmessage = (ev) => {
+        if (ev.data && ev.data.list) {
+          ingestOrders(ev.data.list);
+        }
+      };
+    }
+    window.addEventListener('storage', (e) => {
+      if (e.key === STORAGE_KEY_ORDERS && e.newValue) {
+        try {
+          ingestOrders(JSON.parse(e.newValue));
+        } catch (_) {}
+      }
+    });
+  } catch (_) {}
 }
 
 export function getLocalOrders() {
@@ -452,11 +562,11 @@ export async function fetchCloudOrdersSnapshot(cb) {
     const locRes = await fetch('/api/orders?t=' + Date.now(), { headers: { 'Cache-Control': 'no-cache' } });
     if (locRes.ok) {
       const locData = await locRes.json();
-      ingestOrders(locData);
+      if (Array.isArray(locData)) ingestOrders(locData);
     }
   } catch (_) {}
 
-  // 2. Firebase Cloud REST
+  // 2. Firebase Cloud REST (Pure online without server)
   try {
     let url = 'https://store-29692-default-rtdb.firebaseio.com/orders.json';
     if (auth && auth.currentUser) {
@@ -487,8 +597,8 @@ export function listenOrders(cb) {
   // Immediate emit from master cache
   cb(getLocalOrders());
 
-  // Background fetch
-  fetchCloudOrdersSnapshot();
+  // Background cloud fetch
+  fetchCloudOrdersSnapshot(cb);
 
   let unsubWs = () => {};
   const attachLiveListener = () => {
@@ -503,7 +613,7 @@ export function listenOrders(cb) {
           if (val) ingestOrders(val);
         },
         () => {
-          fetchCloudOrdersSnapshot();
+          fetchCloudOrdersSnapshot(cb);
         }
       );
     } catch (_) {}
@@ -517,17 +627,17 @@ export function listenOrders(cb) {
     if (auth && typeof onAuthStateChanged === 'function') {
       unsubAuth = onAuthStateChanged(auth, async (user) => {
         if (user) {
-          await fetchCloudOrdersSnapshot();
+          await fetchCloudOrdersSnapshot(cb);
           attachLiveListener();
         }
       });
     }
   } catch (_) {}
 
-  // Polling interval every 5s (only notifies if real changes exist)
+  // Polling interval every 4s (ensures zero orders are missed online)
   const pollTimer = setInterval(() => {
-    fetchCloudOrdersSnapshot();
-  }, 5000);
+    fetchCloudOrdersSnapshot(cb);
+  }, 4000);
 
   return () => {
     ordersSubscribers.delete(cb);
@@ -539,15 +649,15 @@ export function listenOrders(cb) {
 
 export async function saveOrder(orderRecord) {
   const orderId = orderRecord.orderNo || `IQ${Date.now().toString().slice(-6)}`;
-  const fullOrder = {
+  const fullOrder = normalizeOrderRecord({
     id: orderId,
     orderNo: orderId,
     status: 'new', // 'new' | 'processing' | 'shipped' | 'completed' | 'cancelled'
     createdAt: new Date().toISOString(),
     ...orderRecord,
-  };
+  });
 
-  // Ingest immediately into local memory store
+  // Ingest immediately into local memory store & persistent cache
   ingestOrders([fullOrder]);
 
   // 1. Instant save to local network server API (if available)
@@ -583,7 +693,7 @@ export async function updateOrderStatus(orderId, status) {
   const existing = masterOrdersMap.get(String(orderId));
   if (existing) {
     masterOrdersMap.set(String(orderId), { ...existing, status, updatedAt: new Date().toISOString() });
-    emitOrders();
+    persistAndBroadcastOrders();
   }
 
   // Update local server (if present)
@@ -619,7 +729,7 @@ export async function updateOrderStatus(orderId, status) {
 
 export async function deleteOrder(orderId) {
   masterOrdersMap.delete(String(orderId));
-  emitOrders();
+  persistAndBroadcastOrders();
 
   // Delete from local server (if present)
   try {

@@ -629,7 +629,7 @@ function OrdersPanel_V3({ orders: initialOrders, onStatusChange, onDeleteOrder }
         className: "admin-orders-table",
         children: filtered.map(order => {
           const st = STATUS_META[order.status || 'new'] || STATUS_META.new;
-          const items = order.cart || [];
+          const items = Array.isArray(order.cart) ? order.cart : (order.cart && typeof order.cart === 'object' ? Object.values(order.cart) : []);
           return e.jsxs("div", {
             className: "admin-order-card",
             children: [
@@ -659,7 +659,7 @@ function OrdersPanel_V3({ orders: initialOrders, onStatusChange, onDeleteOrder }
                   e.jsxs("div", {
                     className: "admin-order-items-preview",
                     children: [
-                      e.jsxs("span", { children: [order.itemCount || items.length || 1, " منتجات:"] }),
+                      e.jsxs("span", { children: [items.length, " منتجات:"] }),
                       e.jsxs("div", {
                         className: "admin-order-thumbs",
                         children: [
@@ -779,7 +779,7 @@ function OrdersPanel_V3({ orders: initialOrders, onStatusChange, onDeleteOrder }
                             e.jsx("b", { children: "رقم الهاتف: " }),
                             e.jsx("span", { dir: "ltr", children: selectedOrder.phone }),
                             e.jsx("a", { href: `tel:${selectedOrder.phone}`, className: "admin-btn admin-btn--sm admin-btn--ghost", style: { padding: "2px 8px", fontSize: "0.8rem" }, children: "📞 اتصال" }),
-                            e.jsx("a", { href: `https://wa.me/${cleanPhone(selectedOrder.phone)}?text=${encodeURIComponent(`مرحباً ${selectedOrder.name}، بخصوص طلبك رقم #${selectedOrder.orderNo || selectedOrder.id} من متجر عراق ستور`)}`, target: "_blank", rel: "noopener noreferrer", className: "admin-btn admin-btn--sm admin-btn--ghost", style: { padding: "2px 8px", fontSize: "0.8rem", color: "#25D366" }, children: "💬 واتساب" })
+                            e.jsx("a", { href: `https://wa.me/${cleanPhone(selectedOrder.phone)}?text=${encodeURIComponent(`مرحباً ${selectedOrder.name}، معك متجر عراق ستور بخصوص طلبك رقم #${selectedOrder.orderNo || selectedOrder.id}`)}`, target: "_blank", rel: "noopener noreferrer", className: "admin-btn admin-btn--sm admin-btn--ghost", style: { padding: "2px 8px", fontSize: "0.8rem", color: "#25D366" }, children: "💬 واتساب" })
                           ]
                         }),
                         e.jsxs("p", { style: { margin: 0 }, children: [e.jsx("b", { children: "المحافظة: " }), selectedOrder.governorate] }),
@@ -821,26 +821,33 @@ function OrdersPanel_V3({ orders: initialOrders, onStatusChange, onDeleteOrder }
                 e.jsxs("div", {
                   className: "admin-field",
                   children: [
-                    e.jsxs("span", { children: ["المنتجات المطلوبة (", selectedOrder.cart?.length || 0, ")"] }),
-                    e.jsx("div", {
-                      className: "admin-specs-list",
-                      children: selectedOrder.cart?.map((item, idx) => e.jsxs("div", {
-                        className: "admin-row",
-                        style: { gridTemplateColumns: "48px 1fr auto auto" },
+                    (() => {
+                      const modalItems = Array.isArray(selectedOrder.cart) ? selectedOrder.cart : (selectedOrder.cart && typeof selectedOrder.cart === 'object' ? Object.values(selectedOrder.cart) : []);
+                      return e.jsxs(e.Fragment, {
                         children: [
-                          e.jsx("img", { src: item.product?.images?.[0] || item.product?.image || item.image || '/logo.png', alt: "", className: "admin-row__img" }),
-                          e.jsxs("div", {
-                            className: "admin-row__main",
-                            children: [
-                              e.jsx("strong", { children: item.product?.name || item.name }),
-                              e.jsxs("span", { children: ["اللون: ", item.color, " | القياس: ", item.size] })
-                            ]
-                          }),
-                          e.jsxs("span", { children: ["الكمية: ", item.qty] }),
-                          e.jsx("strong", { children: O((item.product?.price || item.price || 0) * item.qty) })
+                          e.jsxs("span", { children: ["المنتجات المطلوبة (", modalItems.length, ")"] }),
+                          e.jsx("div", {
+                            className: "admin-specs-list",
+                            children: modalItems.map((item, idx) => e.jsxs("div", {
+                              className: "admin-row",
+                              style: { gridTemplateColumns: "48px 1fr auto auto" },
+                              children: [
+                                e.jsx("img", { src: item.product?.images?.[0] || item.product?.image || item.image || '/logo.png', alt: "", className: "admin-row__img" }),
+                                e.jsxs("div", {
+                                  className: "admin-row__main",
+                                  children: [
+                                    e.jsx("strong", { children: item.product?.name || item.name }),
+                                    e.jsxs("span", { children: ["اللون: ", item.color, " | القياس: ", item.size] })
+                                  ]
+                                }),
+                                e.jsxs("span", { children: ["الكمية: ", item.qty] }),
+                                e.jsx("strong", { children: O((item.product?.price || item.price || 0) * (item.qty || 1)) })
+                              ]
+                            }, idx))
+                          })
                         ]
-                      }, idx))
-                    })
+                      });
+                    })()
                   ]
                 })
               ]
@@ -941,16 +948,19 @@ function OrdersPanel_V3({ orders: initialOrders, onStatusChange, onDeleteOrder }
                       })
                     }),
                     e.jsx("tbody", {
-                      children: printOrder.cart?.map((item, idx) => e.jsxs("tr", {
-                        children: [
-                          e.jsx("td", { children: idx + 1 }),
-                          e.jsx("td", { children: item.product?.name || item.name }),
-                          e.jsxs("td", { children: [item.size, " / ", item.color] }),
-                          e.jsx("td", { children: item.qty }),
-                          e.jsx("td", { children: O(item.product?.price || item.price) }),
-                          e.jsx("td", { children: O((item.product?.price || item.price) * item.qty) })
-                        ]
-                      }, idx))
+                      children: (() => {
+                        const printItems = Array.isArray(printOrder.cart) ? printOrder.cart : (printOrder.cart && typeof printOrder.cart === 'object' ? Object.values(printOrder.cart) : []);
+                        return printItems.map((item, idx) => e.jsxs("tr", {
+                          children: [
+                            e.jsx("td", { children: idx + 1 }),
+                            e.jsx("td", { children: item.product?.name || item.name }),
+                            e.jsxs("td", { children: [item.size, " / ", item.color] }),
+                            e.jsx("td", { children: item.qty }),
+                            e.jsx("td", { children: O(item.product?.price || item.price || 0) }),
+                            e.jsx("td", { children: O((item.product?.price || item.price || 0) * (item.qty || 1)) })
+                          ]
+                        }, idx));
+                      })()
                     })
                   ]
                 }),
