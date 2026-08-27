@@ -1,4 +1,3 @@
 # Single-page app: every route is served by index.html so client-side routing
-# (React Router) survives a refresh or a direct link. Real files (assets, the
-# headers file) are matched first, so this only catches unknown paths.
+# (React Router) survives a refresh or a direct link.
 /*    /index.html    200

@@ -2,16 +2,21 @@
 <html lang="ar" dir="rtl">
   <head>
     <script>
-      // Single Page App redirect for GitHub Pages deep linking & refreshes
+      // Single Page App redirect for GitHub Pages / Cloudflare Pages deep linking & refreshes
       (function(){
         var redirect = sessionStorage.redirect;
         delete sessionStorage.redirect;
         if (redirect && redirect !== location.href) {
           try {
             var url = new URL(redirect);
-            history.replaceState(null, null, url.pathname + url.search + url.hash);
+            var target = url.pathname + url.search + url.hash;
+            if (target && target !== '/' && target !== location.pathname) {
+              history.replaceState(null, null, target);
+            }
           } catch(e) {
-            history.replaceState(null, null, redirect);
+            if (redirect !== '/' && redirect !== location.pathname) {
+              history.replaceState(null, null, redirect);
+            }
           }
         }
       })();
