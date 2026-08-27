@@ -68,15 +68,17 @@ export default function Header() {
     </button>
   );
 
-  const LangToggle = ({ className = 'pref-btn pref-btn--lang' }) => (
+  const LangToggle = ({ className = 'pref-btn pref-btn--lang', isDrawer = false }) => (
     <button
       type="button"
       className={className}
       onClick={toggleLang}
       aria-label={t('toggleLang')}
       title={t('toggleLang')}
+      style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}
     >
-      {t('langShort')}
+      <span aria-hidden>🌐</span>
+      <span>{isDrawer ? (lang === 'ar' ? 'English' : 'العربية') : (lang === 'ar' ? 'EN' : 'عربي')}</span>
     </button>
   );
 
@@ -224,7 +226,7 @@ export default function Header() {
 
         <div className="mobile-nav__prefs">
           <ThemeToggle className="pref-btn pref-btn--wide" />
-          <LangToggle className="pref-btn pref-btn--lang pref-btn--wide" />
+          <LangToggle className="pref-btn pref-btn--lang pref-btn--wide" isDrawer />
         </div>
       </div>
     </>

@@ -218,10 +218,18 @@
   border-color: var(--burgundy-700);
 }
 
-/* On the tightest phones the two header pref buttons move into the drawer only,
-   so the top bar keeps room for search / favorites / cart. */
+/* On small screens, keep the language switch accessible and stylish */
 @media (max-width: 560px) {
-  .header__pref {
+  .header__pref:not(.pref-btn--lang) {
     display: none;
+  }
+  .pref-btn--lang.header__pref {
+    height: 36px;
+    min-width: 44px;
+    padding-inline: 0.45rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    border-radius: 6px;
+    background: var(--paper-tint, rgba(0, 0, 0, 0.04));
   }
 }

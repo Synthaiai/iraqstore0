@@ -168,7 +168,29 @@ export default function ProductPage() {
                   {t(BADGE_KEY[product.badge])}
                 </span>
               )}
-              <h1 className="pdp__title">{name}</h1>
+              <h1 className="pdp__title" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                <span>{name}</span>
+                {sizes.length === 1 && (
+                  <span
+                    className="badge badge--stock-ok"
+                    style={{
+                      fontSize: '0.85rem',
+                      padding: '0.2rem 0.6rem',
+                      borderRadius: '6px',
+                      background: 'var(--paper-tint, #f0f0f4)',
+                      border: '1px solid var(--line-strong, #d0d0d8)',
+                      color: 'var(--burgundy-700, #6b0f1a)',
+                      fontWeight: '700',
+                      letterSpacing: '0.02em',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.3rem'
+                    }}
+                  >
+                    📏 {lang === 'en' ? `Size: ${localSize(sizes[0])}` : `القياس: ${localSize(sizes[0])}`}
+                  </span>
+                )}
+              </h1>
               <div style={{ marginTop: '0.6rem' }}>
                 <Stars rating={product.rating} reviews={product.reviews} />
               </div>
@@ -192,52 +214,58 @@ export default function ProductPage() {
             <div className="pdp__divider" />
 
             {/* Colour */}
-            <div className="opt-group">
-              <div className="opt-group__label">
-                <span>{t('color')}</span>
-                <span className="opt-group__hint">{tf(colorObj, 'name')}</span>
-              </div>
-              <div className="opt-row">
-                {colors.map((cl) => (
-                  <button
-                    key={cl.name}
-                    type="button"
-                    className={`opt opt-color ${cl.name === color ? 'is-active' : ''}`}
-                    style={{ background: cl.hex }}
-                    onClick={() => setColor(cl.name)}
-                    aria-label={tf(cl, 'name')}
-                    aria-pressed={cl.name === color}
-                    title={tf(cl, 'name')}
-                  />
-                ))}
-              </div>
-            </div>
-
-            {/* Size */}
-            {!singleSize && (
-              <div className="opt-group" id="pdp-sizes">
+            {colors.length > 0 && (
+              <div className="opt-group">
                 <div className="opt-group__label">
-                  <span>
-                    {t('size')}
-                    {sizeError && <span className="opt-group__req"> — {t('pleasePickSize')}</span>}
-                  </span>
-                  <span className="opt-group__hint">{t('sizeGuide')}</span>
+                  <span>{t('color')}</span>
+                  <span className="opt-group__hint">{tf(colorObj, 'name')}</span>
                 </div>
-                <div className={`opt-row ${sizeError ? 'opt-row--error' : ''}`}>
-                  {sizes.map((sz) => (
+                <div className="opt-row">
+                  {colors.map((cl) => (
                     <button
-                      key={sz}
+                      key={cl.name}
                       type="button"
-                      className={`opt ${sz === size ? 'is-active' : ''}`}
-                      onClick={() => pickSize(sz)}
-                      aria-pressed={sz === size}
-                    >
-                      {sz}
-                    </button>
+                      className={`opt opt-color ${cl.name === color ? 'is-active' : ''}`}
+                      style={{ background: cl.hex }}
+                      onClick={() => setColor(cl.name)}
+                      aria-label={tf(cl, 'name')}
+                      aria-pressed={cl.name === color}
+                      title={tf(cl, 'name')}
+                    />
                   ))}
                 </div>
               </div>
             )}
+
+            {/* Size (always visible so customer can see and interact with available size) */}
+            <div className="opt-group" id="pdp-sizes">
+              <div className="opt-group__label">
+                <span>
+                  {t('size')}
+                  {sizeError && <span className="opt-group__req"> — {t('pleasePickSize')}</span>}
+                </span>
+                {sizes.length === 1 ? (
+                  <span className="opt-group__hint" style={{ color: 'var(--burgundy-700, #6b0f1a)', fontWeight: '700' }}>
+                    {lang === 'en' ? 'Single Size Available' : 'القياس المتوفر فقط'}
+                  </span>
+                ) : (
+                  <span className="opt-group__hint">{t('sizeGuide')}</span>
+                )}
+              </div>
+              <div className={`opt-row ${sizeError ? 'opt-row--error' : ''}`}>
+                {(sizes.length > 0 ? sizes : ['مقاس واحد']).map((sz) => (
+                  <button
+                    key={sz}
+                    type="button"
+                    className={`opt ${(size === sz || (sizes.length === 1 && (!size || size === sz))) ? 'is-active' : ''}`}
+                    onClick={() => pickSize(sz)}
+                    aria-pressed={size === sz || (sizes.length === 1 && (!size || size === sz))}
+                  >
+                    {localSize(sz)}
+                  </button>
+                ))}
+              </div>
+            </div>
 
             {/* Stock status indicator */}
             <div className="pdp-stock-banner">
