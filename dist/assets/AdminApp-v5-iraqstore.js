@@ -443,9 +443,10 @@ function OrdersPanel_V3({ orders: initialOrders, onStatusChange, onDeleteOrder }
     }
   };
 
+  const activeList = (initialOrders && initialOrders.length > 0) ? initialOrders : ordersList;
   const filtered = u.useMemo(() => {
     const s = q.trim().toLowerCase();
-    return ordersList.filter(o => {
+    return activeList.filter(o => {
       const matchQ = !s || (o.orderNo && String(o.orderNo).toLowerCase().includes(s)) ||
         (o.id && String(o.id).toLowerCase().includes(s)) ||
         (o.name && String(o.name).toLowerCase().includes(s)) ||
@@ -455,16 +456,17 @@ function OrdersPanel_V3({ orders: initialOrders, onStatusChange, onDeleteOrder }
       const matchStatus = !statusFilter || o.status === statusFilter;
       return matchQ && matchStatus;
     });
-  }, [ordersList, q, statusFilter]);
+  }, [activeList, q, statusFilter]);
 
   const counts = u.useMemo(() => {
-    const res = { total: ordersList.length, new: 0, processing: 0, shipped: 0, completed: 0, cancelled: 0 };
-    ordersList.forEach(o => {
+    const activeList = (initialOrders && initialOrders.length > 0) ? initialOrders : ordersList;
+    const res = { total: activeList.length, new: 0, processing: 0, shipped: 0, completed: 0, cancelled: 0 };
+    activeList.forEach(o => {
       const st = o.status || 'new';
       if (res[st] !== undefined) res[st]++;
     });
     return res;
-  }, [ordersList]);
+  }, [activeList]);
 
   const handleStatusChange = async (orderId, newStatus) => {
     if (onStatusChange) {
@@ -675,7 +677,7 @@ function OrdersPanel_V3({ orders: initialOrders, onStatusChange, onDeleteOrder }
                           items.slice(0, 4).map((item, idx) => e.jsx("img", {
                             src: item.product?.images?.[0] || item.product?.image || item.image || '/logo.png',
                             alt: "",
-                            className: "admin-order-thumb",
+                            className: "admin-order-thumb", style: { width: "38px", height: "38px", maxWidth: "38px", maxHeight: "38px", objectFit: "cover", borderRadius: "6px" },
                             title: `${item.product?.name || item.name} (${item.size || ''} / ${item.color || ''}) × ${item.qty}`
                           }, idx)),
                           items.length > 4 && e.jsxs("span", { className: "admin-order-thumb-more", children: ["+", items.length - 4] })
