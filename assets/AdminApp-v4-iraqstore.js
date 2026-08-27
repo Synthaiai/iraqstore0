@@ -339,7 +339,7 @@ function playNewOrderSound() {
 }
 
 function OrdersPanel_V3({ orders: initialOrders, onStatusChange, onDeleteOrder }) {
-  const [ordersList, setOrdersList] = u.useState(initialOrders || []);
+  const orders = initialOrders || [];
   const [q, setQ] = u.useState('');
   const [statusFilter, setStatusFilter] = u.useState('');
   const [selectedOrder, setSelectedOrder] = u.useState(null);
@@ -347,26 +347,21 @@ function OrdersPanel_V3({ orders: initialOrders, onStatusChange, onDeleteOrder }
   const [isRefreshing, setIsRefreshing] = u.useState(false);
   const [newOrderAlert, setNewOrderAlert] = u.useState(null);
   const [msg, setMsg] = u.useState('');
-  const seenIdsRef = u.useRef(new Set((initialOrders || []).map(o => o.id || o.orderNo)));
+  const seenIdsRef = u.useRef(new Set());
   const alertTimerRef = u.useRef(null);
   const initializedRef = u.useRef(false);
 
   u.useEffect(() => {
-    const currentList = initialOrders || [];
-    if (currentList.length > 0 || ordersList.length === 0) {
-      setOrdersList(currentList);
-    }
-
     if (!initializedRef.current) {
       initializedRef.current = true;
-      (currentList || []).forEach(o => {
+      orders.forEach(o => {
         const id = o.id || o.orderNo;
         if (id) seenIdsRef.current.add(id);
       });
       return;
     }
 
-    const newArrivals = currentList.filter(o => {
+    const newArrivals = orders.filter(o => {
       const id = o.id || o.orderNo;
       return id && !seenIdsRef.current.has(id);
     });
@@ -380,9 +375,9 @@ function OrdersPanel_V3({ orders: initialOrders, onStatusChange, onDeleteOrder }
       const newest = newArrivals[0];
       setNewOrderAlert(newest);
       if (alertTimerRef.current) clearTimeout(alertTimerRef.current);
-      alertTimerRef.current = setTimeout(() => setNewOrderAlert(null), 5000);
+      alertTimerRef.current = setTimeout(() => setNewOrderAlert(null), 8000);
     }
-  }, [initialOrders]);
+  }, [orders]);
 
   const cleanPhone = (p) => {
     const digits = String(p || '').replace(/\D/g, '');
@@ -406,9 +401,8 @@ function OrdersPanel_V3({ orders: initialOrders, onStatusChange, onDeleteOrder }
     setMsg('جارٍ مزامنة وجلب الطلبات السحابية...');
     try {
       if (window.__iraqstore_fetchCloudOrders) {
-        const fresh = await window.__iraqstore_fetchCloudOrders(setOrdersList);
+        const fresh = await window.__iraqstore_fetchCloudOrders();
         if (fresh && Array.isArray(fresh)) {
-          setOrdersList(fresh);
           setMsg('تمت المزامنة بنجاح — إجمالي الطلبات: ' + fresh.length + ' ✅');
         } else {
           setMsg('تمت المزامنة السحابية بنجاح ✅');
@@ -425,32 +419,11 @@ function OrdersPanel_V3({ orders: initialOrders, onStatusChange, onDeleteOrder }
   const clearAllOrders = async () => {
     if (window.confirm('هل أنت متأكد من مسح كافة الطلبات نهائياً من السحابة والتخزين لبدء استقبال الطلبات الجديدة فقط؟')) {
       try {
-        localStorage.removeItem('iraqstore_orders_v1');
-        window.__iraqstore_orders = [];
-        setOrdersList([]);
         setMsg('جارٍ مسح كافة الطلبات من السحابة...');
-
         if (window.__iraqstore_deleteOrder) {
-          for (const ord of ordersList) {
+          for (const ord of orders) {
             await window.__iraqstore_deleteOrder(ord.id || ord.orderNo);
           }
-        }
-
-        // Direct cloud wipe
-        try {
-          let url = "https://store-29692-default-rtdb.firebaseio.com/orders.json";
-          if (V && V.currentUser) {
-            const token = await V.currentUser.getIdToken(false);
-            if (token) url += "?auth=" + token;
-          }
-          await fetch(url, { method: "DELETE" });
-        } catch(_) {}
-
-        window.dispatchEvent(new CustomEvent('iraqstore_orders_updated', { detail: [] }));
-        if (typeof BroadcastChannel !== 'undefined') {
-          const bc = new BroadcastChannel('iraqstore_orders_channel');
-          bc.postMessage({ type: 'NEW_ORDER', order: null, list: [] });
-          bc.close();
         }
         setMsg('تم مسح جميع الطلبات نهائياً من السحابة والتخزين بنجاح 🧹');
       } catch(e) {
@@ -461,10 +434,9 @@ function OrdersPanel_V3({ orders: initialOrders, onStatusChange, onDeleteOrder }
     }
   };
 
-  const activeList = (initialOrders && initialOrders.length > 0) ? initialOrders : ordersList;
   const filtered = u.useMemo(() => {
     const s = q.trim().toLowerCase();
-    return activeList.filter(o => {
+    return orders.filter(o => {
       const matchQ = !s || (o.orderNo && String(o.orderNo).toLowerCase().includes(s)) ||
         (o.id && String(o.id).toLowerCase().includes(s)) ||
         (o.name && String(o.name).toLowerCase().includes(s)) ||
@@ -474,22 +446,19 @@ function OrdersPanel_V3({ orders: initialOrders, onStatusChange, onDeleteOrder }
       const matchStatus = !statusFilter || o.status === statusFilter;
       return matchQ && matchStatus;
     });
-  }, [activeList, q, statusFilter]);
+  }, [orders, q, statusFilter]);
 
   const counts = u.useMemo(() => {
-    const activeList = (initialOrders && initialOrders.length > 0) ? initialOrders : ordersList;
-    const res = { total: activeList.length, new: 0, processing: 0, shipped: 0, completed: 0, cancelled: 0 };
-    activeList.forEach(o => {
+    const res = { total: orders.length, new: 0, processing: 0, shipped: 0, completed: 0, cancelled: 0 };
+    orders.forEach(o => {
       const st = o.status || 'new';
       if (res[st] !== undefined) res[st]++;
     });
     return res;
-  }, [activeList]);
+  }, [orders]);
 
   const handleStatusChange = async (orderId, newStatus) => {
     if (newStatus === 'completed' || newStatus === 'cancelled') {
-      const next = ordersList.filter(o => o.id !== orderId && o.orderNo !== orderId);
-      setOrdersList(next);
       if (selectedOrder && (selectedOrder.id === orderId || selectedOrder.orderNo === orderId)) {
         setSelectedOrder(null);
       }
@@ -504,8 +473,6 @@ function OrdersPanel_V3({ orders: initialOrders, onStatusChange, onDeleteOrder }
       } else if (window.__iraqstore_updateOrderStatus) {
         await window.__iraqstore_updateOrderStatus(orderId, newStatus);
       }
-      const next = ordersList.map(o => (o.id === orderId || o.orderNo === orderId) ? { ...o, status: newStatus } : o);
-      setOrdersList(next);
       if (selectedOrder && (selectedOrder.id === orderId || selectedOrder.orderNo === orderId)) {
         setSelectedOrder(prev => prev ? { ...prev, status: newStatus } : null);
       }
@@ -514,18 +481,9 @@ function OrdersPanel_V3({ orders: initialOrders, onStatusChange, onDeleteOrder }
 
   const handleDelete = async (orderId) => {
     if (window.confirm('هل أنت متأكد من حذف هذا الطلب نهائياً؟')) {
-      const next = ordersList.filter(o => o.id !== orderId && o.orderNo !== orderId);
-      setOrdersList(next);
-      try {
-        localStorage.setItem('iraqstore_orders_v1', JSON.stringify(next));
-        window.__iraqstore_orders = next;
-        window.dispatchEvent(new CustomEvent('iraqstore_orders_updated', { detail: next }));
-      } catch(_) {}
-
       if (selectedOrder && (selectedOrder.id === orderId || selectedOrder.orderNo === orderId)) {
         setSelectedOrder(null);
       }
-
       if (onDeleteOrder) {
         await onDeleteOrder(orderId);
       } else if (window.__iraqstore_deleteOrder) {
