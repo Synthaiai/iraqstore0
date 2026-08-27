@@ -3224,16 +3224,14 @@ async function fetchCloudOrdersSnapshot(cb) {
     const locRes = await fetch('/api/orders?t=' + Date.now(), { headers: { 'Cache-Control': 'no-cache' } });
     if (locRes.ok) {
       const locData = await locRes.json();
-      ingestOrders(locData);
+      if (Array.isArray(locData)) ingestOrders(locData);
     }
   } catch(_) {}
 
   try {
     let token = null;
-    if (b2) {
-      if (b2.currentUser) {
-        try { token = await b2.currentUser.getIdToken(false); } catch(_) {}
-      }
+    if (b2 && b2.currentUser) {
+      try { token = await b2.currentUser.getIdToken(false); } catch(_) {}
     }
     let url = "https://store-29692-default-rtdb.firebaseio.com/orders.json";
     if (token) url += "?auth=" + token;
@@ -3259,21 +3257,41 @@ function listenOrders(cb) {
   fetchCloudOrdersSnapshot();
 
   let unsubWs = () => {};
+  const attachLiveListener = () => {
+    try {
+      if (unsubWs) { try { unsubWs(); } catch(_) {} }
+      unsubWs = mf(Jt(Xt, "orders"), (snap) => {
+        const val = snap.val();
+        if (val) ingestOrders(val);
+      }, () => {
+        fetchCloudOrdersSnapshot();
+      });
+    } catch(_) {}
+  };
+
+  attachLiveListener();
+
+  let unsubAuth = () => {};
   try {
-    unsubWs = mf(Jt(Xt, "orders"), (snap) => {
-      const val = snap.val();
-      if (val) ingestOrders(val);
-    }, () => {});
+    if (b2 && typeof y2 === 'function') {
+      unsubAuth = y2(b2, async (user) => {
+        if (user) {
+          await fetchCloudOrdersSnapshot();
+          attachLiveListener();
+        }
+      });
+    }
   } catch(_) {}
 
   const pollTimer = setInterval(() => {
     fetchCloudOrdersSnapshot();
-  }, 6000);
+  }, 5000);
 
   return () => {
     ordersSubscribers.delete(cb);
     clearInterval(pollTimer);
     if (unsubWs) unsubWs();
+    if (unsubAuth) unsubAuth();
   };
 }
 

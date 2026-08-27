@@ -490,28 +490,50 @@ export function listenOrders(cb) {
   // Background fetch
   fetchCloudOrdersSnapshot();
 
-  // Firebase Live WebSocket
   let unsubWs = () => {};
+  const attachLiveListener = () => {
+    try {
+      if (unsubWs) {
+        try { unsubWs(); } catch (_) {}
+      }
+      unsubWs = onValue(
+        ref(db, 'orders'),
+        (snap) => {
+          const val = snap.val();
+          if (val) ingestOrders(val);
+        },
+        () => {
+          fetchCloudOrdersSnapshot();
+        }
+      );
+    } catch (_) {}
+  };
+
+  attachLiveListener();
+
+  // Listen to Auth State Changes so when admin logs in on GitHub / Cloudflare, orders sync immediately!
+  let unsubAuth = () => {};
   try {
-    unsubWs = onValue(
-      ref(db, 'orders'),
-      (snap) => {
-        const val = snap.val();
-        if (val) ingestOrders(val);
-      },
-      () => {}
-    );
+    if (auth && typeof onAuthStateChanged === 'function') {
+      unsubAuth = onAuthStateChanged(auth, async (user) => {
+        if (user) {
+          await fetchCloudOrdersSnapshot();
+          attachLiveListener();
+        }
+      });
+    }
   } catch (_) {}
 
-  // Polling interval every 6s (only notifies if real changes exist)
+  // Polling interval every 5s (only notifies if real changes exist)
   const pollTimer = setInterval(() => {
     fetchCloudOrdersSnapshot();
-  }, 6000);
+  }, 5000);
 
   return () => {
     ordersSubscribers.delete(cb);
     clearInterval(pollTimer);
     if (unsubWs) unsubWs();
+    if (unsubAuth) unsubAuth();
   };
 }
 
@@ -528,7 +550,7 @@ export async function saveOrder(orderRecord) {
   // Ingest immediately into local memory store
   ingestOrders([fullOrder]);
 
-  // 1. Instant save to local network server API (for home Wi-Fi cross-device sync)
+  // 1. Instant save to local network server API (if available)
   try {
     await fetch('/api/orders', {
       method: 'POST',
@@ -538,7 +560,7 @@ export async function saveOrder(orderRecord) {
     });
   } catch (_) {}
 
-  // 2. Direct REST save to Firebase Realtime Database
+  // 2. Direct REST save to Firebase Realtime Database (Works on GitHub Pages & Cloudflare)
   try {
     await fetch(`https://store-29692-default-rtdb.firebaseio.com/orders/${fullOrder.id}.json`, {
       method: 'PUT',
@@ -564,7 +586,7 @@ export async function updateOrderStatus(orderId, status) {
     emitOrders();
   }
 
-  // Update local server
+  // Update local server (if present)
   try {
     await fetch(`/api/orders/${orderId}`, {
       method: 'PUT',
@@ -573,7 +595,22 @@ export async function updateOrderStatus(orderId, status) {
     });
   } catch (_) {}
 
-  // Update Firebase
+  // Update Firebase REST with token
+  try {
+    let token = null;
+    if (auth && auth.currentUser) {
+      try { token = await auth.currentUser.getIdToken(false); } catch (_) {}
+    }
+    let url = `https://store-29692-default-rtdb.firebaseio.com/orders/${orderId}.json`;
+    if (token) url += '?auth=' + token;
+    await fetch(url, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status, updatedAt: new Date().toISOString() }),
+    });
+  } catch (_) {}
+
+  // Update Firebase WebSocket
   try {
     await withTimeout(update(ref(db, `orders/${orderId}`), { status, updatedAt: new Date().toISOString() }), 4000);
     notifyStatus('online');
@@ -584,12 +621,23 @@ export async function deleteOrder(orderId) {
   masterOrdersMap.delete(String(orderId));
   emitOrders();
 
-  // Delete from local server
+  // Delete from local server (if present)
   try {
     await fetch(`/api/orders/${orderId}`, { method: 'DELETE' });
   } catch (_) {}
 
-  // Delete from Firebase
+  // Delete from Firebase REST with token
+  try {
+    let token = null;
+    if (auth && auth.currentUser) {
+      try { token = await auth.currentUser.getIdToken(false); } catch (_) {}
+    }
+    let url = `https://store-29692-default-rtdb.firebaseio.com/orders/${orderId}.json`;
+    if (token) url += '?auth=' + token;
+    await fetch(url, { method: 'DELETE' });
+  } catch (_) {}
+
+  // Delete from Firebase WebSocket
   try {
     await withTimeout(remove(ref(db, `orders/${orderId}`)), 4000);
     notifyStatus('online');
