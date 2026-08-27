@@ -15,19 +15,90 @@ const PRODUCT_TYPES = [
   { id: 'general', label: '📦 عام / إكسسوارات (General)', icon: '📦', category: 'accessories' },
 ];
 
-const PALETTE = [
-  { name: 'أسود', nameEn: 'Black', hex: '#141416' },
-  { name: 'أبيض', nameEn: 'White', hex: '#F2F0EE' },
-  { name: 'رمادي', nameEn: 'Grey', hex: '#8A8A90' },
-  { name: 'كحلي', nameEn: 'Navy', hex: '#1E2A44' },
-  { name: 'عنابي', nameEn: 'Burgundy', hex: '#6B0F1A' },
-  { name: 'بني', nameEn: 'Brown', hex: '#6A4A32' },
-  { name: 'جملي', nameEn: 'Tan', hex: '#B08A5F' },
-  { name: 'أخضر', nameEn: 'Green', hex: '#3F5F45' },
-  { name: 'بيج', nameEn: 'Beige', hex: '#D9C3B0' },
-  { name: 'ذهبي', nameEn: 'Gold', hex: '#C8A24A' },
-  { name: 'وردي', nameEn: 'Pink', hex: '#E8A5B8' },
-  { name: 'سماوي', nameEn: 'Sky Blue', hex: '#9BBECB' },
+const COLOR_GROUPS = [
+  {
+    title: 'الألوان الأساسية والمحايدة',
+    colors: [
+      { name: 'أسود', nameEn: 'Black', hex: '#141416' },
+      { name: 'أبيض', nameEn: 'White', hex: '#F2F0EE' },
+      { name: 'رصاصي', nameEn: 'Grey', hex: '#8A8A90' },
+      { name: 'فحمي', nameEn: 'Charcoal', hex: '#3A3B3F' },
+      { name: 'بيجي', nameEn: 'Beige', hex: '#D9C3B0' },
+      { name: 'كريمي', nameEn: 'Cream', hex: '#E8DFD2' },
+      { name: 'فضي', nameEn: 'Silver', hex: '#C6C7CB' },
+    ],
+  },
+  {
+    title: 'درجات الأزرق والنيلي',
+    colors: [
+      { name: 'نيلي', nameEn: 'Navy', hex: '#1E2A44' },
+      { name: 'أزرق', nameEn: 'Blue', hex: '#2563EB' },
+      { name: 'سمائي', nameEn: 'Sky Blue', hex: '#9BBECB' },
+      { name: 'دينم', nameEn: 'Denim', hex: '#4A6280' },
+    ],
+  },
+  {
+    title: 'درجات البني والترابي',
+    colors: [
+      { name: 'قهوائي', nameEn: 'Dark Brown', hex: '#3E2723' },
+      { name: 'بني', nameEn: 'Brown', hex: '#6A4A32' },
+      { name: 'حني', nameEn: 'Tan', hex: '#B08A5F' },
+      { name: 'زيتوني', nameEn: 'Olive', hex: '#5B6045' },
+    ],
+  },
+  {
+    title: 'الألوان الزاهية والمميزة',
+    colors: [
+      { name: 'أحمر', nameEn: 'Red', hex: '#DC2626' },
+      { name: 'أحمر برغندي', nameEn: 'Burgundy', hex: '#6B0F1A' },
+      { name: 'أصفر', nameEn: 'Yellow', hex: '#EAB308' },
+      { name: 'أخضر', nameEn: 'Green', hex: '#16A34A' },
+      { name: 'وردي', nameEn: 'Pink', hex: '#E8A5B8' },
+      { name: 'وردي باهت', nameEn: 'Dusty Rose', hex: '#C9A0A0' },
+      { name: 'زمردي', nameEn: 'Emerald', hex: '#1F4D3D' },
+    ],
+  },
+];
+
+const PALETTE = COLOR_GROUPS.flatMap((g) => g.colors);
+
+const COLOR_QUICK_PRESETS = [
+  {
+    label: 'كلاسيك (أسود + قهوائي + حني)',
+    colors: [
+      { name: 'أسود', nameEn: 'Black', hex: '#141416' },
+      { name: 'قهوائي', nameEn: 'Dark Brown', hex: '#3E2723' },
+      { name: 'حني', nameEn: 'Tan', hex: '#B08A5F' },
+    ],
+  },
+  {
+    label: 'أحذية رياضية (أبيض + أسود + رصاصي + نيلي)',
+    colors: [
+      { name: 'أبيض', nameEn: 'White', hex: '#F2F0EE' },
+      { name: 'أسود', nameEn: 'Black', hex: '#141416' },
+      { name: 'رصاصي', nameEn: 'Grey', hex: '#8A8A90' },
+      { name: 'نيلي', nameEn: 'Navy', hex: '#1E2A44' },
+    ],
+  },
+  {
+    label: 'ملابس شائعة (أسود + أبيض + نيلي + بيجي + رصاصي)',
+    colors: [
+      { name: 'أسود', nameEn: 'Black', hex: '#141416' },
+      { name: 'أبيض', nameEn: 'White', hex: '#F2F0EE' },
+      { name: 'نيلي', nameEn: 'Navy', hex: '#1E2A44' },
+      { name: 'بيجي', nameEn: 'Beige', hex: '#D9C3B0' },
+      { name: 'رصاصي', nameEn: 'Grey', hex: '#8A8A90' },
+    ],
+  },
+  {
+    label: 'تشكيلة نسائية (بيجي + وردي + أحمر برغندي + أسود)',
+    colors: [
+      { name: 'بيجي', nameEn: 'Beige', hex: '#D9C3B0' },
+      { name: 'وردي', nameEn: 'Pink', hex: '#E8A5B8' },
+      { name: 'أحمر برغندي', nameEn: 'Burgundy', hex: '#6B0F1A' },
+      { name: 'أسود', nameEn: 'Black', hex: '#141416' },
+    ],
+  },
 ];
 
 const range = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => String(a + i));
@@ -397,10 +468,36 @@ export default function ProductForm({ initial, onSave, onCancel }) {
         : [...f.colors, c],
     }));
 
+  const removeColor = (colorName) =>
+    setForm((f) => ({
+      ...f,
+      colors: f.colors.filter((x) => x.name !== colorName),
+    }));
+
+  const clearAllColors = () =>
+    setForm((f) => ({
+      ...f,
+      colors: [],
+    }));
+
+  const applyColorPreset = (presetColors) =>
+    setForm((f) => ({
+      ...f,
+      colors: presetColors,
+    }));
+
   const addCustomColor = () => {
-    if (!customColorName) return;
-    const c = { name: customColorName, nameEn: translateText(customColorName), hex: customColorHex };
-    toggleColor(c);
+    const name = customColorName.trim();
+    if (!name) return;
+    const c = {
+      name,
+      nameEn: translateText(name) || name,
+      hex: customColorHex || '#336699',
+    };
+    setForm((f) => ({
+      ...f,
+      colors: f.colors.some((x) => x.name === c.name) ? f.colors : [...f.colors, c],
+    }));
     setCustomColorName('');
   };
 
@@ -887,41 +984,129 @@ export default function ProductForm({ initial, onSave, onCancel }) {
           )}
 
           {/* STEP 6: Multi-Color Picker */}
-          <div className="admin-field">
-            <span>الألوان المتاحة للمنتج</span>
-            <div className="admin-chips">
-              {PALETTE.map((c) => {
-                const on = form.colors.some((x) => x.name === c.name);
-                return (
-                  <button
-                    type="button"
-                    key={c.name}
-                    className={`admin-swatch ${on ? 'is-on' : ''}`}
-                    onClick={() => toggleColor(c)}
-                  >
-                    <span style={{ background: c.hex }} />
-                    {c.name}
-                  </button>
-                );
-              })}
+          <div className="admin-field admin-field--highlight">
+            <div className="admin-flex-between">
+              <span>
+                🎨 ألوان المنتج المحددة ({form.colors.length})
+                {form.colors.length > 0 && <small style={{ marginInlineStart: 8, color: 'var(--a-ok)' }}>جاهزة للعرض في المتجر</small>}
+              </span>
+              {form.colors.length > 0 && (
+                <button
+                  type="button"
+                  className="admin-btn admin-btn--sm admin-btn--danger"
+                  onClick={clearAllColors}
+                  style={{ padding: '2px 8px', fontSize: '0.78rem' }}
+                >
+                  🧹 تفريغ كل الألوان
+                </button>
+              )}
             </div>
 
-            {/* Custom color input */}
-            <div className="admin-color-custom">
-              <input
-                type="color"
-                value={customColorHex}
-                onChange={(e) => setCustomColorHex(e.target.value)}
-                className="admin-color-picker"
-              />
-              <input
-                value={customColorName}
-                onChange={(e) => setCustomColorName(e.target.value)}
-                placeholder="اسم لون مخصص (مثال: ماروني، زيتوني...)"
-              />
-              <button type="button" className="admin-btn admin-btn--sm" onClick={addCustomColor}>
-                + إضافة هذا اللون
-              </button>
+            {/* Selected Colors Bar */}
+            {form.colors.length === 0 ? (
+              <div className="admin-color-empty-notice">
+                <span>⚠️ لم يتم تحديد ألوان للمنتج بعد. اختر من القوالب الجاهزة أو انقر على الألوان بالأسفل.</span>
+              </div>
+            ) : (
+              <div className="admin-selected-colors-list">
+                {form.colors.map((c) => (
+                  <div key={c.name} className="admin-selected-color-tag">
+                    <span className="admin-selected-color-tag__dot" style={{ background: c.hex }} />
+                    <span className="admin-selected-color-tag__name">{c.name}</span>
+                    {c.nameEn && <span className="admin-selected-color-tag__en">({c.nameEn})</span>}
+                    <button
+                      type="button"
+                      className="admin-selected-color-tag__del"
+                      onClick={() => removeColor(c.name)}
+                      title={`إزالة لون ${c.name}`}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Color Quick Presets */}
+            <div style={{ marginTop: '0.85rem' }}>
+              <span style={{ fontSize: '0.84rem', color: 'var(--a-dim)', display: 'block', marginBottom: '0.35rem' }}>
+                ⚡ قوالب ألوان شائعة بضغطة واحدة:
+              </span>
+              <div className="admin-chips">
+                {COLOR_QUICK_PRESETS.map((p) => (
+                  <button
+                    type="button"
+                    key={p.label}
+                    className="admin-chip admin-chip--accent"
+                    onClick={() => applyColorPreset(p.colors)}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Categorized Color Palettes */}
+            <div className="admin-color-groups-container">
+              {COLOR_GROUPS.map((group) => (
+                <div key={group.title} className="admin-color-group">
+                  <span className="admin-color-group__title">{group.title}</span>
+                  <div className="admin-chips">
+                    {group.colors.map((c) => {
+                      const on = form.colors.some((x) => x.name === c.name);
+                      return (
+                        <button
+                          type="button"
+                          key={c.name}
+                          className={`admin-swatch ${on ? 'is-on' : ''}`}
+                          onClick={() => toggleColor(c)}
+                        >
+                          <span style={{ background: c.hex }} />
+                          {c.name}
+                          {on && <span className="admin-swatch-check">✓</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Custom Color Creator */}
+            <div className="admin-color-custom-advanced">
+              <span style={{ fontSize: '0.84rem', color: 'var(--a-dim)', display: 'block', marginBottom: '0.35rem' }}>
+                ➕ إضافة لون مخصص جديد (مع الترجمة التلقائية):
+              </span>
+              <div className="admin-color-custom-row">
+                <div className="admin-color-picker-wrapper" title="اختر درجة اللون بالضغط هنا">
+                  <input
+                    type="color"
+                    value={customColorHex}
+                    onChange={(e) => setCustomColorHex(e.target.value)}
+                    className="admin-color-picker"
+                  />
+                  <span className="admin-color-hex-val">{customColorHex}</span>
+                </div>
+                <input
+                  value={customColorName}
+                  onChange={(e) => setCustomColorName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      addCustomColor();
+                    }
+                  }}
+                  placeholder="اكتب اسم اللون (مثال: ماروني، خردلي، فستقي)..."
+                  style={{ flex: 1 }}
+                />
+                <button
+                  type="button"
+                  className="admin-btn admin-btn--primary admin-btn--sm"
+                  onClick={addCustomColor}
+                >
+                  + إضافة اللون للمنتج
+                </button>
+              </div>
             </div>
           </div>
 

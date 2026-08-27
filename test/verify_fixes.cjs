@@ -256,6 +256,35 @@ const mergedWithEmpty = mergeOrdersList(local, []);
 assert(mergedWithEmpty.length === 1, 'Merging with empty cloud array does NOT wipe out local orders');
 
 // ----------------------------------------------------
+// Test 9: Iraqi Color Dictionary & Palette Validation
+// ----------------------------------------------------
+console.log('\n--- Test Suite 9: Iraqi Color Dictionary & Palette Integrity ---');
+const translatorContent = fs.readFileSync(path.join(__dirname, '../src/utils/translator.js'), 'utf8');
+const productsContent = fs.readFileSync(path.join(__dirname, '../src/data/products.js'), 'utf8');
+
+assert(translatorContent.includes("'رصاصي': 'Grey'"), "Translator maps 'رصاصي' -> 'Grey'");
+assert(translatorContent.includes("'نيلي': 'Navy'"), "Translator maps 'نيلي' -> 'Navy'");
+assert(translatorContent.includes("'أزرق': 'Blue'"), "Translator maps 'أزرق' -> 'Blue'");
+assert(translatorContent.includes("'قهوائي': 'Dark Brown'"), "Translator maps 'قهوائي' -> 'Dark Brown'");
+assert(translatorContent.includes("'أحمر': 'Red'"), "Translator maps 'أحمر' -> 'Red'");
+assert(translatorContent.includes("'أحمر برغندي': 'Burgundy'"), "Translator maps 'أحمر برغندي' -> 'Burgundy'");
+assert(translatorContent.includes("'حني': 'Tan'"), "Translator maps 'حني' -> 'Tan'");
+assert(translatorContent.includes("'أصفر': 'Yellow'"), "Translator maps 'أصفر' -> 'Yellow'");
+assert(translatorContent.includes("'سمائي': 'Sky Blue'"), "Translator maps 'سمائي' -> 'Sky Blue'");
+assert(translatorContent.includes("'بيجي': 'Beige'"), "Translator maps 'بيجي' -> 'Beige'");
+
+assert(productsContent.includes("grey: { name: 'رصاصي', nameEn: 'Grey', hex: '#8A8A90' }"), "products.js grey color renamed to 'رصاصي'");
+assert(productsContent.includes("navy: { name: 'نيلي', nameEn: 'Navy', hex: '#1E2A44' }"), "products.js navy color renamed to 'نيلي'");
+assert(productsContent.includes("blue: { name: 'أزرق', nameEn: 'Blue', hex: '#2563EB' }"), "products.js has 'أزرق' (blue)");
+assert(productsContent.includes("darkBrown: { name: 'قهوائي', nameEn: 'Dark Brown', hex: '#3E2723' }"), "products.js has 'قهوائي' (darkBrown)");
+assert(productsContent.includes("red: { name: 'أحمر', nameEn: 'Red', hex: '#DC2626' }"), "products.js has 'أحمر' (red)");
+assert(productsContent.includes("burgundy: { name: 'أحمر برغندي', nameEn: 'Burgundy', hex: '#6B0F1A' }"), "products.js has 'أحمر برغندي' (burgundy)");
+assert(productsContent.includes("tan: { name: 'حني', nameEn: 'Tan', hex: '#B08A5F' }"), "products.js tan color renamed to 'حني'");
+assert(productsContent.includes("gold: { name: 'أصفر', nameEn: 'Yellow', hex: '#EAB308' }"), "products.js gold color renamed to 'أصفر'");
+assert(productsContent.includes("sky: { name: 'سمائي', nameEn: 'Sky Blue', hex: '#9BBECB' }"), "products.js sky color renamed to 'سمائي'");
+assert(productsContent.includes("beige: { name: 'بيجي', nameEn: 'Beige', hex: '#D9C3B0' }"), "products.js has 'بيجي' (beige)");
+
+// ----------------------------------------------------
 // Summary
 // ----------------------------------------------------
 console.log('\n========================================');
