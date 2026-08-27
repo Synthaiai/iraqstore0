@@ -199,6 +199,30 @@
   border-color: var(--burgundy-700);
 }
 
+/* Language button in top bar */
+.topbar__lang-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.22rem 0.6rem;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #fff;
+  font-size: 0.76rem;
+  font-weight: 700;
+  font-family: var(--font-display);
+  letter-spacing: 0.02em;
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+  margin-inline-end: 0.35rem;
+}
+
+.topbar__lang-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
 /* Prefs inside the mobile drawer */
 .mobile-nav__prefs {
   display: flex;
@@ -218,18 +242,9 @@
   border-color: var(--burgundy-700);
 }
 
-/* On small screens, keep the language switch accessible and stylish */
-@media (max-width: 560px) {
-  .header__pref:not(.pref-btn--lang) {
-    display: none;
-  }
-  .pref-btn--lang.header__pref {
-    height: 36px;
-    min-width: 44px;
-    padding-inline: 0.45rem;
-    font-size: 0.78rem;
-    font-weight: 700;
-    border-radius: 6px;
-    background: var(--paper-tint, rgba(0, 0, 0, 0.04));
+/* On screens <= 760px, header pref buttons move into topbar & drawer to keep main header balanced & perfectly centered */
+@media (max-width: 760px) {
+  .header__pref {
+    display: none !important;
   }
 }
