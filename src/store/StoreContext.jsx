@@ -25,17 +25,25 @@ function cartReducer(state, action) {
       const { productId, size, color, qty, product } = action;
       const key = lineKey(productId, size, color);
       const existing = state.find((l) => l.key === key);
+      const prod = product || getProduct(productId);
+      const maxStock = prod && prod.stockQuantity !== undefined ? Number(prod.stockQuantity) : 15;
+
+      if (maxStock <= 0) return state; // Cannot add sold out items
+
       if (existing) {
         return state.map((l) =>
-          l.key === key ? { ...l, qty: Math.min(l.qty + qty, 99), rawProduct: product || l.rawProduct } : l
+          l.key === key
+            ? { ...l, qty: Math.min(l.qty + qty, maxStock), rawProduct: product || l.rawProduct }
+            : l
         );
       }
-      return [...state, { key, productId, size, color, qty, rawProduct: product }];
+      return [...state, { key, productId, size, color, qty: Math.min(qty, maxStock), rawProduct: product }];
     }
-    case 'setQty':
+    case 'setQty': {
       return state
         .map((l) => (l.key === action.key ? { ...l, qty: action.qty } : l))
         .filter((l) => l.qty > 0);
+    }
     case 'remove':
       return state.filter((l) => l.key !== action.key);
     case 'clear':
@@ -79,27 +87,71 @@ export function StoreProvider({ children }) {
 
   const addToCart = useCallback(
     (product, { size, color, qty = 1, silent = false } = {}) => {
-      if (!product || !product.id) return;
+      if (!product || !product.id) return false;
 
-      const safeSize = size || (product.sizes && product.sizes[0]) || 'مقاس واحد';
+      const liveProd = getProduct(product.id) || product;
+      const maxStock = liveProd.stockQuantity !== undefined ? Number(liveProd.stockQuantity) : 15;
+
+      if (maxStock <= 0) {
+        toast('عذراً، هذا المنتج نفد من المخزون حالياً ❌');
+        return false;
+      }
+
+      const safeSize = size || (liveProd.sizes && liveProd.sizes[0]) || 'مقاس واحد';
       let safeColor = 'أساسي';
       if (color) {
         safeColor = typeof color === 'object' ? color.name || 'أساسي' : color;
-      } else if (product.colors && product.colors.length) {
-        safeColor = typeof product.colors[0] === 'object' ? product.colors[0].name || 'أساسي' : product.colors[0];
+      } else if (liveProd.colors && liveProd.colors.length) {
+        safeColor = typeof liveProd.colors[0] === 'object' ? liveProd.colors[0].name || 'أساسي' : liveProd.colors[0];
+      }
+
+      const key = lineKey(liveProd.id, safeSize, safeColor);
+      const existing = cart.find((l) => l.key === key);
+      const existingQty = existing ? existing.qty : 0;
+
+      if (existingQty + qty > maxStock) {
+        toast(`الكمية القصوى المتاحة في المخزن هي ${maxStock} فقط ⚠️`);
+        if (existingQty < maxStock) {
+          dispatch({
+            type: 'setQty',
+            key,
+            qty: maxStock,
+          });
+          if (!silent) toast(rt('addedToCart'));
+          return true;
+        }
+        return false;
       }
 
       dispatch({
         type: 'add',
-        productId: product.id,
+        productId: liveProd.id,
         size: safeSize,
         color: safeColor,
         qty,
-        product,
+        product: liveProd,
       });
       if (!silent) toast(rt('addedToCart'));
+      return true;
     },
-    [toast]
+    [cart, toast]
+  );
+
+  const setQty = useCallback(
+    (key, targetQty) => {
+      const line = cart.find((l) => l.key === key);
+      if (!line) return;
+      const liveProd = getProduct(line.productId) || line.product || line.rawProduct;
+      const maxStock = liveProd && liveProd.stockQuantity !== undefined ? Number(liveProd.stockQuantity) : 15;
+
+      if (targetQty > line.qty && targetQty > maxStock) {
+        toast(`لا يمكن زيادة الكمية، أقصى حد متوفر هو ${maxStock} قطع ⚠️`);
+        return;
+      }
+      const safeQty = Math.max(0, Math.min(targetQty, maxStock));
+      dispatch({ type: 'setQty', key, qty: safeQty });
+    },
+    [cart, toast]
   );
 
   const toggleFavorite = useCallback(
@@ -139,7 +191,7 @@ export function StoreProvider({ children }) {
       subtotal,
       total: subtotal,
       addToCart,
-      setQty: (key, qty) => dispatch({ type: 'setQty', key, qty }),
+      setQty,
       removeLine: (key) => dispatch({ type: 'remove', key }),
       clearCart: () => dispatch({ type: 'clear' }),
       cartOpen,
@@ -151,7 +203,7 @@ export function StoreProvider({ children }) {
       toasts,
       toast,
     }),
-    [detailedCart, cartCount, subtotal, addToCart, cartOpen, favorites, toggleFavorite, toasts, toast]
+    [detailedCart, cartCount, subtotal, addToCart, setQty, cartOpen, favorites, toggleFavorite, toasts, toast]
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

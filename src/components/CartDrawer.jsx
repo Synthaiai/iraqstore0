@@ -68,6 +68,10 @@ export default function CartDrawer() {
                 const cObj = (line.product.colors || []).find((c) => c.name === line.color);
                 const si = (line.product.sizes || []).indexOf(line.size);
                 const sizeText = lang === 'en' && si >= 0 ? (line.product.sizesEn || [])[si] : line.size;
+                const maxStock = line.product.stockQuantity !== undefined ? Number(line.product.stockQuantity) : 15;
+                const isOutOfStock = maxStock <= 0;
+                const isMaxed = line.qty >= maxStock;
+
                 return (
                   <div className="cart-line" key={line.key}>
                     <Link to={`/product/${line.product.id}`} className="cart-line__img" onClick={closeCart}>
@@ -89,6 +93,16 @@ export default function CartDrawer() {
                         {formatPrice(line.product.price * line.qty, lang)}
                       </span>
 
+                      {isOutOfStock ? (
+                        <span className="cart-line__stock-warn is-out">
+                          🔴 {lang === 'en' ? 'Out of stock' : 'نفد من المخزون'}
+                        </span>
+                      ) : isMaxed ? (
+                        <span className="cart-line__stock-warn">
+                          ⚠️ {lang === 'en' ? `Max available: ${maxStock}` : `أقصى كمية متاحة: ${maxStock}`}
+                        </span>
+                      ) : null}
+
                       <div className="cart-line__foot">
                         <div className="qty qty--sm">
                           <button
@@ -103,6 +117,8 @@ export default function CartDrawer() {
                             type="button"
                             onClick={() => setQty(line.key, line.qty + 1)}
                             aria-label={t('increase')}
+                            disabled={isMaxed || isOutOfStock}
+                            title={isMaxed ? `أقصى كمية متاحة بالمخزن: ${maxStock}` : ''}
                           >
                             <Plus />
                           </button>

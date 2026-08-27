@@ -31,19 +31,25 @@ export default function QuickAdd({ product, onClose }) {
     };
   }, [onClose]);
 
+  const stock = product.stockQuantity !== undefined ? Number(product.stockQuantity) : 15;
+  const isOutOfStock = stock <= 0;
+
   const localSize = (sz) => {
     const i = sizes.indexOf(sz);
     return lang === 'en' && i >= 0 ? sizesEn[i] : sz;
   };
 
   const confirm = () => {
+    if (isOutOfStock) return;
     if (!size) {
       setErr(true);
       return;
     }
-    addToCart(product, { size, color, silent: true });
-    onClose();
-    openCart();
+    const added = addToCart(product, { size, color, silent: true });
+    if (added !== false) {
+      onClose();
+      openCart();
+    }
   };
 
   return createPortal(
@@ -58,6 +64,15 @@ export default function QuickAdd({ product, onClose }) {
           <div>
             <h3 className="qa__name">{tf(product, 'name')}</h3>
             <span className="qa__price">{formatPrice(product.price, lang)}</span>
+            {isOutOfStock ? (
+              <span className="badge badge--stock-out" style={{ display: 'inline-block', marginTop: '0.3rem' }}>
+                {lang === 'en' ? 'Out of Stock' : 'نفد من المخزون'}
+              </span>
+            ) : stock <= 3 ? (
+              <small style={{ color: 'var(--a-warn, #f59e0b)', display: 'block', marginTop: '0.2rem' }}>
+                ⚠️ {lang === 'en' ? `Only ${stock} left` : `متبقي ${stock} فقط`}
+              </small>
+            ) : null}
           </div>
         </div>
 
@@ -111,9 +126,16 @@ export default function QuickAdd({ product, onClose }) {
           </div>
         </div>
 
-        <button type="button" className="btn btn--burgundy btn--block" onClick={confirm}>
+        <button
+          type="button"
+          className={`btn ${isOutOfStock ? 'btn--disabled' : 'btn--burgundy'} btn--block`}
+          onClick={confirm}
+          disabled={isOutOfStock}
+        >
           <Bag />
-          {t('addToCart')} — {formatPrice(product.price, lang)}
+          {isOutOfStock
+            ? (lang === 'en' ? 'Out of Stock ❌' : 'نفد من المخزون ❌')
+            : `${t('addToCart')} — ${formatPrice(product.price, lang)}`}
         </button>
       </div>
     </div>,

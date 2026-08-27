@@ -3564,3 +3564,87 @@ main {
     transform: none;
   }
 }
+
+/* ============================================================
+   Smart Inventory Management & Stock Badges
+   ============================================================ */
+.badge--stock-out {
+  background: #dc2626 !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.35);
+}
+
+.badge--stock-low {
+  background: #d97706 !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 6px rgba(217, 119, 6, 0.35);
+}
+
+.pcard--out .pcard__img {
+  filter: grayscale(40%) opacity(0.85);
+}
+
+.pcard__add--disabled {
+  background: #475569 !important;
+  color: #cbd5e1 !important;
+  cursor: not-allowed !important;
+  opacity: 0.85;
+}
+
+.pdp-stock-banner {
+  margin-block: 0.5rem 1rem;
+}
+
+.pdp-stock-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 999px;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.pdp-stock-pill--ok {
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #059669;
+}
+
+.pdp-stock-pill--low {
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #d97706;
+}
+
+.pdp-stock-pill--out {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #dc2626;
+}
+
+.pdp-stock-hint {
+  font-size: 0.78rem;
+  font-weight: normal;
+  opacity: 0.85;
+}
+
+.btn--disabled {
+  background: #475569 !important;
+  color: #cbd5e1 !important;
+  cursor: not-allowed !important;
+  opacity: 0.75;
+}
+
+.cart-line__stock-warn {
+  display: block;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #d97706;
+  margin-top: 0.25rem;
+}
+
+.cart-line__stock-warn.is-out {
+  color: #dc2626;
+}
+

@@ -55,8 +55,10 @@ function ProductsPanel({ products }) {
       const matchGender = !gender || p.gender === gender;
       
       let matchStock = true;
-      if (stockFilter === 'low') {
-        matchStock = (p.stockQuantity !== undefined && p.stockQuantity <= 3);
+      if (stockFilter === 'out') {
+        matchStock = p.stockQuantity !== undefined && Number(p.stockQuantity) <= 0;
+      } else if (stockFilter === 'low') {
+        matchStock = p.stockQuantity !== undefined && Number(p.stockQuantity) > 0 && Number(p.stockQuantity) <= 3;
       } else if (stockFilter === 'draft') {
         matchStock = p.status === 'draft';
       } else if (stockFilter === 'active') {
@@ -155,7 +157,8 @@ function ProductsPanel({ products }) {
         <select value={stockFilter} onChange={(e) => setStockFilter(e.target.value)}>
           <option value="">جميع المنتجات</option>
           <option value="active">النشطة بالمعرض 🟢</option>
-          <option value="low">مخزون منخفض ⚠️</option>
+          <option value="out">نفد من المخزون (0) 🔴</option>
+          <option value="low">مخزون منخفض (1-3) ⚠️</option>
           <option value="draft">المسودات (مخفية) 🟡</option>
         </select>
 
@@ -200,7 +203,9 @@ function ProductsPanel({ products }) {
 
           {filtered.slice(0, limit).map((p, idx) => {
             const isDraft = p.status === 'draft';
-            const isLow = p.stockQuantity !== undefined && p.stockQuantity <= 3;
+            const curStock = p.stockQuantity !== undefined ? Number(p.stockQuantity) : 15;
+            const isOut = curStock <= 0;
+            const isLow = curStock > 0 && curStock <= 3;
             return (
               <div className={`admin-row ${isDraft ? 'admin-row--draft' : ''}`} key={p.id}>
                 <input
@@ -267,9 +272,29 @@ function ProductsPanel({ products }) {
                 </div>
 
                 <div className="admin-row__stock">
-                  <span className={`admin-stock-badge ${isLow ? 'is-low' : 'is-ok'}`}>
-                    {p.stockQuantity !== undefined ? `المخزون: ${p.stockQuantity}` : 'متوفر'}
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <button
+                      type="button"
+                      className="admin-icon-btn"
+                      style={{ width: '22px', height: '22px', fontSize: '11px', padding: 0 }}
+                      onClick={() => saveProduct({ ...p, stockQuantity: Math.max(0, curStock - 1) })}
+                      title="إنقاص المخزون بمقدار 1"
+                    >
+                      −
+                    </button>
+                    <span className={`admin-stock-badge ${isOut ? 'is-low' : isLow ? 'is-low' : 'is-ok'}`} style={isOut ? { background: 'rgba(239,68,68,0.15)', color: '#f87171', borderColor: 'rgba(239,68,68,0.3)' } : {}}>
+                      {isOut ? 'نفد (0)' : `${curStock} قطع`}
+                    </span>
+                    <button
+                      type="button"
+                      className="admin-icon-btn"
+                      style={{ width: '22px', height: '22px', fontSize: '11px', padding: 0 }}
+                      onClick={() => saveProduct({ ...p, stockQuantity: curStock + 1 })}
+                      title="زيادة المخزون بمقدار 1"
+                    >
+                      +
+                    </button>
+                  </div>
                   <button
                     className={`admin-status-toggle ${isDraft ? 'is-draft' : 'is-active'}`}
                     onClick={() => toggleProductStatus(p)}

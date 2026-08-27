@@ -1543,6 +1543,7 @@
 }
 .admin-stock-badge.is-ok { background: rgba(52, 211, 153, 0.15); color: #34d399; }
 .admin-stock-badge.is-low { background: rgba(245, 158, 11, 0.2); color: #fbbf24; font-weight: 600; }
+.admin-stock-badge.is-out { background: rgba(239, 68, 68, 0.2); color: #f87171; font-weight: 700; border: 1px solid rgba(239, 68, 68, 0.3); }
 
 .admin-status-toggle {
   background: transparent;

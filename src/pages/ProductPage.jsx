@@ -82,15 +82,25 @@ export default function ProductPage() {
     return lang === 'en' && i >= 0 ? sizesEn[i] : sz;
   };
 
+  const stock = product.stockQuantity !== undefined ? Number(product.stockQuantity) : 15;
+  const isOutOfStock = stock <= 0;
+  const isLowStock = stock > 0 && stock <= 3;
+
   const handleAdd = () => {
+    if (isOutOfStock) {
+      toast(lang === 'en' ? 'Sorry, this product is out of stock.' : 'عذراً، هذا المنتج نفد من المخزون حالياً ❌');
+      return;
+    }
     if (!size) {
       setSizeError(true);
       toast(t('pickSizeFirst'));
       document.getElementById('pdp-sizes')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
-    addToCart(product, { size, color, qty, silent: true });
-    openCart();
+    const added = addToCart(product, { size, color, qty, silent: true });
+    if (added !== false) {
+      openCart();
+    }
   };
 
   const pickSize = (sz) => {
@@ -229,26 +239,78 @@ export default function ProductPage() {
               </div>
             )}
 
-            {/* Quantity + actions */}
-            <div className="opt-group">
-              <div className="opt-group__label">
-                <span>{t('quantity')}</span>
-              </div>
-              <div className="qty">
-                <button type="button" onClick={() => setQty((q) => Math.max(1, q - 1))} aria-label={t('decrease')}>
-                  <Minus />
-                </button>
-                <span className="qty__val">{qty}</span>
-                <button type="button" onClick={() => setQty((q) => Math.min(99, q + 1))} aria-label={t('increase')}>
-                  <Plus />
-                </button>
-              </div>
+            {/* Stock status indicator */}
+            <div className="pdp-stock-banner">
+              {isOutOfStock ? (
+                <div className="pdp-stock-pill pdp-stock-pill--out">
+                  <span>🔴</span>
+                  <strong>{lang === 'en' ? 'Out of Stock' : 'نفد من المخزون'}</strong>
+                  <span className="pdp-stock-hint">{lang === 'en' ? 'Currently unavailable' : 'غير متوفر حالياً'}</span>
+                </div>
+              ) : isLowStock ? (
+                <div className="pdp-stock-pill pdp-stock-pill--low">
+                  <span>⚠️</span>
+                  <strong>{lang === 'en' ? `Only ${stock} left in stock!` : `متبقي ${stock} قطع فقط في المخزن!`}</strong>
+                  <span className="pdp-stock-hint">{lang === 'en' ? 'Order soon' : 'سارع بالطلب'}</span>
+                </div>
+              ) : (
+                <div className="pdp-stock-pill pdp-stock-pill--ok">
+                  <span>🟢</span>
+                  <strong>{lang === 'en' ? `In Stock (${stock} available)` : `متوفر في المخزن (${stock} قطعة)`}</strong>
+                </div>
+              )}
             </div>
 
+            {/* Quantity + actions */}
+            {!isOutOfStock && (
+              <div className="opt-group">
+                <div className="opt-group__label">
+                  <span>{t('quantity')}</span>
+                  {stock < 99 && (
+                    <span className="opt-group__hint">
+                      {lang === 'en' ? `Max ${stock}` : `الحد الأقصى ${stock}`}
+                    </span>
+                  )}
+                </div>
+                <div className="qty">
+                  <button
+                    type="button"
+                    onClick={() => setQty((q) => Math.max(1, q - 1))}
+                    aria-label={t('decrease')}
+                    disabled={qty <= 1}
+                  >
+                    <Minus />
+                  </button>
+                  <span className="qty__val">{qty}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (qty >= stock) {
+                        toast(lang === 'en' ? `Maximum available is ${stock}` : `الحد الأقصى المتوفر هو ${stock} فقط`);
+                        return;
+                      }
+                      setQty((q) => Math.min(stock, q + 1));
+                    }}
+                    aria-label={t('increase')}
+                    disabled={qty >= stock}
+                  >
+                    <Plus />
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="pdp__actions">
-              <button type="button" className="btn btn--burgundy" onClick={handleAdd}>
+              <button
+                type="button"
+                className={`btn ${isOutOfStock ? 'btn--disabled' : 'btn--burgundy'}`}
+                onClick={handleAdd}
+                disabled={isOutOfStock}
+              >
                 <Bag />
-                {t('addToCart')} — {formatPrice(product.price * qty, lang)}
+                {isOutOfStock
+                  ? (lang === 'en' ? 'Out of Stock ❌' : 'نفد من المخزون ❌')
+                  : `${t('addToCart')} — ${formatPrice(product.price * qty, lang)}`}
               </button>
               <button
                 type="button"

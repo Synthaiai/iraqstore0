@@ -2,7 +2,13 @@
   "rules": {
     "products": {
       ".read": true,
-      ".write": "auth != null && (auth.token.email == 'adminiraq@gmail.com' || auth.token.email == 'adminiraqstore@gmail.com' || auth.token.email == 'adoiniraqstore@gmail.com')",
+      "$productId": {
+        ".write": "auth != null && (auth.token.email == 'adminiraq@gmail.com' || auth.token.email == 'adminiraqstore@gmail.com' || auth.token.email == 'adoiniraqstore@gmail.com')",
+        "stockQuantity": {
+          ".write": "true",
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        }
+      },
       ".indexOn": ["category", "gender", "sortOrder", "status"]
     },
     "catalog": {

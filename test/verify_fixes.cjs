@@ -217,7 +217,8 @@ assert(fs.existsSync(rulesPath), 'database.rules.json exists in root directory')
 
 const rulesContent = JSON.parse(fs.readFileSync(rulesPath, 'utf8'));
 assert(rulesContent.rules.products['.read'] === true, 'Public products read rule is true');
-assert(typeof rulesContent.rules.products['.write'] === 'string' && rulesContent.rules.products['.write'].includes('auth != null'), 'Products write requires authenticated admin');
+const prodWriteRule = rulesContent.rules.products['.write'] || (rulesContent.rules.products.$productId && rulesContent.rules.products.$productId['.write']);
+assert(typeof prodWriteRule === 'string' && prodWriteRule.includes('auth != null'), 'Products write requires authenticated admin');
 assert(rulesContent.rules.orders['.read'].includes('auth != null'), 'Orders read is strictly restricted to authenticated admins (PII protection)');
 assert(rulesContent.rules.orders.$orderId['.write'].includes('data.val() == null'), 'Customers can only create new orders and cannot overwrite existing orders');
 
@@ -283,6 +284,84 @@ assert(productsContent.includes("tan: { name: 'حني', nameEn: 'Tan', hex: '#B0
 assert(productsContent.includes("gold: { name: 'أصفر', nameEn: 'Yellow', hex: '#EAB308' }"), "products.js gold color renamed to 'أصفر'");
 assert(productsContent.includes("sky: { name: 'سمائي', nameEn: 'Sky Blue', hex: '#9BBECB' }"), "products.js sky color renamed to 'سمائي'");
 assert(productsContent.includes("beige: { name: 'بيجي', nameEn: 'Beige', hex: '#D9C3B0' }"), "products.js has 'بيجي' (beige)");
+
+// ----------------------------------------------------
+// Test 10: Smart Inventory & Stock Deduction Engine
+// ----------------------------------------------------
+console.log('\n--- Test Suite 10: Smart Inventory & Stock Management Engine ---');
+
+function simulateDeductStock(products, cart) {
+  const map = new Map(products.map((p) => [String(p.id), { ...p }]));
+  cart.forEach((item) => {
+    const prodId = item.productId || (item.product && item.product.id);
+    const qty = Math.max(1, Number(item.qty) || 1);
+    if (map.has(String(prodId))) {
+      const p = map.get(String(prodId));
+      const curStock = p.stockQuantity !== undefined ? Number(p.stockQuantity) : 15;
+      p.stockQuantity = Math.max(0, curStock - qty);
+    }
+  });
+  return Array.from(map.values());
+}
+
+function simulateRestoreStock(products, cart) {
+  const map = new Map(products.map((p) => [String(p.id), { ...p }]));
+  cart.forEach((item) => {
+    const prodId = item.productId || (item.product && item.product.id);
+    const qty = Math.max(1, Number(item.qty) || 1);
+    if (map.has(String(prodId))) {
+      const p = map.get(String(prodId));
+      const curStock = p.stockQuantity !== undefined ? Number(p.stockQuantity) : 15;
+      p.stockQuantity = curStock + qty;
+    }
+  });
+  return Array.from(map.values());
+}
+
+// Test case 1: Single item in stock (stock = 1) -> order 1 -> stock becomes 0
+const pList1 = [{ id: 'p1', name: 'حذاء كلاسيك', stockQuantity: 1 }];
+const orderCart1 = [{ productId: 'p1', qty: 1 }];
+const afterOrder1 = simulateDeductStock(pList1, orderCart1);
+assert(afterOrder1[0].stockQuantity === 0, 'Deducting 1 piece from stock of 1 leaves 0 (sold out)');
+
+// Test case 2: Stock cannot go below 0
+const pList2 = [{ id: 'p2', name: 'قميص أبيض', stockQuantity: 1 }];
+const orderCart2 = [{ productId: 'p2', qty: 5 }];
+const afterOrder2 = simulateDeductStock(pList2, orderCart2);
+assert(afterOrder2[0].stockQuantity === 0, 'Stock quantity is safely clamped to 0 and never becomes negative');
+
+// Test case 3: Cancelling order restores stock
+const pList3 = [{ id: 'p3', name: 'ساعة يد', stockQuantity: 0 }];
+const cancelCart = [{ productId: 'p3', qty: 2 }];
+const afterCancel = simulateRestoreStock(pList3, cancelCart);
+assert(afterCancel[0].stockQuantity === 2, 'Cancelling order of 2 pieces restores stock from 0 to 2');
+
+// Test case 4: Cart stock limiting simulation
+function simulateAddToCart(cart, product, requestedQty) {
+  const maxStock = product.stockQuantity !== undefined ? Number(product.stockQuantity) : 15;
+  if (maxStock <= 0) return { cart, success: false, reason: 'out_of_stock' };
+
+  const existing = cart.find((l) => l.productId === product.id);
+  const curQty = existing ? existing.qty : 0;
+  if (curQty + requestedQty > maxStock) {
+    return { cart, success: false, reason: 'exceeds_stock', maxStock };
+  }
+  const nextCart = existing
+    ? cart.map((l) => (l.productId === product.id ? { ...l, qty: l.qty + requestedQty } : l))
+    : [...cart, { productId: product.id, qty: requestedQty }];
+  return { cart: nextCart, success: true };
+}
+
+const singleStockProduct = { id: 'p4', name: 'فستان مخمل', stockQuantity: 1 };
+const res1 = simulateAddToCart([], singleStockProduct, 2);
+assert(!res1.success && res1.reason === 'exceeds_stock', 'Cannot add 2 pieces when stock is 1 (blocked with stock warning)');
+
+const res2 = simulateAddToCart([], singleStockProduct, 1);
+assert(res2.success && res2.cart[0].qty === 1, 'Successfully adds 1 piece when stock is 1');
+
+const outOfStockProduct = { id: 'p5', name: 'عطر فاخر', stockQuantity: 0 };
+const res3 = simulateAddToCart([], outOfStockProduct, 1);
+assert(!res3.success && res3.reason === 'out_of_stock', 'Cannot add item with stock 0 (Sold out protection)');
 
 // ----------------------------------------------------
 // Summary

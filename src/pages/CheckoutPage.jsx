@@ -89,12 +89,30 @@ export default function CheckoutPage() {
 
     setSubmitting(true);
     try {
-      // 1. Cross-verify cart prices against the live database catalog
+      // 1. Cross-verify cart prices and stock quantities against live catalog
+      for (const line of cart) {
+        const live = getProduct(line.product.id) || line.product;
+        const currentStock = live && live.stockQuantity !== undefined ? Number(live.stockQuantity) : 15;
+
+        if (currentStock <= 0) {
+          alert(lang === 'en' ? `Sorry, product "${line.product.nameEn || line.product.name}" is out of stock.` : `عذراً، المنتج «${line.product.name}» نفد من المخزون حالياً ❌.`);
+          setSubmitting(false);
+          return;
+        }
+
+        if (line.qty > currentStock) {
+          alert(lang === 'en' ? `Sorry, only ${currentStock} piece(s) available in stock for "${line.product.nameEn || line.product.name}". Please reduce quantity in cart.` : `عذراً، الكمية المتوفرة في المخزن للمنتج «${line.product.name}» هي ${currentStock} قطع فقط. يرجى تعديل الكمية في السلة.`);
+          setSubmitting(false);
+          return;
+        }
+      }
+
       let verifiedSubtotal = 0;
       const verifiedCart = cart.map((line) => {
         const live = getProduct(line.product.id);
         const unitPrice = (live && typeof live.price === 'number') ? live.price : (Number(line.product.price) || 0);
-        const qty = Math.max(1, Math.min(99, Number(line.qty) || 1));
+        const currentStock = (live && live.stockQuantity !== undefined) ? Number(live.stockQuantity) : (line.product.stockQuantity !== undefined ? Number(line.product.stockQuantity) : 15);
+        const qty = Math.max(1, Math.min(currentStock, Number(line.qty) || 1));
         verifiedSubtotal += unitPrice * qty;
         return {
           ...line,
@@ -102,6 +120,7 @@ export default function CheckoutPage() {
           product: {
             ...line.product,
             price: unitPrice,
+            stockQuantity: currentStock,
           },
         };
       });

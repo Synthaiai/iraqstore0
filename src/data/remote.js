@@ -647,6 +647,80 @@ export function listenOrders(cb) {
   };
 }
 
+/**
+ * Deduct stock for all items in a placed order
+ */
+export async function deductStockForOrder(cartItems) {
+  if (!Array.isArray(cartItems) || !cartItems.length) return;
+  const current = memoryProductsCache || (await getIDBProducts()) || [];
+  const toUpdate = [];
+
+  for (const item of cartItems) {
+    if (!item) continue;
+    const prodId = item.productId || (item.product && item.product.id);
+    const qty = Math.max(1, Number(item.qty) || 1);
+    if (!prodId) continue;
+
+    const prod = current.find((p) => String(p.id) === String(prodId));
+    if (prod) {
+      const curStock = prod.stockQuantity !== undefined ? Number(prod.stockQuantity) : 15;
+      const newStock = Math.max(0, curStock - qty);
+      const updated = { ...prod, stockQuantity: newStock };
+      toUpdate.push(updated);
+
+      // Push stock quantity directly to Firebase RTDB endpoint
+      try {
+        fetch(`https://store-29692-default-rtdb.firebaseio.com/products/${prod.id}/stockQuantity.json`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newStock),
+        }).catch(() => {});
+      } catch (_) {}
+    }
+  }
+
+  if (toUpdate.length > 0) {
+    await saveProductsBatch(toUpdate);
+  }
+}
+
+/**
+ * Restore stock if an order is cancelled
+ */
+export async function restoreStockForOrder(cartItems) {
+  if (!Array.isArray(cartItems) || !cartItems.length) return;
+  const current = memoryProductsCache || (await getIDBProducts()) || [];
+  const toUpdate = [];
+
+  for (const item of cartItems) {
+    if (!item) continue;
+    const prodId = item.productId || (item.product && item.product.id);
+    const qty = Math.max(1, Number(item.qty) || 1);
+    if (!prodId) continue;
+
+    const prod = current.find((p) => String(p.id) === String(prodId));
+    if (prod) {
+      const curStock = prod.stockQuantity !== undefined ? Number(prod.stockQuantity) : 15;
+      const newStock = curStock + qty;
+      const updated = { ...prod, stockQuantity: newStock };
+      toUpdate.push(updated);
+
+      // Push stock quantity directly to Firebase RTDB endpoint
+      try {
+        fetch(`https://store-29692-default-rtdb.firebaseio.com/products/${prod.id}/stockQuantity.json`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newStock),
+        }).catch(() => {});
+      } catch (_) {}
+    }
+  }
+
+  if (toUpdate.length > 0) {
+    await saveProductsBatch(toUpdate);
+  }
+}
+
 export async function saveOrder(orderRecord) {
   const orderId = orderRecord.orderNo || `IQ${Date.now().toString().slice(-6)}`;
   const fullOrder = normalizeOrderRecord({
@@ -686,12 +760,34 @@ export async function saveOrder(orderRecord) {
     notifyStatus('online');
   } catch (_) {}
 
+  // 4. Smart Stock Deduction: decrement stockQuantity for each item in cart
+  try {
+    if (Array.isArray(fullOrder.cart) && fullOrder.cart.length > 0) {
+      await deductStockForOrder(fullOrder.cart);
+    }
+  } catch (stockErr) {
+    console.warn('Stock deduction error:', stockErr);
+  }
+
   return fullOrder;
 }
 
 export async function updateOrderStatus(orderId, status) {
   const existing = masterOrdersMap.get(String(orderId));
   if (existing) {
+    // Check if status transitioned to/from 'cancelled' to adjust stock
+    try {
+      if (Array.isArray(existing.cart) && existing.cart.length > 0) {
+        if (status === 'cancelled' && existing.status !== 'cancelled') {
+          await restoreStockForOrder(existing.cart);
+        } else if (existing.status === 'cancelled' && status !== 'cancelled') {
+          await deductStockForOrder(existing.cart);
+        }
+      }
+    } catch (stockErr) {
+      console.warn('Stock status transition error:', stockErr);
+    }
+
     masterOrdersMap.set(String(orderId), { ...existing, status, updatedAt: new Date().toISOString() });
     persistAndBroadcastOrders();
   }

@@ -20,9 +20,14 @@ export default function ProductCard({ product, index = 0 }) {
   const [picking, setPicking] = useState(false);
   const fav = isFavorite(product.id);
 
+  const stock = product.stockQuantity !== undefined ? Number(product.stockQuantity) : 15;
+  const isOutOfStock = stock <= 0;
+  const isLowStock = stock > 0 && stock <= 3;
+
   // A choice of size or colour → open the quick picker so the order carries the
   // customer's selection. A truly single-variant item adds straight away.
   const onAdd = () => {
+    if (isOutOfStock) return;
     const sizes = product.sizes || [];
     const colors = product.colors || [];
     const needsChoice = sizes.length > 1 || colors.length > 1;
@@ -41,7 +46,7 @@ export default function ProductCard({ product, index = 0 }) {
 
   return (
     <article
-      className="pcard"
+      className={`pcard ${isOutOfStock ? 'pcard--out' : ''}`}
       /* Staggered entrance, capped so a long grid never feels slow */
       style={{ '--i': Math.min(index, 11) }}
       onPointerEnter={() => setWantAlt(true)}
@@ -70,8 +75,18 @@ export default function ProductCard({ product, index = 0 }) {
         </Link>
 
         <div className="pcard__badges">
-          {product.badge && <span className={`badge badge--${product.badge}`}>{t(BADGE_KEY[product.badge])}</span>}
-          {discount > 0 && (
+          {isOutOfStock && (
+            <span className="badge badge--stock-out">
+              {lang === 'en' ? 'Sold Out' : 'نفد'}
+            </span>
+          )}
+          {isLowStock && !isOutOfStock && (
+            <span className="badge badge--stock-low">
+              {lang === 'en' ? `Only ${stock} left` : `تبقى ${stock} فقط`}
+            </span>
+          )}
+          {product.badge && !isOutOfStock && <span className={`badge badge--${product.badge}`}>{t(BADGE_KEY[product.badge])}</span>}
+          {discount > 0 && !isOutOfStock && (
             <span className="badge badge--sale">
               −{discount}
               {pct}
@@ -91,12 +106,19 @@ export default function ProductCard({ product, index = 0 }) {
 
         <button
           type="button"
-          className="pcard__add"
+          className={`pcard__add ${isOutOfStock ? 'pcard__add--disabled' : ''}`}
           onClick={onAdd}
+          disabled={isOutOfStock}
           aria-label={`${t('addToCart')} — ${name}`}
         >
-          <Bag />
-          {t('addToCart')}
+          {isOutOfStock ? (
+            <span>{lang === 'en' ? 'Sold Out' : 'نفد من المخزون'}</span>
+          ) : (
+            <>
+              <Bag />
+              {t('addToCart')}
+            </>
+          )}
         </button>
       </div>
 
