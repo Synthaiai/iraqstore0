@@ -66,10 +66,14 @@ export function PrefsProvider({ children }) {
         if (enVal && typeof enVal === 'string' && !/[\u0600-\u06FF]/.test(enVal)) {
           return enVal;
         }
-        const arVal = obj[base] ?? obj[`${base}En`] ?? '';
+        const arVal = obj[base];
         if (arVal && typeof arVal === 'string') {
           const trans = translateTextSync(arVal);
-          if (trans && trans !== arVal) return trans;
+          if (trans) return trans;
+        }
+        if (enVal && typeof enVal === 'string') {
+          const trans = translateTextSync(enVal);
+          if (trans) return trans;
         }
         return enVal || arVal || '';
       }
