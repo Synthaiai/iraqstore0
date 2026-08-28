@@ -6,6 +6,7 @@ import Header from './components/Header';
 import ScrollToTop from './components/ScrollToTop';
 import Toasts from './components/Toasts';
 import BackToTop from './components/BackToTop';
+import AutoTranslator from './components/AutoTranslator';
 import AllProductsPage from './pages/AllProductsPage';
 import CategoryPage from './pages/CategoryPage';
 import CheckoutPage from './pages/CheckoutPage';
@@ -62,6 +63,7 @@ export default function App() {
       <CartDrawer />
       <Toasts />
       <BackToTop />
+      <AutoTranslator />
     </>
   );
 }

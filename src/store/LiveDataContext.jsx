@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { normalizeProduct, setLiveProducts } from '../data/products';
 import { updateCatalogStore } from '../data/catalog';
+import { preTranslateProducts } from '../utils/translator';
 
 const LiveDataContext = createContext(null);
 
@@ -30,7 +31,9 @@ export function LiveDataProvider({ children }) {
       .then(({ listenProducts, listenSettings, listenCatalog }) => {
         if (!alive) return;
         unsubP = listenProducts((records) => {
-          setLiveProducts(records.map(normalizeProduct).filter(Boolean));
+          const norm = records.map(normalizeProduct).filter(Boolean);
+          setLiveProducts(norm);
+          preTranslateProducts(norm);
           setVersion((v) => v + 1);
         });
         unsubS = listenSettings((s) => setSettings(s || {}));
