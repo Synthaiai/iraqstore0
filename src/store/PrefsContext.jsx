@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { STRINGS, runtime } from '../i18n/strings';
+import { translateTextSync } from '../utils/translator';
 
 const PrefsContext = createContext(null);
 
@@ -60,7 +61,18 @@ export function PrefsProvider({ children }) {
   const tf = useCallback(
     (obj, base) => {
       if (!obj) return '';
-      if (lang === 'en') return obj[`${base}En`] ?? obj[base] ?? '';
+      if (lang === 'en') {
+        const enVal = obj[`${base}En`];
+        if (enVal && typeof enVal === 'string' && !/[\u0600-\u06FF]/.test(enVal)) {
+          return enVal;
+        }
+        const arVal = obj[base] ?? obj[`${base}En`] ?? '';
+        if (arVal && typeof arVal === 'string') {
+          const trans = translateTextSync(arVal);
+          if (trans && trans !== arVal) return trans;
+        }
+        return enVal || arVal || '';
+      }
       return obj[base] ?? obj[`${base}En`] ?? '';
     },
     [lang]

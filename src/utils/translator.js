@@ -134,8 +134,94 @@ const DICTIONARY = {
   'دينم': 'Denim',
   'رجالي': "Men's",
   'نسائي': "Women's",
+  'شبابي': 'Youth',
   'أطفال': 'Kids',
+  'اطفال': 'Kids',
+  'ولادي': 'Boys',
+  'بناتي': 'Girls',
   'جديد': 'New',
+  'تخفيض': 'Sale',
+  'عرض': 'Offer',
+  'خصم': 'Discount',
+  'زارا': 'Zara',
+  'نايك': 'Nike',
+  'اديداس': 'Adidas',
+  'أديداس': 'Adidas',
+  'بوما': 'Puma',
+  'لاكوست': 'Lacoste',
+  'تومي': 'Tommy',
+  'غوتشي': 'Gucci',
+  'شانيل': 'Chanel',
+  'ديور': 'Dior',
+  'برادا': 'Prada',
+  'لويس': 'Louis',
+  'فيتون': 'Vuitton',
+  'ارماني': 'Armani',
+  'كالفن': 'Calvin',
+  'كلاين': 'Klein',
+  'ماركة': 'Brand',
+  'براند': 'Brand',
+  'اصلي': 'Original',
+  'أصلي': 'Original',
+  'طبيعي': 'Genuine',
+  'بقري': 'Cowhide',
+  'موديل': 'Model',
+  'لون': 'Color',
+  'الوان': 'Colors',
+  'ألوان': 'Colors',
+  'فاخر': 'Luxury',
+  'مميز': 'Special',
+  'كلاسيك': 'Classic',
+  'كلاسيكي': 'Classic',
+  'سبورت': 'Sport',
+  'رياضي': 'Sport',
+  'طبي': 'Comfort/Orthopedic',
+  'مريح': 'Comfortable',
+  'ايطالي': 'Italian',
+  'إيطالي': 'Italian',
+  'تركي': 'Turkish',
+  'عراقي': 'Iraqi',
+  'صيفي': 'Summer',
+  'شتوي': 'Winter',
+  'ربيعي': 'Spring',
+  'خريفي': 'Autumn',
+  'قياس': 'Size',
+  'مقاس': 'Size',
+};
+
+const PHRASES = {
+  'حذاء ماركة زارا': 'Zara Brand Shoes',
+  'جلد طبيعي بقري': 'Genuine Cowhide Leather',
+  'جلد طبيعي': 'Genuine Leather',
+  'جلد صناعي': 'Synthetic Leather',
+  'جلد بقري': 'Cowhide Leather',
+  'أحمر برغندي': 'Burgundy Red',
+  'احمر برغندي': 'Burgundy Red',
+  'بني غامق': 'Dark Brown',
+  'بيج فاتح': 'Light Beige',
+  'وردي باهت': 'Dusty Rose',
+  'ستانلس ستيل': 'Stainless Steel',
+  'نعل طبي': 'Orthopedic Sole',
+  'قطن طبيعي': 'Natural Cotton',
+  'صوف خالص': 'Pure Wool',
+  'حرير طبيعي': 'Natural Silk',
+  'كتان طبيعي': 'Natural Linen',
+  'صناعة تركية': 'Turkish Made',
+  'صناعة ايطالية': 'Italian Made',
+  'درجة اولى': 'First Grade',
+  'هاي كواليتي': 'High Quality',
+  'موديل حديث': 'Modern Model',
+  'موديل جديد': 'New Model',
+  'ماركة أصلية': 'Original Brand',
+  'ماركة اصلية': 'Original Brand',
+  'نفد من المخزون': 'Sold Out',
+  'غير متوفر': 'Out of Stock',
+  'متوفر بالمخزن': 'In Stock',
+  'متوفر في المخزن': 'In Stock',
+  'مقاس موحد': 'One Size',
+  'قياس موحد': 'One Size',
+  'مقاس واحد': 'One Size',
+  'قياس واحد': 'One Size',
 };
 
 export function translateTextSync(arabicText) {
@@ -143,7 +229,7 @@ export function translateTextSync(arabicText) {
   const trimmed = arabicText.trim();
   if (!trimmed) return '';
 
-  if (/^[a-zA-Z0-9\s.,\-'":;!]+$/.test(trimmed)) {
+  if (/^[a-zA-Z0-9\s.,\-'":;!()/+%]+$/.test(trimmed)) {
     return trimmed;
   }
 
@@ -155,15 +241,28 @@ export function translateTextSync(arabicText) {
     return DICTIONARY[trimmed];
   }
 
-  const words = trimmed.split(/(\s+|[،,.-])/);
+  let out = trimmed;
+  const sortedPhrases = Object.keys(PHRASES).sort((a, b) => b.length - a.length);
+  for (const ph of sortedPhrases) {
+    if (out.includes(ph)) {
+      out = out.split(ph).join(PHRASES[ph]);
+    }
+  }
+
+  const words = out.split(/(\s+|[،,.-])/);
   const translated = words.map((word) => {
-    const cleanWord = word.replace(/[،,.-]/g, '');
-    return DICTIONARY[cleanWord] || word;
+    const cleanWord = word.replace(/[،,.-]/g, '').trim();
+    if (!cleanWord) return word;
+    if (DICTIONARY[cleanWord]) return DICTIONARY[cleanWord];
+    if (cleanWord.startsWith('ال') && cleanWord.length > 3 && DICTIONARY[cleanWord.slice(2)]) {
+      return DICTIONARY[cleanWord.slice(2)];
+    }
+    return word;
   });
 
   let result = translated.join('');
-  result = result.replace(/\bال([أ-ي]+)/g, '$1').replace(/\s+/g, ' ').trim();
-  
+  result = result.replace(/\s+/g, ' ').trim();
+
   if (result) {
     result = result.charAt(0).toUpperCase() + result.slice(1);
     LOCAL_CACHE.set(trimmed, result);

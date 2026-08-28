@@ -503,6 +503,15 @@
   }
 }
 
+@media (max-width: 760px) {
+  .to-top {
+    bottom: 5.5rem;
+    inset-inline-start: 1rem;
+    width: 40px;
+    height: 40px;
+  }
+}
+
 @media (max-width: 480px) {
   .field-row {
     grid-template-columns: 1fr;
@@ -511,10 +520,5 @@
 
   .confirm__actions .btn {
     width: 100%;
-  }
-
-  .to-top {
-    bottom: 1rem;
-    inset-inline-start: 1rem;
   }
 }

@@ -475,3 +475,15 @@
     gap: 0.15rem !important;
   }
 }
+
+
+/* Fix .to-top position on mobile so it never covers quantity counters or buy buttons */
+@media (max-width: 760px) {
+  .to-top {
+    bottom: 5.5rem !important;
+    inset-inline-start: 1rem !important;
+    width: 40px !important;
+    height: 40px !important;
+    z-index: 60 !important;
+  }
+}

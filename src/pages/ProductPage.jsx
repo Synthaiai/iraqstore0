@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
 import { getCategory, getGender, getSubcategory } from '../data/catalog';
 import { formatPrice, getProduct, relatedProducts } from '../data/products';
+import { translateTextSync } from '../utils/translator';
 import { useStore } from '../store/StoreContext';
 import { usePrefs } from '../store/PrefsContext';
 import { useLiveData } from '../store/LiveDataContext';
@@ -52,8 +53,32 @@ export default function ProductPage() {
 
   if (!product) return <Navigate to="/" replace />;
 
-  // Defensive: a malformed / partially-saved product must never crash the page.
-  const colors = Array.isArray(product.colors) ? product.colors : [];
+  const rawColors = Array.isArray(product.colors) ? product.colors : [];
+  const COLOR_NAME_MAP = {
+    'كحلي': 'نيلي',
+    'رمادي': 'رصاصي',
+    'جملي': 'حني',
+    'عنابي': 'أحمر برغندي',
+    'ذهبي': 'أصفر',
+    'سماوي': 'سمائي',
+    'بيج': 'بيجي',
+    'بني غامق': 'قهوائي',
+  };
+  const seenColors = new Set();
+  const colors = [];
+  for (const cl of rawColors) {
+    if (!cl || !cl.name) continue;
+    const mappedName = COLOR_NAME_MAP[cl.name] || cl.name;
+    if (!seenColors.has(mappedName)) {
+      seenColors.add(mappedName);
+      colors.push({
+        ...cl,
+        name: mappedName,
+        nameEn: cl.nameEn || translateTextSync(mappedName),
+      });
+    }
+  }
+
   const sizes = Array.isArray(product.sizes) ? product.sizes : [];
   const sizesEn = Array.isArray(product.sizesEn) ? product.sizesEn : sizes;
   const rawImgs = (Array.isArray(product.images) && product.images.length)
@@ -75,7 +100,7 @@ export default function ProductPage() {
   const discount = product.oldPrice ? Math.round((1 - product.price / product.oldPrice) * 100) : 0;
   const pct = lang === 'en' ? '%' : '٪';
   const name = tf(product, 'name');
-  const colorObj = colors.find((cl) => cl.name === color);
+  const colorObj = colors.find((cl) => cl.name === color) || colors[0];
   const singleSize = sizes.length <= 1;
   const localSize = (sz) => {
     const i = sizes.indexOf(sz);

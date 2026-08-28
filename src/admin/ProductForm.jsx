@@ -282,6 +282,7 @@ export default function ProductForm({ initial, onSave, onCancel }) {
   const [customColorName, setCustomColorName] = useState('');
   const [customColorHex, setCustomColorHex] = useState('#336699');
   const [customSize, setCustomSize] = useState('');
+  const [multiColorMode, setMultiColorMode] = useState(false);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -461,12 +462,27 @@ export default function ProductForm({ initial, onSave, onCancel }) {
   };
 
   const toggleColor = (c) =>
-    setForm((f) => ({
-      ...f,
-      colors: f.colors.some((x) => x.name === c.name)
-        ? f.colors.filter((x) => x.name !== c.name)
-        : [...f.colors, c],
-    }));
+    setForm((f) => {
+      // If color already selected, toggle it off
+      if (f.colors.some((x) => x.name === c.name)) {
+        return {
+          ...f,
+          colors: f.colors.filter((x) => x.name !== c.name),
+        };
+      }
+      // Single Color Mode (Replace): replaces current color with new one!
+      if (!multiColorMode) {
+        return {
+          ...f,
+          colors: [c],
+        };
+      }
+      // Multi Color Mode: appends to list
+      return {
+        ...f,
+        colors: [...f.colors, c],
+      };
+    });
 
   const removeColor = (colorName) =>
     setForm((f) => ({
@@ -983,23 +999,43 @@ export default function ProductForm({ initial, onSave, onCancel }) {
             </div>
           )}
 
-          {/* STEP 6: Multi-Color Picker */}
+          {/* STEP 6: Color Picker */}
           <div className="admin-field admin-field--highlight">
-            <div className="admin-flex-between">
+            <div className="admin-flex-between" style={{ flexWrap: 'wrap', gap: '0.5rem' }}>
               <span>
                 🎨 ألوان المنتج المحددة ({form.colors.length})
                 {form.colors.length > 0 && <small style={{ marginInlineStart: 8, color: 'var(--a-ok)' }}>جاهزة للعرض في المتجر</small>}
               </span>
-              {form.colors.length > 0 && (
+              <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
                 <button
                   type="button"
-                  className="admin-btn admin-btn--sm admin-btn--danger"
-                  onClick={clearAllColors}
-                  style={{ padding: '2px 8px', fontSize: '0.78rem' }}
+                  className={`admin-btn admin-btn--sm ${!multiColorMode ? 'admin-btn--primary' : 'admin-btn--secondary'}`}
+                  onClick={() => setMultiColorMode(false)}
+                  style={{ fontSize: '0.78rem', padding: '3px 8px' }}
+                  title="عند النقر على أي لون يتم استبدال وتغيير اللون الحالي فوراً"
                 >
-                  🧹 تفريغ كل الألوان
+                  {!multiColorMode ? '🔘 وضع لون واحد (تغيير اللون)' : '⚪ وضع لون واحد'}
                 </button>
-              )}
+                <button
+                  type="button"
+                  className={`admin-btn admin-btn--sm ${multiColorMode ? 'admin-btn--primary' : 'admin-btn--secondary'}`}
+                  onClick={() => setMultiColorMode(true)}
+                  style={{ fontSize: '0.78rem', padding: '3px 8px' }}
+                  title="يتيح اختيار أكثر من لون لنفس المنتج"
+                >
+                  {multiColorMode ? '🔘 ألوان متعددة (دمج)' : '⚪ ألوان متعددة'}
+                </button>
+                {form.colors.length > 0 && (
+                  <button
+                    type="button"
+                    className="admin-btn admin-btn--sm admin-btn--danger"
+                    onClick={clearAllColors}
+                    style={{ padding: '3px 8px', fontSize: '0.78rem' }}
+                  >
+                    🧹 تفريغ
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Selected Colors Bar */}
