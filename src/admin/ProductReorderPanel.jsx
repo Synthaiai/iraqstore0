@@ -52,7 +52,7 @@ export default function ProductReorderPanel({ products }) {
     setSaving(true);
     setMsg('');
     try {
-      await saveProductsBatch(updated);
+      await saveProductsBatch(updated, { reorderOnly: true });
       setMsg('✅ تم حفظ الترتيب بنجاح ويظهر الآن في المتجر!');
       setTimeout(() => setMsg(''), 4000);
     } catch (e) {

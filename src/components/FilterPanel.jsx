@@ -14,6 +14,7 @@ export default function FilterPanel({
   onClose,
   bounds,
   colors,
+  categories = [],
   sizes,
   value,
   onChange,
@@ -44,6 +45,14 @@ export default function FilterPanel({
         </header>
 
         <div className="filters__body">
+          {categories.length > 1 && <section className="filter-group">
+            <h3 className="filter-group__title">{lang === 'en' ? 'Product type' : 'نوع المنتج / قسم الأحذية'}</h3>
+            <div className="opt-row">{categories.map((category) => <button type="button" key={category.key}
+              className={`opt ${value.categories.includes(category.key) ? 'is-active' : ''}`}
+              aria-pressed={value.categories.includes(category.key)} onClick={() => toggle('categories', category.key)}>
+              {tf(category, 'name')}
+            </button>)}</div>
+          </section>}
           {/* ---- Price ---- */}
           <section className="filter-group">
             <h3 className="filter-group__title">{t('price')}</h3>
@@ -52,7 +61,7 @@ export default function FilterPanel({
                 type="range"
                 min={bounds.min}
                 max={bounds.max}
-                step={5000}
+                step={1}
                 value={value.maxPrice}
                 onChange={(e) => set({ maxPrice: Number(e.target.value) })}
                 aria-label={t('price')}

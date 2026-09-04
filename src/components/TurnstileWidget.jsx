@@ -43,11 +43,16 @@ export default function TurnstileWidget({ onToken, resetKey = 0, lang = 'ar' }) 
         });
       })
       .catch(() => setFailed(true));
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+      if (widgetId.current !== null && window.turnstile) window.turnstile.remove(widgetId.current);
+      widgetId.current = null;
+    };
   }, [sitekey, onToken]);
 
   useEffect(() => {
     if (widgetId.current !== null && window.turnstile) {
+      setFailed(false);
       window.turnstile.reset(widgetId.current);
       onToken('');
     }

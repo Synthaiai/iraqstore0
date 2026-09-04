@@ -719,7 +719,7 @@ h4 {
   opacity: 0.55;
   background: var(--ink-800);
   transform: scale(1.08);
-  animation: heroZoom 14s var(--ease) forwards;
+  animation: heroZoom 1200ms var(--ease) forwards;
 }
 
 .hero__media .imgw.is-loading::after {
@@ -1176,14 +1176,14 @@ h4 {
   display: flex;
   flex-direction: column;
   /* `--i` is the card's index in the grid, set inline and capped by the caller. */
-  animation: cardIn 620ms var(--ease-out-expo) both;
-  animation-delay: calc(var(--i, 0) * 55ms);
+  animation: cardIn 360ms var(--ease-out-expo) both;
+  animation-delay: calc(var(--i, 0) * 24ms);
 }
 
 @keyframes cardIn {
   from {
     opacity: 0;
-    transform: translateY(22px) scale(0.985);
+    transform: translateY(10px);
   }
 }
 
@@ -2601,14 +2601,11 @@ h4 {
   object-fit: cover;
   opacity: 1;
   /* Fades in once decoded, so a slow byte stream never shows a half-painted row */
-  animation: imgIn 520ms var(--ease) both;
+  transition: opacity 220ms var(--ease);
 }
 
-@keyframes imgIn {
-  from {
-    opacity: 0;
-    transform: scale(1.015);
-  }
+.imgw.is-loading .imgw__img {
+  opacity: 0;
 }
 
 /* Shimmer runs only while the bytes are in flight. */
@@ -3054,8 +3051,8 @@ h4 {
 
 .reveal {
   opacity: 0;
-  transform: translateY(26px);
-  transition: opacity 0.85s var(--ease-out-expo), transform 0.85s var(--ease-out-expo);
+  transform: translateY(14px);
+  transition: opacity 420ms var(--ease-out-expo), transform 420ms var(--ease-out-expo);
 }
 
 .reveal.is-visible {
@@ -3072,7 +3069,7 @@ h4 {
    silently breaks overlays rendered from inside a page. The movement comes from
    the per-section `riseIn` animations instead. */
 main {
-  animation: pageIn 380ms var(--ease-out-expo) backwards;
+  animation: pageIn 180ms var(--ease-out-expo) backwards;
 }
 
 @keyframes pageIn {
@@ -3083,12 +3080,12 @@ main {
 
 /* ---- Page-head entrance ---- */
 .page-head__title {
-  animation: riseIn 620ms var(--ease-out-expo) both;
+  animation: riseIn 380ms var(--ease-out-expo) both;
   animation-delay: 60ms;
 }
 
 .page-head__sub {
-  animation: riseIn 620ms var(--ease-out-expo) both;
+  animation: riseIn 380ms var(--ease-out-expo) both;
   animation-delay: 140ms;
 }
 
@@ -3101,20 +3098,20 @@ main {
 
 /* ---- Hero copy, staggered ---- */
 .hero .eyebrow {
-  animation: riseIn 800ms var(--ease-out-expo) both;
+  animation: riseIn 440ms var(--ease-out-expo) both;
   animation-delay: 120ms;
 }
 .hero__title {
-  animation: riseIn 900ms var(--ease-out-expo) both;
-  animation-delay: 220ms;
+  animation: riseIn 480ms var(--ease-out-expo) both;
+  animation-delay: 100ms;
 }
 .hero__lede {
-  animation: riseIn 900ms var(--ease-out-expo) both;
-  animation-delay: 360ms;
+  animation: riseIn 480ms var(--ease-out-expo) both;
+  animation-delay: 140ms;
 }
 .hero__cta {
-  animation: riseIn 900ms var(--ease-out-expo) both;
-  animation-delay: 480ms;
+  animation: riseIn 480ms var(--ease-out-expo) both;
+  animation-delay: 180ms;
 }
 
 /* ---- Section nav, staggered chips ---- */
@@ -3148,9 +3145,11 @@ main {
   transition: box-shadow var(--dur-slow) var(--ease), transform var(--dur-slow) var(--ease-out-expo);
 }
 
-.pcard:hover .pcard__media {
-  box-shadow: var(--shadow-md);
-  transform: translateY(-4px);
+@media (hover: hover) and (pointer: fine) {
+  .pcard:hover .pcard__media {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-3px);
+  }
 }
 
 /* ---- Tile lift ---- */
@@ -3585,6 +3584,9 @@ main {
   *,
   *::before,
   *::after {
+    animation-delay: 0ms !important;
+    transition-delay: 0ms !important;
+    animation: none !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;

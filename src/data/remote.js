@@ -65,7 +65,7 @@ async function authHeaders(required = false) {
 async function apiJson(url, options = {}) {
   const { admin = false, ...fetchOptions } = options;
   const headers = { ...(await authHeaders(admin)), ...(fetchOptions.headers || {}) };
-  const response = await fetch(url, { ...fetchOptions, headers });
+  const response = await fetch(url, { ...fetchOptions, headers, signal: fetchOptions.signal || ((!fetchOptions.method || fetchOptions.method === 'GET') ? AbortSignal.timeout(15000) : undefined) });
   let body = null;
   try { body = await response.json(); } catch {}
   if (!response.ok || body?.ok === false) {
@@ -99,7 +99,7 @@ function decodeTreeFromFirebase(tree) {
 
 function publishBundle(bundle) {
   const products = Array.isArray(bundle?.products) ? bundle.products : [];
-  if (products.length || memoryProductsCache === null) {
+  if (Array.isArray(bundle?.products)) {
     setLocalProducts(products);
     productListeners.forEach((cb) => cb(products));
   }
@@ -116,11 +116,11 @@ function publishBundle(bundle) {
 async function fetchFirebaseFallback(includeDrafts = false) {
   const base = 'https://store-29692-default-rtdb.firebaseio.com';
   const [productsRes, settingsRes, catalogRes] = await Promise.all([
-    fetch(`${base}/products.json`), fetch(`${base}/settings.json`), fetch(`${base}/catalog.json`),
+    fetch(`${base}/products.json`, { signal: AbortSignal.timeout(10000) }), fetch(`${base}/settings.json`, { signal: AbortSignal.timeout(10000) }), fetch(`${base}/catalog.json`, { signal: AbortSignal.timeout(10000) }),
   ]);
   if (!productsRes.ok) throw new Error('CATALOG_UNAVAILABLE');
   const rawProducts = await productsRes.json();
-  const products = rawProducts && typeof rawProducts === 'object' ? Object.values(rawProducts) : [];
+  const products = rawProducts && typeof rawProducts === 'object' ? Object.entries(rawProducts).filter(([, p]) => p && typeof p === 'object').map(([id, p]) => ({ ...p, id: p.id || id })) : [];
   return {
     products: includeDrafts ? products : products.filter((product) => product?.status !== 'draft'),
     settings: settingsRes.ok ? (await settingsRes.json()) || {} : {},
@@ -128,10 +128,18 @@ async function fetchFirebaseFallback(includeDrafts = false) {
   };
 }
 
-export async function fetchFreshSnapshot({ includeDrafts = false } = {}) {
+const catalogRequests = new Map();
+export function fetchFreshSnapshot({ includeDrafts = false } = {}) {
+  if (catalogRequests.has(includeDrafts)) return catalogRequests.get(includeDrafts);
+  const request = fetchSnapshot(includeDrafts).finally(() => catalogRequests.delete(includeDrafts));
+  catalogRequests.set(includeDrafts, request);
+  return request;
+}
+async function fetchSnapshot(includeDrafts) {
   try {
     const url = includeDrafts ? '/api/catalog?includeDrafts=1' : '/api/catalog';
     const body = await apiJson(url, { admin: includeDrafts });
+    if (!Array.isArray(body?.products)) throw new Error('INVALID_CATALOG');
     publishBundle(body);
     notifyStatus('online');
     return body.products || [];
@@ -173,7 +181,9 @@ export function listenProducts(cb, { includeDrafts = false } = {}) {
   productListeners.add(cb);
   if (includeDrafts) adminCatalogSubscribers += 1;
   if (memoryProductsCache) cb(memoryProductsCache);
-  else getIDBProducts().then((cached) => cached?.length && cb(cached));
+  else getIDBProducts().then((cached) => {
+    if (memoryProductsCache === null && productListeners.has(cb) && cached?.length) cb(cached);
+  }).catch(() => {});
   fetchFreshSnapshot({ includeDrafts });
   ensureCatalogRefresh();
   return () => {
@@ -196,7 +206,7 @@ export async function saveProduct(record) {
   const idx = current.findIndex((p) => String(p.id) === String(record.id));
   const updated = idx >= 0 ? current.map((p, i) => (i === idx ? record : p)) : [record, ...current];
   await withTimeout(set(ref(db, `products/${record.id}`), record));
-  await syncInventory(record);
+  if (idx < 0 || Number(current[idx].stockQuantity ?? 15) !== Number(record.stockQuantity ?? 15)) await syncInventory(record);
   setLocalProducts(updated);
   setIDBProduct(record);
   notifyStatus('online');
@@ -216,16 +226,23 @@ export async function deleteProduct(id) {
   return true;
 }
 
-export async function saveProductsBatch(recordsList) {
+export async function saveProductsBatch(recordsList, { reorderOnly = false } = {}) {
   const { ref, update, db } = await firebaseAdminContext();
   if (!Array.isArray(recordsList) || !recordsList.length) return true;
   const batchMap = {};
-  recordsList.forEach((record) => { if (record?.id) batchMap[record.id] = record; });
+  recordsList.forEach((record) => {
+    if (record?.id) {
+      if (reorderOnly) batchMap[`${record.id}/sortOrder`] = Number(record.sortOrder) || 0;
+      else batchMap[record.id] = record;
+    }
+  });
   await withTimeout(update(ref(db, 'products'), batchMap), 12_000);
-  await Promise.all(recordsList.map(syncInventory));
+  if (!reorderOnly) await Promise.all(recordsList.map(syncInventory));
   const current = memoryProductsCache || (await getIDBProducts()) || [];
   const map = new Map(current.map((p) => [String(p.id), p]));
-  recordsList.forEach((p) => p?.id && map.set(String(p.id), p));
+  recordsList.forEach((p) => {
+    if (p?.id) map.set(String(p.id), reorderOnly ? { ...(map.get(String(p.id)) || p), sortOrder: p.sortOrder } : p);
+  });
   const merged = [...map.values()];
   setLocalProducts(merged);
   productListeners.forEach((cb) => cb(merged));

@@ -12,7 +12,7 @@ export default function Reveal({ children, delay = 0, as: Tag = 'div', className
     const node = ref.current;
     if (!node) return;
 
-    if (typeof IntersectionObserver === 'undefined') {
+    if (typeof IntersectionObserver === 'undefined' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       setVisible(true);
       return;
     }
@@ -24,7 +24,7 @@ export default function Reveal({ children, delay = 0, as: Tag = 'div', className
           io.disconnect();
         }
       },
-      { threshold: 0.12, rootMargin: '0px 0px -8% 0px' }
+      { threshold: 0, rootMargin: '0px 0px 64px 0px' }
     );
 
     io.observe(node);
@@ -35,7 +35,7 @@ export default function Reveal({ children, delay = 0, as: Tag = 'div', className
     <Tag
       ref={ref}
       className={`reveal ${visible ? 'is-visible' : ''} ${className}`.trim()}
-      style={{ transitionDelay: `${delay}ms` }}
+      style={{ transitionDelay: `${Math.min(Math.max(Number(delay) || 0, 0), 180)}ms` }}
       {...rest}
     >
       {children}

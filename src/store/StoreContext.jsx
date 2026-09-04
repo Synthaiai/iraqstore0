@@ -2,6 +2,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useReducer,
 import { getProduct } from '../data/products';
 import { rt } from '../i18n/strings';
 
+import { useLiveData } from './LiveDataContext';
+
 const StoreContext = createContext(null);
 
 const KEY_CART = 'iraqstore.cart.v1';
@@ -10,7 +12,8 @@ const KEY_FAVS = 'iraqstore.favs.v1';
 function load(key, fallback) {
   try {
     const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : fallback;
+    const parsed = raw ? JSON.parse(raw) : fallback;
+    return Array.isArray(parsed) ? parsed : fallback;
   } catch {
     return fallback;
   }
@@ -26,7 +29,8 @@ function cartReducer(state, action) {
       const key = lineKey(productId, size, color);
       const existing = state.find((l) => l.key === key);
       const prod = product || getProduct(productId);
-      const maxStock = prod && prod.stockQuantity !== undefined ? Number(prod.stockQuantity) : 15;
+      const otherQty = state.filter((l) => String(l.productId) === String(productId) && l.key !== key).reduce((sum, l) => sum + l.qty, 0);
+      const maxStock = Math.min(10, Math.max(0, (prod?.stockQuantity !== undefined ? Number(prod.stockQuantity) : 15) - otherQty));
 
       if (maxStock <= 0) return state; // Cannot add sold out items
 
@@ -54,8 +58,9 @@ function cartReducer(state, action) {
 }
 
 export function StoreProvider({ children }) {
-  const [cart, dispatch] = useReducer(cartReducer, null, () => load(KEY_CART, []));
-  const [favorites, setFavorites] = useState(() => load(KEY_FAVS, []));
+  const { version } = useLiveData();
+  const [cart, dispatch] = useReducer(cartReducer, null, () => load(KEY_CART, []).filter((line) => line && line.productId && Number.isInteger(line.qty) && line.qty > 0).map((line) => ({ ...line, qty: Math.min(line.qty, 10) })));
+  const [favorites, setFavorites] = useState(() => load(KEY_FAVS, []).filter((id) => typeof id === 'string' || typeof id === 'number').map(String));
   const [cartOpen, setCartOpen] = useState(false);
   const [toasts, setToasts] = useState([]);
   const toastId = useRef(0);
@@ -64,7 +69,11 @@ export function StoreProvider({ children }) {
   // app — the cart still lives in React state for this session.
   useEffect(() => {
     try {
-      localStorage.setItem(KEY_CART, JSON.stringify(cart));
+      localStorage.setItem(KEY_CART, JSON.stringify(cart.map((line) => {
+        const p = getProduct(line.productId) || line.rawProduct;
+        const photo = p?.images?.[0] || p?.image;
+        return { ...line, rawProduct: p ? { id: p.id, name: p.name, nameEn: p.nameEn, price: p.price, stockQuantity: p.stockQuantity, sizes: p.sizes, sizesEn: p.sizesEn, colors: p.colors, image: photo?.startsWith('data:') ? undefined : photo } : undefined };
+      })));
     } catch (e) {
       console.warn('Cart not persisted (storage full):', e);
     }
@@ -89,8 +98,9 @@ export function StoreProvider({ children }) {
     (product, { size, color, qty = 1, silent = false } = {}) => {
       if (!product || !product.id) return false;
 
+      qty = Math.max(1, Math.floor(Number(qty) || 1));
       const liveProd = getProduct(product.id) || product;
-      const maxStock = liveProd.stockQuantity !== undefined ? Number(liveProd.stockQuantity) : 15;
+      let maxStock = liveProd.stockQuantity !== undefined ? Number(liveProd.stockQuantity) : 15;
 
       if (maxStock <= 0) {
         toast('عذراً، هذا المنتج نفد من المخزون حالياً ❌');
@@ -108,14 +118,15 @@ export function StoreProvider({ children }) {
       const key = lineKey(liveProd.id, safeSize, safeColor);
       const existing = cart.find((l) => l.key === key);
       const existingQty = existing ? existing.qty : 0;
+      const otherQty = cart.filter((l) => String(l.productId) === String(liveProd.id) && l.key !== key).reduce((sum, l) => sum + l.qty, 0);
+      maxStock = Math.min(10, Math.max(0, maxStock - otherQty));
 
       if (existingQty + qty > maxStock) {
         toast(`الكمية القصوى المتاحة في المخزن هي ${maxStock} فقط ⚠️`);
         if (existingQty < maxStock) {
           dispatch({
-            type: 'setQty',
-            key,
-            qty: maxStock,
+            type: 'add', productId: liveProd.id, size: safeSize, color: safeColor,
+            qty: maxStock - existingQty, product: liveProd,
           });
           if (!silent) toast(rt('addedToCart'));
           return true;
@@ -142,13 +153,15 @@ export function StoreProvider({ children }) {
       const line = cart.find((l) => l.key === key);
       if (!line) return;
       const liveProd = getProduct(line.productId) || line.product || line.rawProduct;
-      const maxStock = liveProd && liveProd.stockQuantity !== undefined ? Number(liveProd.stockQuantity) : 15;
+      const otherQty = cart.filter((l) => String(l.productId) === String(line.productId) && l.key !== key).reduce((sum, l) => sum + l.qty, 0);
+      const maxStock = Math.min(10, Math.max(0, (liveProd?.stockQuantity !== undefined ? Number(liveProd.stockQuantity) : 15) - otherQty));
 
       if (targetQty > line.qty && targetQty > maxStock) {
         toast(`لا يمكن زيادة الكمية، أقصى حد متوفر هو ${maxStock} قطع ⚠️`);
         return;
       }
-      const safeQty = Math.max(0, Math.min(targetQty, maxStock));
+      if (!Number.isFinite(Number(targetQty))) return;
+      const safeQty = Math.max(0, Math.min(Math.floor(Number(targetQty)), maxStock));
       dispatch({ type: 'setQty', key, qty: safeQty });
     },
     [cart, toast]
@@ -156,13 +169,11 @@ export function StoreProvider({ children }) {
 
   const toggleFavorite = useCallback(
     (product) => {
-      setFavorites((prev) => {
-        const on = prev.includes(product.id);
-        toast(on ? rt('removedFromFav') : rt('addedToFav'));
-        return on ? prev.filter((id) => id !== product.id) : [...prev, product.id];
-      });
+      const on = favorites.includes(String(product.id));
+      toast(on ? rt('removedFromFav') : rt('addedToFav'));
+      setFavorites((prev) => prev.includes(String(product.id)) ? prev.filter((id) => id !== String(product.id)) : [...prev, String(product.id)]);
     },
-    [toast]
+    [toast, favorites]
   );
 
   /** Cart lines joined with their product records, plus the money totals. */
@@ -174,7 +185,7 @@ export function StoreProvider({ children }) {
           return { ...line, product: prod };
         })
         .filter((line) => line.product),
-    [cart]
+    [cart, version]
   );
 
   const subtotal = useMemo(

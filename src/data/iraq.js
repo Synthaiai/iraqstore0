@@ -66,15 +66,17 @@ export function deliveryFee(governorate, customFeesMap) {
  * Iraqi mobile validation and Arabic digit normalization.
  * Automatically normalizes Arabic-Indic digits (٠١٢٣...) and removes spaces/dashes.
  */
-export function isValidIraqiPhone(raw) {
-  if (!raw) return false;
-  let s = String(raw).trim();
-  // Normalize Arabic-Indic digits to Latin
-  const arabicDigits = ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'];
-  arabicDigits.forEach((d, i) => {
-    s = s.replaceAll(d, String(i));
-  });
-  // Strip formatting, then accept the common Iraqi mobile representations.
-  const digits = s.replace(/\D/g, '');
-  return /^07\d{9}$/.test(digits) || /^7\d{9}$/.test(digits) || /^9647\d{9}$/.test(digits) || /^009647\d{9}$/.test(digits);
+export function normalizeIraqiPhone(raw) {
+  const normalized = String(raw || '').trim()
+    .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+    .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
+  if (!/^[+\d\s()-]+$/.test(normalized)) return null;
+  const digits = normalized.replace(/\D/g, '');
+  if (/^07\d{9}$/.test(digits)) return `964${digits.slice(1)}`;
+  if (/^7\d{9}$/.test(digits)) return `964${digits}`;
+  if (/^009647\d{9}$/.test(digits)) return digits.slice(2);
+  if (/^9647\d{9}$/.test(digits)) return digits;
+  return null;
 }
+
+export function isValidIraqiPhone(raw) { return Boolean(normalizeIraqiPhone(raw)); }

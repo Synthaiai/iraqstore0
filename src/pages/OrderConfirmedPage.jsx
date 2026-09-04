@@ -1,190 +1,12 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Link, Navigate, useLocation } from 'react-router-dom';
 import { formatPrice } from '../data/products';
 import { usePrefs } from '../store/PrefsContext';
 import { Check, Truck, Whatsapp } from '../components/Icons';
 import { STORE_CONTACT, openWhatsAppInvoice } from '../data/contact';
 
-/* ─── Canvas Invoice Generator ─── */
-function generateInvoiceImage(order, lang) {
-  const W = 800, PAD = 40;
-  const lineH = 32, smallH = 24;
-  const cart = order.cart || [];
-
-  // Pre-calculate height
-  let h = 0;
-  h += 80;                          // header (logo area + store name)
-  h += 50;                          // invoice title
-  h += 6 * lineH;                   // customer info rows
-  h += 30;                          // separator + products header
-  h += cart.length * (lineH + 12);  // product lines
-  h += 30;                          // separator
-  h += 3 * lineH;                   // totals
-  h += 30;                          // separator
-  h += 60;                          // footer
-  h += 80;                          // padding top+bottom
-  const H = Math.max(600, h);
-
-  const cvs = document.createElement('canvas');
-  cvs.width = W;
-  cvs.height = H;
-  const ctx = cvs.getContext('2d');
-
-  // Background
-  ctx.fillStyle = '#FFFFFF';
-  ctx.fillRect(0, 0, W, H);
-
-  // Decorative top bar
-  const grd = ctx.createLinearGradient(0, 0, W, 0);
-  grd.addColorStop(0, '#6b0f1a');
-  grd.addColorStop(1, '#a41e35');
-  ctx.fillStyle = grd;
-  ctx.fillRect(0, 0, W, 6);
-
-  let y = 30;
-
-  // ─── Helper: right-aligned Arabic text ───
-  const rtl = (text, x, yy, font, color) => {
-    ctx.font = font;
-    ctx.fillStyle = color || '#1a1a1a';
-    ctx.textAlign = 'right';
-    ctx.direction = 'rtl';
-    ctx.fillText(text, x, yy);
-  };
-  const ltr = (text, x, yy, font, color) => {
-    ctx.font = font;
-    ctx.fillStyle = color || '#1a1a1a';
-    ctx.textAlign = 'left';
-    ctx.direction = 'ltr';
-    ctx.fillText(text, x, yy);
-  };
-  const drawRow = (label, value, yy) => {
-    rtl(label, W - PAD, yy, '600 15px Segoe UI, Tahoma, sans-serif', '#555');
-    ltr(value, PAD, yy, '600 15px Segoe UI, Tahoma, sans-serif', '#1a1a1a');
-  };
-  const drawSep = (yy) => {
-    ctx.strokeStyle = '#e0e0e0';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([4, 3]);
-    ctx.beginPath();
-    ctx.moveTo(PAD, yy);
-    ctx.lineTo(W - PAD, yy);
-    ctx.stroke();
-    ctx.setLineDash([]);
-  };
-
-  // ─── Store name ───
-  y += 10;
-  ctx.textAlign = 'center';
-  ctx.direction = 'rtl';
-  ctx.font = 'bold 28px Segoe UI, Tahoma, sans-serif';
-  ctx.fillStyle = '#6b0f1a';
-  ctx.fillText('IRAQI STORE | عراقي ستور', W / 2, y + 28);
-  y += 38;
-
-  ctx.font = '13px Segoe UI, Tahoma, sans-serif';
-  ctx.fillStyle = '#888';
-  ctx.fillText('متجر الرجال الأول في العراق', W / 2, y + 14);
-  y += 28;
-
-  // ─── Invoice Title ───
-  drawSep(y);
-  y += 20;
-  ctx.textAlign = 'center';
-  ctx.direction = 'rtl';
-  ctx.font = 'bold 22px Segoe UI, Tahoma, sans-serif';
-  ctx.fillStyle = '#6b0f1a';
-  ctx.fillText('🧾 فاتورة الطلب', W / 2, y + 22);
-  y += 44;
-  drawSep(y);
-  y += 24;
-
-  // ─── Customer Info ───
-  const payText = order.paymentLabel || (order.payment === 'card' ? 'الدفع عن طريق الماستر الرافدين' : 'الدفع عند الاستلام');
-  const rows = [
-    ['رقم الطلب:', '#' + order.orderNo],
-    ['اسم الزبون:', order.name],
-    ['رقم الهاتف:', order.phone],
-    ['المحافظة / المدينة:', `${order.governorate} — ${order.city}`],
-    ['العنوان:', order.address],
-    ['طريقة الدفع:', payText],
-  ];
-  rows.forEach(([label, value]) => {
-    drawRow(label, value || '', y);
-    y += lineH;
-  });
-
-  // ─── Products ───
-  y += 4;
-  drawSep(y);
-  y += 20;
-  rtl(`📦 المنتجات المطلوبة (${cart.length}):`, W - PAD, y, 'bold 16px Segoe UI, Tahoma, sans-serif', '#6b0f1a');
-  y += 28;
-
-  const fmtPrice = (v) => {
-    const n = Number(v) || 0;
-    return n.toLocaleString('ar-IQ') + ' د.ع';
-  };
-
-  cart.forEach((line, idx) => {
-    const pName = line.product?.name || line.name || 'منتج';
-    const pPrice = line.product?.price || line.price || 0;
-    const lineTotal = pPrice * (line.qty || 1);
-
-    rtl(`${idx + 1}. ${pName}`, W - PAD, y, '600 14px Segoe UI, Tahoma, sans-serif', '#333');
-    ltr(fmtPrice(lineTotal), PAD, y, 'bold 14px Segoe UI, Tahoma, sans-serif', '#1a1a1a');
-    y += smallH;
-
-    const meta = `   ${line.color || ''} · القياس: ${line.size || ''} × ${line.qty || 1}`;
-    rtl(meta, W - PAD, y, '13px Segoe UI, Tahoma, sans-serif', '#777');
-    y += 20;
-  });
-
-  // ─── Totals ───
-  y += 6;
-  drawSep(y);
-  y += 24;
-
-  drawRow('مجموع المنتجات:', fmtPrice(order.subtotal));
-  y += lineH;
-  drawRow('أجور التوصيل:', order.fee ? fmtPrice(order.fee) : 'مجاني 🎁');
-  y += lineH;
-
-  // Grand total with highlight
-  ctx.fillStyle = '#fdf2f4';
-  ctx.fillRect(PAD - 8, y - 18, W - 2 * PAD + 16, 36);
-  ctx.fillStyle = '#6b0f1a';
-  rtl('المبلغ الإجمالي:', W - PAD, y, 'bold 17px Segoe UI, Tahoma, sans-serif', '#6b0f1a');
-  ltr(fmtPrice(order.total), PAD, y, 'bold 17px Segoe UI, Tahoma, sans-serif', '#6b0f1a');
-  y += lineH + 8;
-
-  // ─── Footer ───
-  drawSep(y);
-  y += 20;
-  ctx.textAlign = 'center';
-  ctx.direction = 'rtl';
-  ctx.font = '13px Segoe UI, Tahoma, sans-serif';
-  ctx.fillStyle = '#888';
-  ctx.fillText('شكراً لتسوقكم من عراقي ستور ❤️', W / 2, y + 10);
-  y += 24;
-  ctx.font = '12px Segoe UI, Tahoma, sans-serif';
-  ctx.fillStyle = '#aaa';
-  ctx.fillText(`📞 ${STORE_CONTACT.phone}  |  📷 ${STORE_CONTACT.instagramHandle}`, W / 2, y + 10);
-
-  // Bottom bar
-  ctx.fillStyle = grd;
-  ctx.fillRect(0, H - 4, W, 4);
-
-  return cvs;
-}
-
-function downloadInvoice(order, lang) {
-  const canvas = generateInvoiceImage(order, lang);
-  const link = document.createElement('a');
-  link.download = `فاتورة_${order.orderNo}.png`;
-  link.href = canvas.toDataURL('image/png');
-  link.click();
-}
+import { generateInvoiceImage } from '../utils/invoice';
+import { img } from '../data/images';
 
 /* ─── Download Icon SVG ─── */
 function DownloadIcon() {
@@ -201,22 +23,49 @@ export default function OrderConfirmedPage() {
   const { state } = useLocation();
   const { t, lang } = usePrefs();
   const [saving, setSaving] = useState(false);
+  const [invoiceUrl, setInvoiceUrl] = useState('');
+  const [invoiceFile, setInvoiceFile] = useState(null);
+  const [invoiceError, setInvoiceError] = useState('');
 
-  if (!state?.orderNo) return <Navigate to="/" replace />;
+  useEffect(() => {
+    if (!state?.orderNo) return;
+    let active = true;
+    let url;
+    generateInvoiceImage(state).then((blob) => {
+      if (!active) return;
+      url = URL.createObjectURL(blob);
+      setInvoiceUrl(url);
+      setInvoiceFile(new File([blob], `invoice_${state.orderNo}.png`, { type: 'image/png' }));
+    }).catch(() => active && setInvoiceError('تعذر تجهيز الصورة. أعد فتح الصفحة وحاول مجدداً.'));
+    return () => { active = false; if (url) URL.revokeObjectURL(url); };
+  }, [state]);
+
 
   const resendWhatsApp = () => {
     openWhatsAppInvoice(state);
   };
 
-  const handleSaveInvoice = useCallback(() => {
+  const handleSaveInvoice = useCallback(async () => {
+    if (!invoiceFile) return;
     setSaving(true);
+    setInvoiceError('');
     try {
-      downloadInvoice(state, lang);
+      if (navigator.canShare?.({ files: [invoiceFile] })) {
+        await navigator.share({ files: [invoiceFile], title: `فاتورة ${state.orderNo}` });
+      } else {
+        const link = document.createElement('a');
+        link.href = invoiceUrl;
+        link.download = invoiceFile.name;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      }
     } catch (err) {
-      console.error('Invoice generation error:', err);
-    }
-    setTimeout(() => setSaving(false), 1200);
-  }, [state, lang]);
+      if (err.name !== 'AbortError') setInvoiceError('تعذرت المشاركة. افتح الصورة أدناه واحفظها بالضغط المطوّل.');
+    } finally { setSaving(false); }
+  }, [invoiceFile, invoiceUrl, state]);
+
+  if (!state?.orderNo) return <Navigate to="/" replace />;
 
   return (
     <section className="shell section confirm">
@@ -263,7 +112,7 @@ export default function OrderConfirmedPage() {
               <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.6rem', padding: '0.35rem 0' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <img
-                    src={(line.product?.images && line.product.images[0]) || line.product?.image || line.image || '/logo.jpg'}
+                    src={img(line.product?.images?.[0] || line.product?.image || line.image)}
                     alt=""
                     style={{ width: '36px', height: '36px', borderRadius: '6px', objectFit: 'cover' }}
                   />
@@ -296,6 +145,14 @@ export default function OrderConfirmedPage() {
         </div>
       </div>
 
+      {invoiceError && <p role="alert">{invoiceError}</p>}
+      {invoiceUrl && <details className="confirm__card">
+        <summary>عرض صورة الفاتورة وحفظها</summary>
+        <p>على الآيفون: اضغط زر المشاركة ثم «حفظ الصورة»، أو اضغط مطولاً على الصورة أدناه.</p>
+        <a href={invoiceUrl} target="_blank" rel="noreferrer">فتح صورة الفاتورة</a>
+        <img src={invoiceUrl} alt="فاتورة الطلب كاملة" style={{ width: '100%', height: 'auto', marginTop: 12 }} />
+      </details>}
+      <p className="confirm__note">تم تسجيل طلبك. يُرجى الاحتفاظ بالفاتورة لضمان متابعة الطلب، ويمكنك إرسالها إلى واتساب المتجر لتسهيل التأكيد.</p>
       <div className="confirm__note">
         <Truck />
         <span>{state.payment === 'card' ? 'سيتم التواصل معك هاتفياً لتأكيد شحن طلبك.' : 'الدفع عند الاستلام. سيتم التواصل معك هاتفياً لتأكيد موعد التوصيل.'}</span>
@@ -307,11 +164,11 @@ export default function OrderConfirmedPage() {
           type="button"
           className="btn btn--burgundy"
           onClick={handleSaveInvoice}
-          disabled={saving}
+          disabled={saving || !invoiceFile}
           style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', width: '100%', maxWidth: '360px', justifyContent: 'center' }}
         >
           <DownloadIcon />
-          {saving ? 'جارٍ حفظ الفاتورة...' : 'حفظ الفاتورة كصورة 🧾'}
+          {saving ? 'جارٍ حفظ الفاتورة...' : 'حفظ أو مشاركة الفاتورة 🧾'}
         </button>
 
         <button

@@ -78,3 +78,48 @@ test('secure D1 schema enforces non-negative inventory and valid totals', async 
   assert.match(migration, /CHECK \(total = subtotal \+ fee\)/);
   assert.match(migration, /FOREIGN KEY|REFERENCES orders/);
 });
+
+
+test('phone accepts both Arabic digit sets and rejects embedded letters', async () => {
+  const { normalizeIraqiPhone, isValidIraqiPhone } = await import('../src/data/iraq.js');
+  for (const number of ['٠٧٧٠١٢٣٤٥٦٧', '۰۷۷۰۱۲۳۴۵۶۷', '+964 770 123 4567', '009647701234567']) {
+    assert.equal(normalizeIraqiPhone(number), '9647701234567');
+  }
+  assert.equal(isValidIraqiPhone('0770abc1234567'), false);
+});
+
+test('catalogue batches large stock lookups and restores legacy product IDs', async () => {
+  const { loadCatalog } = await import('../functions/_lib/catalog.js');
+  const oldFetch = globalThis.fetch;
+  const records = Object.fromEntries(Array.from({ length: 235 }, (_, i) => [`p${i}`, { name: 'shoe', stockQuantity: 15 }]));
+  globalThis.fetch = async (url) => Response.json(url.includes('/products.json') ? records : {});
+  const batches = [];
+  try {
+    const result = await loadCatalog({ DB: { prepare: () => ({ bind: (...ids) => {
+      batches.push(ids.length);
+      assert.ok(ids.length <= 90);
+      return { all: async () => ({ results: ids.map((id) => ({ product_id: id, stock: 3 })) }) };
+    } }) } });
+    assert.deepEqual(batches, [90, 90, 55]);
+    assert.equal(result.products.length, 235);
+    assert.equal(result.products[234].id, 'p234');
+    assert.equal(result.products[234].stockQuantity, 3);
+  } finally { globalThis.fetch = oldFetch; }
+});
+
+test('image URL handling preserves signed URLs and encodes Storage object paths', async () => {
+  const { img } = await import('../src/data/images.js');
+  assert.equal(img(' https://example.com/shoe.jpg?token=123 '), 'https://example.com/shoe.jpg?token=123');
+  assert.equal(img('gs://store.appspot.com/products/shoe one.webp'), 'https://firebasestorage.googleapis.com/v0/b/store.appspot.com/o/products%2Fshoe%20one.webp?alt=media');
+  assert.equal(img(null), '/logo.jpg');
+  assert.equal(img({ url: 'bad' }), '/logo.jpg');
+});
+
+
+test('reordering changes only display order and never resets sold inventory', async () => {
+  const panel = await read('src/admin/ProductReorderPanel.jsx');
+  const remote = await read('src/data/remote.js');
+  assert.match(panel, /reorderOnly: true/);
+  assert.match(remote, /if \(!reorderOnly\) await Promise.all\(recordsList.map\(syncInventory\)\)/);
+  assert.match(remote, /batchMap\[\`\$\{record.id\}\/sortOrder\`\]/);
+});

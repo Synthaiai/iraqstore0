@@ -1,3 +1,4 @@
+import { normalizeIraqiPhone as normalizePhone } from '../../../src/data/iraq.js';
 import { requireAdmin } from '../../_lib/auth.js';
 import { deliveryFees, loadCatalog } from '../../_lib/catalog.js';
 import { apiError, json, readJson, requestIp, sha256 } from '../../_lib/http.js';
@@ -10,17 +11,6 @@ const GOVERNORATES = new Set([
 
 const text = (value, max) => String(value || '').trim().slice(0, max);
 const integer = (value) => Number.isInteger(Number(value)) ? Number(value) : NaN;
-
-function normalizePhone(value) {
-  const arabic = '٠١٢٣٤٥٦٧٨٩';
-  const normalized = String(value || '').replace(/[٠-٩]/g, (d) => String(arabic.indexOf(d)));
-  const digits = normalized.replace(/\D/g, '');
-  if (/^07\d{9}$/.test(digits)) return `964${digits.slice(1)}`;
-  if (/^7\d{9}$/.test(digits)) return `964${digits}`;
-  if (/^009647\d{9}$/.test(digits)) return digits.slice(2);
-  if (/^9647\d{9}$/.test(digits)) return digits;
-  return null;
-}
 
 async function enforceRateLimit(request, env) {
   const windowStart = Math.floor(Date.now() / 600000);
@@ -47,6 +37,8 @@ export async function onRequestPost({ request, env, waitUntil }) {
   } catch (error) {
     return apiError(error.status || 400, error.message, 'بيانات الطلب غير صالحة.');
   }
+
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return apiError(400, 'INVALID_JSON', 'بيانات الطلب غير صالحة.');
 
   if (!(await enforceRateLimit(request, env))) {
     return apiError(429, 'TOO_MANY_ORDERS', 'محاولات كثيرة. انتظر عشر دقائق ثم حاول مجددًا.');
@@ -91,6 +83,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
   let itemCount = 0;
 
   for (const raw of requestedCart) {
+    if (!raw || typeof raw !== 'object') return apiError(422, 'INVALID_CART_ITEM', 'أحد منتجات السلة غير صالح.');
     const productId = text(raw.productId || raw.product?.id, 120);
     const product = products.get(productId);
     const quantity = integer(raw.qty);
@@ -110,7 +103,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
       if (!colors.includes(color)) return apiError(422, 'INVALID_COLOR', 'اللون المختار غير متوفر.');
     }
 
-    const imageUrl = text(product.images?.[0] || product.image || '', 1000);
+    const imageUrl = text(product.images?.[0] || product.image || product.gallery?.[0] || '', 1000);
     const sourceStock = product.stockQuantity === undefined ? 15 : integer(product.stockQuantity);
     items.push({ productId, name: text(product.name, 160), price, quantity, size, color, imageUrl, initialStock: Math.max(0, Number.isFinite(sourceStock) ? sourceStock : 0) });
     subtotal += price * quantity;

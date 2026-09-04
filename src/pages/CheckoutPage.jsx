@@ -47,7 +47,7 @@ export default function CheckoutPage() {
 
   const sizeText = (line) => {
     const i = line.product.sizes?.indexOf(line.size);
-    return lang === 'en' && i >= 0 ? line.product.sizesEn[i] : line.size;
+    return lang === 'en' && i >= 0 ? line.product.sizesEn?.[i] || line.size : line.size;
   };
   const colorText = (line) => {
     const cObj = line.product.colors?.find((c) => c.name === line.color);
@@ -77,7 +77,7 @@ export default function CheckoutPage() {
   const validate = () => {
     const next = {};
     if (!form.name || form.name.trim().length < 2) next.name = t('errName');
-    if (!isValidIraqiPhone(form.phone)) next.phone = t('errPhone');
+    if (!isValidIraqiPhone(form.phone)) next.phone = lang === 'en' ? 'Enter an Iraqi mobile number, e.g. 07701234567. Arabic and English digits are accepted.' : 'أدخل رقم موبايل عراقي من 11 رقماً، مثل 07701234567. نقبل الأرقام العربية والإنجليزية.';
     if (!form.governorate) next.governorate = t('errGov');
     if (!form.city || form.city.trim().length < 2) next.city = t('errCity');
     if (!form.address || form.address.trim().length < 5) next.address = t('errAddress');
@@ -219,6 +219,7 @@ export default function CheckoutPage() {
                 aria-invalid={!!errors.phone}
                 className={errors.phone ? 'is-invalid' : ''}
               />
+              <small>يمكن كتابة الرقم بالعربية أو الإنجليزية، مثال: ٠٧٧٠١٢٣٤٥٦٧</small>
               {errors.phone && <span className="field__error">{errors.phone}</span>}
             </div>
 

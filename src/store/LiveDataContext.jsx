@@ -1,8 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { normalizeProduct, setLiveProducts } from '../data/products';
 import { updateCatalogStore } from '../data/catalog';
-import { preTranslateProducts } from '../utils/translator';
-import { listenCatalog, listenProducts, listenSettings } from '../data/remote';
+import { listenCatalog, listenProducts, listenSettings, subscribeConnectionStatus } from '../data/remote';
 
 const LiveDataContext = createContext(null);
 
@@ -14,10 +13,13 @@ const LiveDataContext = createContext(null);
  * arrives so every listing recomputes.
  */
 export function LiveDataProvider({ children }) {
+  const [status, setStatus] = useState('checking');
+  const [loaded, setLoaded] = useState(false);
   const [version, setVersion] = useState(0);
   const [settings, setSettings] = useState({});
 
   useEffect(() => {
+    const unsubStatus = subscribeConnectionStatus(setStatus);
     let unsubP = () => {};
     let unsubS = () => {};
     let unsubC = () => {};
@@ -27,7 +29,7 @@ export function LiveDataProvider({ children }) {
       unsubP = listenProducts((records) => {
         const norm = records.map(normalizeProduct).filter(Boolean);
         setLiveProducts(norm);
-        preTranslateProducts(norm);
+        setLoaded(true);
         setVersion((v) => v + 1);
       });
       unsubS = listenSettings((s) => setSettings(s || {}));
@@ -40,6 +42,7 @@ export function LiveDataProvider({ children }) {
     }
     return () => {
       alive = false;
+      unsubStatus();
       unsubP();
       unsubS();
       unsubC();
@@ -47,8 +50,8 @@ export function LiveDataProvider({ children }) {
   }, []);
 
   const value = useMemo(
-    () => ({ version, settings, logoUrl: settings.logoUrl || null }),
-    [version, settings]
+    () => ({ version, settings, status, loaded, logoUrl: settings.logoUrl || null }),
+    [version, settings, status, loaded]
   );
 
   return <LiveDataContext.Provider value={value}>{children}</LiveDataContext.Provider>;

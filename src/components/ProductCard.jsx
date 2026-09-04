@@ -48,8 +48,8 @@ export default function ProductCard({ product, index = 0 }) {
     <article
       className={`pcard ${isOutOfStock ? 'pcard--out' : ''}`}
       /* Staggered entrance, capped so a long grid never feels slow */
-      style={{ '--i': Math.min(index, 11) }}
-      onPointerEnter={() => setWantAlt(true)}
+      style={{ '--i': Math.min(index % 24, 5) }}
+      onPointerEnter={(event) => { if (event.pointerType === 'mouse') setWantAlt(true); }}
       onFocusCapture={() => setWantAlt(true)}
     >
       <div className="pcard__media">

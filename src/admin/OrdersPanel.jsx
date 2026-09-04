@@ -1,3 +1,4 @@
+import { img } from '../data/images';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatPrice } from '../data/products';
 import { deleteOrder, fetchCloudOrdersSnapshot, hasMoreCloudOrders, loadMoreCloudOrders, updateOrderStatus } from '../data/remote';
@@ -601,7 +602,7 @@ function PrintInvoiceModal({ order, onClose }) {
 
             <div className="invoice-box">
               <h4>معلومات الشحن والمعالجة:</h4>
-              <p><b>طريقة الدفع:</b> الدفع عند الاستلام (COD)</p>
+              <p><b>طريقة الدفع:</b> {order.paymentLabel || (order.payment === 'card' ? 'الدفع بالبطاقة بعد التواصل' : 'الدفع عند الاستلام (COD)')}</p>
               <p><b>حالة الطلب:</b> {STATUS_LABELS[order.status || 'new']?.label}</p>
               {order.notes && <p><b>ملاحظات:</b> {order.notes}</p>}
             </div>
@@ -623,7 +624,7 @@ function PrintInvoiceModal({ order, onClose }) {
               {items.map((item, idx) => (
                 <tr key={idx}>
                   <td>{idx + 1}</td>
-                  <td>{item.product?.name || item.name}</td>
+                  <td><img src={img(item.product?.images?.[0] || item.product?.image || item.image)} alt="" style={{ width: 64, height: 64, objectFit: 'contain', display: 'block' }} />{item.product?.name || item.name}</td>
                   <td>{item.size} / {item.color}</td>
                   <td>{item.qty}</td>
                   <td>{formatPrice(item.product?.price || item.price || 0)}</td>

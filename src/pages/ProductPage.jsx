@@ -18,7 +18,7 @@ const BADGE_KEY = { new: 'badgeNew', sale: 'badgeSale', best: 'badgeBest' };
 
 export default function ProductPage() {
   const { id } = useParams();
-  useLiveData(); // re-render when the live catalogue changes
+  const { loaded, status } = useLiveData();
   const product = getProduct(id);
 
   const { addToCart, openCart, toast, isFavorite, toggleFavorite } = useStore();
@@ -49,42 +49,20 @@ export default function ProductPage() {
     setSize(product && (product.sizes?.length ?? 0) === 1 ? product.sizes[0] : null);
     setColor(product?.colors?.[0]?.name ?? null);
     setSizeError(false);
-  }, [product]);
+  }, [product?.id]);
 
-  if (!product) return <Navigate to="/" replace />;
+  if (!product) return <section className="shell section"><h1>{!loaded && status === 'checking' ? 'جارٍ تحميل المنتج…' : 'تعذر العثور على المنتج'}</h1>
+    <p>{status === 'offline' ? 'تحقق من الاتصال ثم أعد تحميل الصفحة.' : 'يرجى الانتظار أو العودة لتصفح المتجر.'}</p></section>;
 
   const rawColors = Array.isArray(product.colors) ? product.colors : [];
-  const COLOR_NAME_MAP = {
-    'كحلي': 'نيلي',
-    'رمادي': 'رصاصي',
-    'جملي': 'حني',
-    'عنابي': 'أحمر برغندي',
-    'ذهبي': 'أصفر',
-    'سماوي': 'سمائي',
-    'بيج': 'بيجي',
-    'بني غامق': 'قهوائي',
-  };
-  const seenColors = new Set();
-  const colors = [];
-  for (const cl of rawColors) {
-    if (!cl || !cl.name) continue;
-    const mappedName = COLOR_NAME_MAP[cl.name] || cl.name;
-    if (!seenColors.has(mappedName)) {
-      seenColors.add(mappedName);
-      colors.push({
-        ...cl,
-        name: mappedName,
-        nameEn: cl.nameEn || translateTextSync(mappedName),
-      });
-    }
-  }
+  const colors = rawColors.filter((cl) => cl?.name);
 
   const sizes = Array.isArray(product.sizes) ? product.sizes : [];
   const sizesEn = Array.isArray(product.sizesEn) ? product.sizesEn : sizes;
   const rawImgs = (Array.isArray(product.images) && product.images.length)
     ? product.images
     : (Array.isArray(product.gallery) && product.gallery.length)
-      ? product.gallery
+      ? product.large
       : (Array.isArray(product.large) && product.large.length)
         ? product.large
         : [product.image].filter(Boolean);

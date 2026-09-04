@@ -21,14 +21,18 @@ export async function loadCatalog(env) {
     firebaseJson(env, 'catalog'),
   ]);
 
-  const products = rawProducts && typeof rawProducts === 'object' ? Object.values(rawProducts) : [];
+  const products = rawProducts && typeof rawProducts === 'object' ? Object.entries(rawProducts).filter(([, p]) => p && typeof p === 'object').map(([id, p]) => ({ ...p, id: p.id || id })) : [];
   if (env.DB && products.length) {
-    const placeholders = products.map(() => '?').join(',');
-    const ids = products.map((p) => String(p.id));
-    const result = await env.DB.prepare(
-      `SELECT product_id, stock FROM inventory WHERE product_id IN (${placeholders})`
-    ).bind(...ids).all();
-    const inventory = new Map((result.results || []).map((row) => [String(row.product_id), Number(row.stock)]));
+    const inventory = new Map();
+    // Bound each query to stay below D1's statement parameter limit.
+    for (let offset = 0; offset < products.length; offset += 90) {
+      const ids = products.slice(offset, offset + 90).map((p) => String(p.id));
+      const placeholders = ids.map(() => '?').join(',');
+      const result = await env.DB.prepare(
+        `SELECT product_id, stock FROM inventory WHERE product_id IN (${placeholders})`
+      ).bind(...ids).all();
+      for (const row of result.results || []) inventory.set(String(row.product_id), Number(row.stock));
+    }
     for (const product of products) {
       if (inventory.has(String(product.id))) product.stockQuantity = inventory.get(String(product.id));
     }

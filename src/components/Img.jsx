@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 /**
  * Progressive image for slow connections.
@@ -21,9 +21,13 @@ export default function Img({
   ...rest
 }) {
   const [state, setState] = useState('loading');
+  const imageRef = useRef(null);
+  const [failedSrc, setFailedSrc] = useState(null);
+  const failed = failedSrc === src;
 
   useEffect(() => {
-    setState('loading');
+    const el = imageRef.current;
+    setState(el?.complete && el.naturalWidth > 0 ? 'done' : 'loading');
   }, [src]);
 
   return (
@@ -34,8 +38,9 @@ export default function Img({
       {...rest}
     >
       <img
-        src={src || '/logo.jpg'}
-        srcSet={srcSet}
+        ref={imageRef}
+        src={failed ? '/logo.jpg' : (src || '/logo.jpg')}
+        srcSet={failed ? undefined : srcSet}
         sizes={sizes}
         alt={alt}
         className="imgw__img"
@@ -43,7 +48,7 @@ export default function Img({
         decoding="async"
         {...(eager ? { fetchpriority: 'high' } : {})}
         onLoad={() => setState('done')}
-        onError={() => setState('error')}
+        onError={() => { setFailedSrc(src); setState('error'); }}
       />
     </span>
   );

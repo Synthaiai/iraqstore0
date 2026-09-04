@@ -14,8 +14,13 @@ const BASE = 'https://images.unsplash.com/';
 const Q = 38;
 
 export function img(slug, w = 340, h, q = Q) {
-  if (!slug) return '/logo.jpg';
-  if (typeof slug === 'string' && (slug.startsWith('http://') || slug.startsWith('https://') || slug.startsWith('data:') || slug.startsWith('/'))) {
+  if (typeof slug !== 'string' || !slug.trim()) return '/logo.jpg';
+  slug = slug.trim();
+  if (slug.startsWith('gs://')) {
+    const [bucket, ...path] = slug.slice(5).split('/');
+    return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(path.join('/'))}?alt=media`;
+  }
+  if (typeof slug === 'string' && (slug.startsWith('http://') || slug.startsWith('https://') || slug.startsWith('data:') || slug.startsWith('blob:') || slug.startsWith('/'))) {
     return slug;
   }
   const crop = h ? `&h=${h}` : '';
@@ -27,7 +32,7 @@ export function img(slug, w = 340, h, q = Q) {
  * phone fetch the 320w file instead of the 960w one.
  */
 export function srcSet(slug, widths, ratio, q = Q) {
-  if (!slug || (typeof slug === 'string' && (slug.startsWith('http://') || slug.startsWith('https://') || slug.startsWith('data:') || slug.startsWith('/')))) {
+  if (!slug || (typeof slug === 'string' && (slug.startsWith('http://') || slug.startsWith('https://') || slug.startsWith('data:') || slug.startsWith('blob:') || slug.startsWith('/')))) {
     return undefined;
   }
   return widths

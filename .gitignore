@@ -11,3 +11,8 @@ assets/
 .dev.vars
 !.dev.vars.example
 .claude/settings.local.json
+
+# Local release archives and browser test previews
+release/
+test/*-preview.png
+test/confirmation-mobile.png

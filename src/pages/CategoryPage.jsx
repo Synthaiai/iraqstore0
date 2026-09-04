@@ -4,7 +4,7 @@ import { countProducts, queryProducts } from '../data/products';
 import { usePrefs } from '../store/PrefsContext';
 import { useLiveData } from '../store/LiveDataContext';
 import Breadcrumbs from '../components/Breadcrumbs';
-import ProductCard from '../components/ProductCard';
+import ProductBrowser from '../components/ProductBrowser';
 import Reveal from '../components/Reveal';
 import SectionNav from '../components/SectionNav';
 import Tile from '../components/Tile';
@@ -73,11 +73,7 @@ export default function CategoryPage() {
             </div>
           </Reveal>
 
-          <div className="product-grid">
-            {products.map((p, i) => (
-              <ProductCard key={p.id} product={p} index={i} />
-            ))}
-          </div>
+          <ProductBrowser pool={products} resetKey={`${gender}/${category}`} />
         </section>
       )}
     </>

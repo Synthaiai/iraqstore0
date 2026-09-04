@@ -994,12 +994,10 @@ export const SEED_PRODUCTS = [];
  */
 export let PRODUCTS = SEED_PRODUCTS;
 const PRODUCTS_MAP = new Map();
-const NORMALIZED_CACHE = new Map();
 
 export function setLiveProducts(list) {
   PRODUCTS = list || [];
   PRODUCTS_MAP.clear();
-  NORMALIZED_CACHE.clear();
   for (let i = 0; i < PRODUCTS.length; i++) {
     const p = PRODUCTS[i];
     if (p && p.id != null) {
@@ -1015,19 +1013,11 @@ export function setLiveProducts(list) {
 export function normalizeProduct(raw) {
   if (!raw || !raw.id) return null;
 
-  const colorsHash = Array.isArray(raw.colors) ? raw.colors.map((c) => (typeof c === 'object' ? c?.name : c)).join(',') : '';
-  const sizesHash = Array.isArray(raw.sizes) ? raw.sizes.join(',') : '';
-  const imagesHash = Array.isArray(raw.images) ? raw.images.join('|') : (raw.image || '');
-  const cacheKey = `${raw.id}_${raw.price}_${raw.oldPrice}_${raw.name}_${raw.sortOrder}_${raw.status}_${raw.badge}_${colorsHash}_${sizesHash}_${imagesHash}`;
-  if (NORMALIZED_CACHE.has(cacheKey)) {
-    return NORMALIZED_CACHE.get(cacheKey);
-  }
-
-  const rawColors = (raw.colors || []).map((c) =>
+  const rawColors = (Array.isArray(raw.colors) ? raw.colors : []).filter(Boolean).map((c) =>
     typeof c === 'string' ? { name: c, nameEn: c, hex: '#888' } : c
   );
   const colors = rawColors.length ? rawColors : [{ name: 'أساسي', nameEn: 'Basic', hex: '#333333' }];
-  const sizes = raw.sizes && raw.sizes.length ? raw.sizes : [ONE];
+  const sizes = Array.isArray(raw.sizes) && raw.sizes.length ? raw.sizes.map(String) : [ONE];
 
   const base = {
     id: String(raw.id),
@@ -1085,7 +1075,8 @@ export function normalizeProduct(raw) {
     if (!urls.length && raw.image) {
       urls = [raw.image];
     }
-    const pad = urls.length ? urls : [img(POOLS.mShirts[0], 420, 560)];
+    urls = urls.filter((url) => typeof url === 'string').map((url) => img(url.trim()));
+    const pad = urls.length ? urls : ['/logo.jpg'];
     normalized = {
       ...base,
       images: urls.length ? urls : pad,
@@ -1099,7 +1090,6 @@ export function normalizeProduct(raw) {
     };
   }
 
-  NORMALIZED_CACHE.set(cacheKey, normalized);
   return normalized;
 }
 

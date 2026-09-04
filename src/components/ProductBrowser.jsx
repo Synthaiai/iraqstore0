@@ -1,3 +1,4 @@
+import { getSubcategory } from '../data/catalog';
 import { useEffect, useMemo, useState } from 'react';
 import { availableColors, availableSizes, formatPrice, priceBounds } from '../data/products';
 import { usePrefs } from '../store/PrefsContext';
@@ -15,7 +16,7 @@ const SORTS = [
 
 const BADGE_ORDER = { best: 0, new: 1, sale: 2 };
 
-const emptyFilters = (max) => ({ maxPrice: max, colors: [], sizes: [], onSale: false, isNew: false });
+const emptyFilters = (max) => ({ maxPrice: max, colors: [], sizes: [], categories: [], onSale: false, isNew: false });
 
 /**
  * Toolbar + filter panel + product grid over a given `pool` of products.
@@ -29,6 +30,11 @@ export default function ProductBrowser({ pool, resetKey }) {
   const { t, tf, lang } = usePrefs();
   const bounds = useMemo(() => priceBounds(pool), [pool]);
   const colors = useMemo(() => availableColors(pool), [pool]);
+  const categories = useMemo(() => [...new Map(pool.filter((p) => p.sub).map((p) => {
+    const key = `${p.gender}/${p.category}/${p.sub}`;
+    const category = getSubcategory(p.gender, p.category, p.sub);
+    return [key, { key, name: category?.title || p.sub, nameEn: category?.latin || p.sub }];
+  })).values()], [pool]);
   const sizes = useMemo(() => availableSizes(pool), [pool]);
 
   const [sort, setSort] = useState('featured');
@@ -61,6 +67,7 @@ export default function ProductBrowser({ pool, resetKey }) {
   const products = useMemo(() => {
     const list = pool.filter((p) => {
       if (filters.maxPrice && bounds.max && filters.maxPrice < bounds.max && p.price > filters.maxPrice) return false;
+      if (filters.categories.length && !filters.categories.includes(`${p.gender}/${p.category}/${p.sub}`)) return false;
       if (filters.onSale && !p.oldPrice) return false;
       if (filters.isNew && p.badge !== 'new') return false;
       if (filters.colors.length && !p.colors.some((cl) => filters.colors.includes(cl.name))) return false;
@@ -94,6 +101,7 @@ export default function ProductBrowser({ pool, resetKey }) {
 
   const activeCount =
     (filters.maxPrice < bounds.max ? 1 : 0) +
+    filters.categories.length +
     filters.colors.length +
     filters.sizes.length +
     (filters.onSale ? 1 : 0) +
@@ -147,6 +155,10 @@ export default function ProductBrowser({ pool, resetKey }) {
                 {t('upTo')} {formatPrice(filters.maxPrice, lang)} <Close />
               </button>
             )}
+            {filters.categories.map((key) => <button type="button" className="pill" key={key}
+              onClick={() => setFilters((f) => ({ ...f, categories: f.categories.filter((c) => c !== key) }))}>
+              {tf(categories.find((c) => c.key === key), 'name') || key} <Close />
+            </button>)}
             {filters.colors.map((name) => (
               <button
                 key={name}
@@ -222,6 +234,7 @@ export default function ProductBrowser({ pool, resetKey }) {
         open={panelOpen}
         onClose={() => setPanelOpen(false)}
         bounds={bounds}
+        categories={categories}
         colors={colors}
         sizes={sizes}
         value={filters}
