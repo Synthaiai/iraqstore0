@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatPrice } from '../data/products';
-import { deleteOrder, fetchCloudOrdersSnapshot, updateOrderStatus } from '../data/remote';
+import { deleteOrder, fetchCloudOrdersSnapshot, hasMoreCloudOrders, loadMoreCloudOrders, updateOrderStatus } from '../data/remote';
 
 const STATUS_LABELS = {
   new: { label: 'طلب جديد 🆕', badge: 'admin-status--new' },
@@ -45,6 +45,7 @@ export default function OrdersPanel({ orders = [] }) {
   const [printOrder, setPrintOrder] = useState(null);
   const [newOrderAlert, setNewOrderAlert] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [canLoadMore, setCanLoadMore] = useState(true);
   const [msg, setMsg] = useState('');
   const seenIdsRef = useRef(new Set((orders || []).map((o) => o.id || o.orderNo)));
   const initializedRef = useRef(false);
@@ -78,12 +79,17 @@ export default function OrdersPanel({ orders = [] }) {
     }
   }, [orders]);
 
+  useEffect(() => {
+    setCanLoadMore(hasMoreCloudOrders());
+  }, [orders.length]);
+
   const syncCloudOrders = async () => {
     setIsRefreshing(true);
     setMsg('جارٍ مزامنة وجلب الطلبات السحابية...');
     try {
       const fresh = await fetchCloudOrdersSnapshot();
       if (fresh && Array.isArray(fresh)) {
+        setCanLoadMore(hasMoreCloudOrders());
         setMsg(`تمت المزامنة السحابية بنجاح — إجمالي الطلبات: ${fresh.length} ✅`);
       } else {
         setMsg('تمت المزامنة السحابية بنجاح ✅');
@@ -96,19 +102,17 @@ export default function OrdersPanel({ orders = [] }) {
     }
   };
 
-  const clearAllOrders = async () => {
-    if (window.confirm('هل أنت متأكد من مسح كافة الطلبات نهائياً من السحابة والتخزين لبدء استقبال الطلبات الجديدة فقط؟')) {
-      try {
-        setMsg('جارٍ مسح كافة الطلبات من السحابة...');
-        for (const ord of (orders || [])) {
-          if (ord) await deleteOrder(ord.id || ord.orderNo);
-        }
-        setMsg('تم مسح جميع الطلبات نهائياً من السحابة والتخزين بنجاح 🧹');
-      } catch (e) {
-        setMsg('تم المسح: ' + e.message);
-      } finally {
-        setTimeout(() => setMsg(''), 4000);
-      }
+  const loadOlderOrders = async () => {
+    setIsRefreshing(true);
+    setMsg('جارٍ تحميل الطلبات الأقدم…');
+    try {
+      const fresh = await loadMoreCloudOrders();
+      setCanLoadMore(hasMoreCloudOrders());
+      setMsg(`تم تحميل الطلبات — المعروض الآن: ${fresh.length}`);
+    } catch (error) {
+      setMsg(`تعذر تحميل الطلبات الأقدم: ${error?.message || 'تحقق من الاتصال.'}`);
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -273,14 +277,16 @@ export default function OrdersPanel({ orders = [] }) {
           >
             {isRefreshing ? 'جارٍ المزامنة...' : '🔄 مزامنة الطلبات السحابية'}
           </button>
-          <button
-            type="button"
-            className="admin-btn admin-btn--sm admin-btn--ghost"
-            onClick={clearAllOrders}
-            title="مسح كافة الطلبات القديمة لبدء استقبال الطلبات الحقيقية فقط"
-          >
-            🧹 مسح الطلبات القديمة
-          </button>
+          {canLoadMore && (
+            <button
+              type="button"
+              className="admin-btn admin-btn--sm admin-btn--ghost"
+              onClick={loadOlderOrders}
+              disabled={isRefreshing}
+            >
+              تحميل طلبات أقدم
+            </button>
+          )}
         </div>
       </div>
 
@@ -342,7 +348,7 @@ export default function OrdersPanel({ orders = [] }) {
                       {items.slice(0, 4).map((item, i) => (
                         <img
                           key={i}
-                          src={item.product?.images?.[0] || item.product?.image || item.image || '/logo.png'}
+                          src={item.product?.images?.[0] || item.product?.image || item.image || '/logo.jpg'}
                           alt=""
                           className="admin-order-thumb"
                           title={`${item.product?.name || item.name || 'منتج'} (${item.size || ''} / ${item.color || ''}) × ${item.qty}`}
@@ -508,7 +514,7 @@ function OrderDetailsModal({ order, onClose, onStatusChange, onPrint }) {
                     {items.map((item, idx) => (
                       <div className="admin-row" key={idx} style={{ gridTemplateColumns: '48px 1fr auto auto' }}>
                         <img
-                          src={item.product?.images?.[0] || item.product?.image || '/logo.png'}
+                          src={item.product?.images?.[0] || item.product?.image || '/logo.jpg'}
                           alt=""
                           className="admin-row__img"
                         />
@@ -571,7 +577,7 @@ function PrintInvoiceModal({ order, onClose }) {
           {/* Invoice Header */}
           <div className="invoice-header">
             <div className="invoice-brand">
-              <img src="/logo.png" alt="شعار المتجر" width="48" height="48" />
+              <img src="/logo.jpg" alt="شعار المتجر" width="48" height="48" />
               <div>
                 <h2>عراق ستور | IRAQ STORE</h2>
                 <p>متجر الأزياء العراقي — وصل توصيل طلبية</p>

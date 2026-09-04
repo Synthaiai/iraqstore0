@@ -263,7 +263,7 @@ export default function OrderConfirmedPage() {
               <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.6rem', padding: '0.35rem 0' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <img
-                    src={(line.product?.images && line.product.images[0]) || line.product?.image || line.image || '/logo.png'}
+                    src={(line.product?.images && line.product.images[0]) || line.product?.image || line.image || '/logo.jpg'}
                     alt=""
                     style={{ width: '36px', height: '36px', borderRadius: '6px', objectFit: 'cover' }}
                   />

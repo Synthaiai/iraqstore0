@@ -34,7 +34,7 @@ export default function Img({
       {...rest}
     >
       <img
-        src={src || '/logo.png'}
+        src={src || '/logo.jpg'}
         srcSet={srcSet}
         sizes={sizes}
         alt={alt}

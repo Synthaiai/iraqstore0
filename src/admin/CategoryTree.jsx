@@ -7,7 +7,6 @@ import {
   updateCatalogStore,
 } from '../data/catalog';
 import { saveCatalog } from '../data/remote';
-import { compressImage } from '../utils/imageCompressor';
 import { translateText } from '../utils/translator';
 import { uploadImage } from '../data/upload';
 
@@ -447,6 +446,7 @@ function TreeModal({ editingItem, onSave, onCancel }) {
   const [tagline, setTagline] = useState(item.tagline || item.blurb || '');
   const [cover, setCover] = useState(item.cover || '');
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
 
   const onTitleChange = (v) => {
     setTitle(v);
@@ -462,12 +462,12 @@ function TreeModal({ editingItem, onSave, onCancel }) {
     const file = e.target.files[0];
     if (!file) return;
     setUploading(true);
+    setUploadError('');
     try {
       const url = await uploadImage(file, 'categories');
       setCover(url);
-    } catch {
-      const { dataUrl } = await compressImage(file, 1200, 0.88);
-      setCover(dataUrl);
+    } catch (error) {
+      setUploadError(error?.message || 'تعذر رفع الصورة. تحقق من الاتصال وحاول مجددًا.');
     } finally {
       setUploading(false);
     }
@@ -522,6 +522,7 @@ function TreeModal({ editingItem, onSave, onCancel }) {
             <span>صورة القسم (مع الضغط التلقائي للسرعة 🖼️)</span>
             <input type="file" accept="image/*" onChange={handleImageFile} disabled={uploading} />
             {uploading && <small style={{ color: 'var(--a-ok)' }}>جارٍ ضغط ورفع صورة القسم…</small>}
+            {uploadError && <small style={{ color: 'var(--a-danger)' }}>{uploadError}</small>}
             {cover && (
               <div className="admin-category-preview">
                 <img src={cover} alt="غلاف القسم" />

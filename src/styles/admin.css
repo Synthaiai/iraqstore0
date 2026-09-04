@@ -627,10 +627,15 @@
   color: #34d399;
   border: 1px solid rgba(52, 211, 153, 0.3);
 }
-.admin-conn-status.is-local {
+.admin-conn-status.is-degraded {
   background: rgba(251, 191, 36, 0.12);
   color: #fbbf24;
   border: 1px solid rgba(251, 191, 36, 0.3);
+}
+.admin-conn-status.is-offline {
+  background: rgba(248, 113, 113, 0.12);
+  color: #f87171;
+  border: 1px solid rgba(248, 113, 113, 0.3);
 }
 .admin-conn-dot {
   width: 7px;

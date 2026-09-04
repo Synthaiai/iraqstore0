@@ -1,5 +1,10 @@
 import time
+import os
 from playwright.sync_api import sync_playwright
+
+base_url = os.environ.get('E2E_BASE_URL', '').rstrip('/')
+if not base_url:
+    raise RuntimeError('Set E2E_BASE_URL to a deployed Preview environment with D1, Firebase, and Turnstile test keys configured')
 
 with sync_playwright() as p:
     browser = p.chromium.launch(headless=True)
@@ -7,8 +12,7 @@ with sync_playwright() as p:
     page = context.new_page()
 
     print('Step 1: Visiting Storefront...')
-    page.goto('http://127.0.0.1:5173/', wait_until='networkidle')
-    time.sleep(1)
+    page.goto(f'{base_url}/', wait_until='networkidle')
 
     print('Step 2: Adding product to cart...')
     add_buttons = page.locator('.pcard__add')
@@ -26,8 +30,7 @@ with sync_playwright() as p:
         time.sleep(1)
 
     print('Step 3: Going to Checkout...')
-    page.goto('http://127.0.0.1:5173/checkout', wait_until='networkidle')
-    time.sleep(1)
+    page.goto(f'{base_url}/checkout', wait_until='networkidle')
 
     print('Step 4: Filling Checkout Form...')
     page.fill('input[data-field="name"]', 'احمد العراقي')
@@ -38,22 +41,27 @@ with sync_playwright() as p:
 
     print('Step 5: Submitting Order...')
     submit_btn = page.locator('button[type="submit"]')
-    submit_btn.click()
-    time.sleep(2)
+    submit_btn.first.wait_for(state='visible')
+    page.wait_for_function("!document.querySelector('button[type=submit]').disabled", timeout=15000)
+    submit_btn.first.click()
+    page.wait_for_url('**/order-confirmed', timeout=15000)
 
     print('Current URL:', page.url)
     assert 'order-confirmed' in page.url, f'Expected order-confirmed in URL, got {page.url}'
     print('PASS: Order successfully confirmed on storefront!')
 
     print('Step 6: Visiting Admin Panel...')
-    page.goto('http://127.0.0.1:5173/admin', wait_until='networkidle')
-    time.sleep(1)
+    page.goto(f'{base_url}/admin', wait_until='networkidle')
 
     # If login page, enter credentials
     if page.locator('input[type="email"]').is_visible():
         print('Logging in to Admin...')
-        page.fill('input[type="email"]', 'adminiraq@gmail.com')
-        page.fill('input[type="password"]', '123456')
+        admin_email = os.environ.get('E2E_ADMIN_EMAIL')
+        admin_password = os.environ.get('E2E_ADMIN_PASSWORD')
+        if not admin_email or not admin_password:
+            raise RuntimeError('Set E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD before running the admin E2E test')
+        page.fill('input[type="email"]', admin_email)
+        page.fill('input[type="password"]', admin_password)
         page.locator('button[type="submit"]').click()
         time.sleep(2)
 

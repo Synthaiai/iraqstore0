@@ -31,11 +31,20 @@ function ConnectionStatusBadge() {
   }, []);
 
   const isOnline = status === 'online';
+  const isChecking = status === 'checking';
+  const isDegraded = status === 'degraded';
+  const label = isOnline
+    ? 'متصل بالخادم الآمن'
+    : isChecking
+      ? 'جارٍ فحص الاتصال…'
+      : isDegraded
+        ? 'تصفح احتياطي — الطلبات تحتاج الخادم'
+        : 'غير متصل — البيانات المعروضة مخزنة مؤقتًا';
 
   return (
-    <div className={`admin-conn-status ${isOnline ? 'is-online' : 'is-local'}`}>
+    <div className={`admin-conn-status ${isOnline ? 'is-online' : isDegraded ? 'is-degraded' : 'is-offline'}`}>
       <span className="admin-conn-dot" />
-      <span>{isOnline ? 'متصل بـ Firebase' : 'تخزين محلي احتياطي (مستمر)'}</span>
+      <span>{label}</span>
     </div>
   );
 }
@@ -357,8 +366,8 @@ function SettingsPanel({ productCount, products }) {
     try {
       await seedProducts();
       setMsg('تمت تعبئة الكتالوج المدمج بنجاح.');
-    } catch {
-      setMsg('تمت التعبئة للتخزين المحلي.');
+    } catch (error) {
+      setMsg(`تعذرت تعبئة الكتالوج: ${error?.message || 'تحقق من الاتصال.'}`);
     } finally {
       setSeeding(false);
     }
@@ -373,8 +382,8 @@ function SettingsPanel({ productCount, products }) {
       const url = await uploadImage(file, 'branding');
       await saveSetting('logoUrl', url);
       setMsg('تم تحديث شعار المتجر بنجاح.');
-    } catch {
-      setMsg('تعذّر رفع الشعار.');
+    } catch (error) {
+      setMsg(`تعذّر رفع الشعار: ${error?.message || 'تحقق من الاتصال.'}`);
     } finally {
       setLogoBusy(false);
     }
@@ -462,7 +471,7 @@ export default function Dashboard() {
   const [tab, setTab] = useState('products');
 
   useEffect(() => {
-    const unsubP = listenProducts(setProducts);
+    const unsubP = listenProducts(setProducts, { includeDrafts: true });
     const unsubO = listenOrders(setOrders);
     const unsubC = listenCatalog((tree) => {
       if (tree) updateCatalogStore(tree);
@@ -478,7 +487,7 @@ export default function Dashboard() {
     <div className="admin" data-admin="on">
       <header className="admin-header">
         <div className="admin-header__brand">
-          <img src="/logo.png" alt="" width="34" height="34" />
+          <img src="/logo.jpg" alt="" width="34" height="34" />
           <div>
             <strong>لوحة إدارة المتجر</strong>
             <ConnectionStatusBadge />

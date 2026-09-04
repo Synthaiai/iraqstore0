@@ -1,26 +1,6 @@
 <!doctype html>
 <html lang="ar" dir="rtl">
   <head>
-    <script>
-      // Single Page App redirect for GitHub Pages / Cloudflare Pages deep linking & refreshes
-      (function(){
-        var redirect = sessionStorage.redirect;
-        delete sessionStorage.redirect;
-        if (redirect && redirect !== location.href) {
-          try {
-            var url = new URL(redirect);
-            var target = url.pathname + url.search + url.hash;
-            if (target && target !== '/' && target !== location.pathname) {
-              history.replaceState(null, null, target);
-            }
-          } catch(e) {
-            if (redirect !== '/' && redirect !== location.pathname) {
-              history.replaceState(null, null, redirect);
-            }
-          }
-        }
-      })();
-    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
@@ -46,22 +26,13 @@
       rel="icon"
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%230B0B0C'/%3E%3Ccircle cx='32' cy='32' r='27' fill='none' stroke='%23D81F26' stroke-width='4'/%3E%3Ccircle cx='32' cy='32' r='18' fill='none' stroke='%23D81F26' stroke-width='3'/%3E%3Ctext x='32' y='43' font-family='sans-serif' font-size='28' font-weight='700' fill='%23D81F26' text-anchor='middle'%3ES%3C/text%3E%3C/svg%3E"
     />
-    <script>
-      if (typeof Node === 'function' && Node.prototype) {
-        const originalRemoveChild = Node.prototype.removeChild;
-        Node.prototype.removeChild = function (child) {
-          if (child.parentNode !== this) return child;
-          return originalRemoveChild.apply(this, arguments);
-        };
-        const originalInsertBefore = Node.prototype.insertBefore;
-        Node.prototype.insertBefore = function (newNode, referenceNode) {
-          if (referenceNode && referenceNode.parentNode !== this) return newNode;
-          return originalInsertBefore.apply(this, arguments);
-        };
-      }
-    </script>
-    <script type="module" crossorigin src="/assets/index-v5-iraqstore.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-v5-iraqstore.css">
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="IRAQI STORE | عراقي ستور" />
+    <meta property="og:description" content="ملابس وأحذية وإكسسوارات للرجال والنساء مع توصيل إلى جميع محافظات العراق." />
+    <meta property="og:image" content="/logo.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="robots" content="index,follow" />
+    <script type="module" src="/src/main.jsx"></script>
   </head>
   <body>
     <div id="root"></div>

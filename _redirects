@@ -1,3 +1,0 @@
-# Single-page app: every route is served by index.html so client-side routing
-# (React Router) survives a refresh or a direct link.
-/*    /index.html    200

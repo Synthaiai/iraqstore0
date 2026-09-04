@@ -2,17 +2,16 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { normalizeProduct, setLiveProducts } from '../data/products';
 import { updateCatalogStore } from '../data/catalog';
 import { preTranslateProducts } from '../utils/translator';
+import { listenCatalog, listenProducts, listenSettings } from '../data/remote';
 
 const LiveDataContext = createContext(null);
 
 /**
- * Bridges the Realtime Database into the storefront.
+ * Bridges the cached, server-validated catalogue into the storefront.
  *
- * - Subscribes to `/products`; when the DB has records they replace the seed
- *   catalogue (via the live `PRODUCTS` binding) and `version` bumps so every
- *   listing recomputes. An empty/errored DB leaves the bundled seed in place.
- * - Subscribes to `/settings` for the live logo URL and any global promo.
- * - Subscribes to `/catalog` for real-time category and subcategory updates.
+ * The data adapter refreshes the public API on an interval, keeps a browser
+ * cache for read-only fallback, and bumps `version` whenever a fresh bundle
+ * arrives so every listing recomputes.
  */
 export function LiveDataProvider({ children }) {
   const [version, setVersion] = useState(0);
@@ -24,31 +23,21 @@ export function LiveDataProvider({ children }) {
     let unsubC = () => {};
     let alive = true;
 
-    // Firebase (app + realtime database) loads AFTER first paint as its own
-    // chunk, so the storefront's initial download stays lean. Until it arrives
-    // the bundled seed catalogue is shown.
-    import('../data/remote')
-      .then(({ listenProducts, listenSettings, listenCatalog }) => {
-        if (!alive) return;
-        unsubP = listenProducts((records) => {
-          const norm = records.map(normalizeProduct).filter(Boolean);
-          setLiveProducts(norm);
-          preTranslateProducts(norm);
-          setVersion((v) => v + 1);
-        });
-        unsubS = listenSettings((s) => setSettings(s || {}));
-        if (typeof listenCatalog === 'function') {
-          unsubC = listenCatalog((tree) => {
-            if (tree) {
-              updateCatalogStore(tree);
-              setVersion((v) => v + 1);
-            }
-          });
-        }
-      })
-      .catch(() => {
-        /* Firebase unreachable — keep the bundled seed catalogue. */
+    if (alive) {
+      unsubP = listenProducts((records) => {
+        const norm = records.map(normalizeProduct).filter(Boolean);
+        setLiveProducts(norm);
+        preTranslateProducts(norm);
+        setVersion((v) => v + 1);
       });
+      unsubS = listenSettings((s) => setSettings(s || {}));
+      unsubC = listenCatalog((tree) => {
+        if (tree) {
+          updateCatalogStore(tree);
+          setVersion((v) => v + 1);
+        }
+      });
+    }
     return () => {
       alive = false;
       unsubP();

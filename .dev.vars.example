@@ -1,0 +1,7 @@
+# Copy to .dev.vars for local `wrangler pages dev` only. Never commit real values.
+ENVIRONMENT=development
+FIREBASE_WEB_API_KEY=replace_with_firebase_web_api_key
+FIREBASE_DATABASE_URL=https://store-29692-default-rtdb.firebaseio.com
+ADMIN_EMAILS=admin@example.com
+TURNSTILE_SECRET=replace_with_turnstile_secret
+RATE_LIMIT_SALT=replace_with_a_long_random_value

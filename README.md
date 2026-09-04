@@ -1,163 +1,129 @@
-# IraqStore | عراق ستور
+# IRAQI STORE
 
-**مباشر:** https://iraqstore.pages.dev — منشور على Cloudflare Pages.
+متجر React/Vite عربي–إنجليزي، مهيأ للنشر المجاني على Cloudflare Pages مع Firebase للمنتجات والمصادقة والتخزين، وCloudflare D1 للطلبات والمخزون الحساس.
 
-متجر أزياء بواجهة عربية (RTL) — React + Vite، بلا أي إطار CSS خارجي.
+## البنية الآمنة
 
-## النشر على Cloudflare Pages
+- الواجهة العامة تقرأ الكتالوج من `/api/catalog` ولا تملك صلاحية كتابة الطلبات أو المخزون في Firebase.
+- `/api/orders` يعيد حساب السعر وأجور التوصيل من المصدر، يتحقق من المقاس واللون والهاتف، ثم يحجز المخزون ويحفظ الطلب بمعاملة D1 ذرّية.
+- Cloudflare Turnstile وفاصل محاولات حسب عنوان الاتصال يمنعان الإغراق الأساسي.
+- طلبات الإدارة تتحقق من Firebase ID Token على الخادم، ومن البريد الموثق وقائمة المديرين.
+- بيانات الطلبات الشخصية لا تُحفظ في `localStorage` ولا تُضمّن داخل حزمة الموقع.
+- صور المنتجات تبقى في Firebase Storage؛ لا يوجد تحويل Base64 يضخم Realtime Database.
+- لا توجد كلمات مرور أو مفاتيح سرية داخل المستودع.
 
-الموقع ثابت (SPA)، مخرجاته في `dist`.
+## المتطلبات
 
-| الإعداد | القيمة |
-| --- | --- |
-| أمر البناء | `npm run build` |
-| مجلد المخرجات | `dist` |
-| إصدار Node | `20` (من `.node-version`) |
+- Node.js 20 أو أحدث.
+- pnpm 11.
+- مشروع Firebase موجود ومفعّل فيه Authentication وRealtime Database وStorage.
+- حساب Cloudflare مجاني، مشروع Pages، قاعدة D1، وTurnstile widget.
 
-نشر يدوي عبر Wrangler:
+## التشغيل والتحقق
 
-```bash
-npm run build
-npx wrangler pages deploy dist --project-name iraqstore --branch main
+```powershell
+pnpm install --frozen-lockfile
+pnpm test
+pnpm build
 ```
 
-أو اربط مستودع GitHub من لوحة Cloudflare Pages ليُبنى تلقائيًا مع كل `push`.
+ناتج النشر يُنشأ في `dist/` ولا يُحفظ في Git. نقطة الصحة بعد النشر:
 
-### الأمان
-
-- **HTTPS إجباري** عبر HSTS لمدة سنتين (`Strict-Transport-Security … preload`).
-- **CSP صارم**: `script-src 'self'` فقط (لا سكربتات خارجية أو inline)؛ الصور من Unsplash والخطوط من Google Fonts حصرًا.
-- `X-Frame-Options: DENY` و `frame-ancestors 'none'` — حماية من clickjacking.
-- `X-Content-Type-Options: nosniff` · `Referrer-Policy` · `Permissions-Policy` (تعطيل الموقع والكاميرا والميكروفون والدفع).
-- كل هذا في [public/_headers](public/_headers)، وتوجيه SPA في [public/_redirects](public/_redirects).
-
-## التشغيل
-
-```bash
-npm install
+```text
+GET /api/health
 ```
 
-```bash
-npm run dev
+يجب أن تعيد `database: "ready"`.
+
+## إعداد Firebase
+
+إعدادات الواجهة العامة موجودة في `src/firebase.js`. انشر قواعد الحماية قبل استقبال أي طلب حقيقي:
+
+```powershell
+pnpm dlx firebase-tools login
+pnpm dlx firebase-tools deploy --only database,storage
 ```
 
-ثم افتح `http://localhost:5173`.
+القواعد الحالية تسمح للجميع بالقراءة من الكتالوج، وتحصر الكتابة في حسابات الإدارة ذات البريد الموثق. الطلبات الجديدة لا تُكتب إلى Firebase أصلاً؛ D1 هو المصدر الوحيد لها.
 
-للبناء الإنتاجي:
+## إعداد Cloudflare D1
 
-```bash
-npm run build
+أنشئ قاعدة البيانات وطبّق الـ migration:
+
+```powershell
+pnpm dlx wrangler login
+pnpm dlx wrangler d1 create iraqstore-orders
+pnpm dlx wrangler d1 migrations apply iraqstore-orders --remote
 ```
 
-## اللغات والتقنيات
+بعد الإنشاء، أضف D1 binding إلى مشروع Pages بالاسم الدقيق `DB`. يمكن فعل ذلك من لوحة Cloudflare: **Workers & Pages → المشروع → Settings → Bindings → D1 database**.
 
-| الطبقة | المستخدم |
-| --- | --- |
-| المنطق والواجهات | **JavaScript (ES2022)** بصيغة **JSX** |
-| المكتبة | **React 18** + **React Router 6** |
-| التنسيق | **CSS3** خام — بلا Tailwind أو أي إطار |
-| البنية | **HTML5** |
-| أداة البناء | **Vite 5** |
-| الخلفية | لا يوجد — الموقع واجهة كاملة تعمل في المتصفح |
+الجداول المهمة:
 
-## الهوية البصرية
+- `inventory`: مخزون موحد مع قيد يمنع القيم السالبة.
+- `orders`: معلومات العميل والإجماليات والحالة.
+- `order_items`: عناصر الطلب والأسعار المثبتة وقت الشراء.
+- `order_rate_limits`: عدّاد قصير العمر لمنع الإغراق.
 
-| العنصر | القيمة |
-| --- | --- |
-| أحمر الشعار | `#D81F26` (`--brand-red`) |
-| العنابي الأساسي | `#6B0F1A` (`--burgundy-700`) |
-| الأسود | `#0B0B0C` (`--ink-900`) |
-| المحايدات | أبيض `#FFFFFF` · رمادي فاتح `#F4F2F1` · حدود `#E7E4E2` |
-| الخط | **IBM Plex Sans Arabic** — أربعة أوزان فقط (400/500/600/700) |
+## متغيرات Cloudflare
 
-الشعار مرسوم كـ SVG داخلي في [Logo.jsx](src/components/Logo.jsx) — يبقى حادًّا بأي حجم
-ولا يكلّف أي طلب شبكة.
+أضف المتغيرات التالية إلى Production وPreview حسب الحاجة:
 
-## الأداء على الإنترنت الضعيف
+| الاسم | النوع | الغرض |
+|---|---|---|
+| `ENVIRONMENT` | Variable | القيمة `production` في النشر الحقيقي |
+| `FIREBASE_DATABASE_URL` | Variable | رابط Realtime Database |
+| `FIREBASE_WEB_API_KEY` | Variable | للتحقق الخادمي من جلسة المدير؛ مفتاح Firebase العام ليس كلمة مرور |
+| `ADMIN_EMAILS` | Variable | قائمة بريد المديرين مفصولة بفواصل |
+| `TURNSTILE_SECRET` | Secret | المفتاح السري لـ Turnstile |
+| `RATE_LIMIT_SALT` | Secret | قيمة عشوائية طويلة لتجزئة عنوان الاتصال |
+| `VITE_TURNSTILE_SITE_KEY` | Build variable | المفتاح العام الذي يُضمّن أثناء بناء الواجهة |
 
-- كل صورة تُطلب بـ `srcSet` + `sizes`، فالهاتف ينزّل ملفًا بحجم الهاتف لا حجم الشاشة الكبيرة.
-- جودة الضغط `q=52` مع `auto=format` (AVIF/WebP) — متوسط صورة البطاقة **~13 كيلوبايت**.
-- الصورة الثانية في البطاقة (تأثير المرور) لا تُطلب إطلاقًا حتى يصل المؤشر فعليًا.
-- `preconnect` لمضيف الصور، و`loading="lazy"` لكل ما هو خارج الشاشة.
-- هيكل تحميل بلمعة (skeleton) يمنع قفز التخطيط أثناء وصول البيانات.
+القوالب المحلية موجودة في `.env.example` و`.dev.vars.example`. لا تنسخ أسرار الإنتاج إلى ملفات Git.
 
-صفحة قائمة منتجات كاملة (١٨ صورة) تزن **~٢٤٢ كيلوبايت**.
+## النشر المجاني
 
-كل الرموز معرّفة في `:root` داخل [global.css](src/styles/global.css).
+اربط مستودع Git بمشروع Cloudflare Pages واضبط:
 
-### ملاحظتان على الطباعة العربية
+- Build command: `pnpm build`
+- Build output: `dist`
+- Node version: `20` أو أحدث
 
-- لا يوجد `letter-spacing` على أي نص عربي — الخط العربي متصل، والتباعد يكسره.
-- `--lh-display: 1.5` و `--lh-body: 1.85` هما الحد الأدنى لارتفاع السطر؛ أي قيمة أقل تقصّ أعلى الحروف والتشكيل، خصوصًا داخل `-webkit-line-clamp`.
+أو انشر من الجهاز:
 
-## بنية التنقّل
-
-```
-/                                  الرئيسية — بطاقتا رجالي/نسائي
-/g/:gender                         ثلاث بطاقات: أحذية · ملابس · إكسسوارات
-/g/:gender/:category               بطاقات الأقسام الفرعية (كل الأحذية، رياضية، رسمية، لوفرز…)
-/g/:gender/:category/:sub          شبكة المنتجات مع الفرز والتصفية
-/product/:id                       صفحة المنتج
-/favorites                         المفضلة
-/checkout                          إتمام الطلب — الدفع عند الاستلام
-/order-confirmed                   تأكيد الطلب (يُوصل إليه بعد الإرسال فقط)
+```powershell
+pnpm build
+pnpm dlx wrangler pages deploy dist --project-name iraqstore
 ```
 
-## إتمام الطلب
+مجلد `functions/` يُنشر مع Pages Functions. بعد النشر اختبر `/api/health` ثم نفّذ طلباً تجريبياً حقيقياً وألغِه من لوحة الإدارة للتأكد من رجوع المخزون.
 
-الدفع عند الاستلام (COD) — النمط السائد في العراق. النموذج في
-[CheckoutPage.jsx](src/pages/CheckoutPage.jsx) يطلب الاسم والهاتف والمحافظة والمدينة
-والعنوان، مع تحقّق:
+## السعة والتوسع
 
-- رقم هاتف عراقي صحيح (١١ رقمًا يبدأ بـ 07) عبر `isValidIraqiPhone` في [iraq.js](src/data/iraq.js).
-- رسوم توصيل حسب المحافظة (بغداد ٣٬٠٠٠، بقية المحافظات ٥٬٠٠٠) — لا تُضاف للإجمالي حتى تُختار المحافظة.
+السعة ليست رقماً ثابتاً في الكود؛ تتأثر بحجم صور المنتجات، مرات فتح صفحات الكتالوج، وعدد عناصر كل طلب. التصميم الحالي يقلل الضغط بهذه الطرق:
 
-عند التأكيد يُفرَّغ السلة ويُنتقل إلى صفحة التأكيد برقم طلب. لا خلفية — الطلب محاكاة محلية.
+- الكتالوج العام مخزن مؤقتاً على حافة Cloudflare لمدة قصيرة.
+- الطلب الواحد يستخدم معاملة D1 واحدة، ولا يرسل صور Base64.
+- لوحة الإدارة تجلب حتى 100 طلب كل 30 ثانية عند ظهور الصفحة فقط.
+- فهرسة الطلبات موجودة على الوقت والحالة والهاتف.
+- Firebase SDK الثقيل لا يُحمّل للزائر؛ يُحمّل عند دخول الإدارة فقط.
 
-## الملفات
+راقب لوحات Firebase وCloudflare أسبوعياً. عندما تقترب أي حصة مجانية من 70%، افحص السبب قبل الترقية. أكبر خطر على الحصة عادةً هو الصور غير المضغوطة أو القراءة المتكررة، وليس صفوف الطلبات الصغيرة.
 
-| المسار | الدور |
-| --- | --- |
-| [src/data/images.js](src/data/images.js) | بنوك الصور (Unsplash) + `img()` لتحديد المقاس والصيغة |
-| [src/data/catalog.js](src/data/catalog.js) | شجرة الأقسام والأقسام الفرعية |
-| [src/data/products.js](src/data/products.js) | ١٠٠ منتج + دوال الاستعلام والفرز والتصفية وتنسيق السعر |
-| [src/components/SectionNav.jsx](src/components/SectionNav.jsx) | شريط تصفّح دائم — كل قسم على بُعد نقرة واحدة |
-| [src/components/FilterPanel.jsx](src/components/FilterPanel.jsx) | تصفية بالسعر واللون والمقاس والعروض |
-| [src/components/Img.jsx](src/components/Img.jsx) | صورة تدريجية بـ srcSet وهيكل تحميل |
-| [src/store/StoreContext.jsx](src/store/StoreContext.jsx) | السلة والمفضلة والإشعارات — محفوظة في `localStorage` |
-| [src/styles/global.css](src/styles/global.css) | نظام التصميم بالكامل |
+## النسخ الاحتياطي والتشغيل
 
-## الاستجابة
+- صدّر D1 دورياً من لوحة Cloudflare أو Wrangler، واحتفظ بالنسخة خارج المستودع.
+- راجع الطلبات الملغاة والمحذوفة؛ الإلغاء والحذف يعيدان المخزون تلقائياً.
+- لا تغيّر حالة طلب ملغى إلى نشط إذا لم يعد المخزون كافياً؛ الخادم سيرفض العملية.
+- حدث الاعتمادات واختبر `pnpm test` و`pnpm build` قبل كل نشر.
+- راجع سياسات الخصوصية والاستبدال والشحن مع مختص محلي قبل إطلاق حملات مدفوعة.
 
-سلّم نقاط التوقّف: `1280 · 1100 · 900 · 760 · 560 · 380`، إضافةً إلى
-`(hover: none)` للّمس و `(orientation: landscape)` للشاشات القصيرة.
+## إجراء أمني إلزامي لمرة واحدة
 
-على اللمس تُعرض أزرار «إضافة إلى السلة» والمفضلة دائمًا بدل الاعتماد على `hover`.
+كان اختبار E2E القديم يحتوي كلمة مرور ثابتة. أُزيلت من الملفات الحالية، لكن وجودها السابق في تاريخ Git يعني أنها يجب أن تعتبر مكشوفة:
 
-## الصور
+1. غيّر كلمة مرور حساب الإدارة من Firebase Authentication فوراً.
+2. عطّل الحساب ثم أعد تفعيله أو ألغِ جلساته القديمة إن أمكن.
+3. نظّف السر من تاريخ Git بأداة مخصصة ثم ادفع التاريخ المنظف بالقوة بعد أخذ نسخة احتياطية والتنسيق مع أي مساهمين.
 
-الصور من Unsplash عبر روابط مباشرة، ومُنقّاة يدويًا لاستبعاد أي علامة تجارية
-ظاهرة لطرف ثالث — شعار منافس في واجهة المتجر أسوأ من غياب الصورة.
-
-للتحقق من أن كل الروابط ما زالت تعمل، نفّذ في الـ console:
-
-```js
-const m = await import('/src/data/images.js');
-const all = [...new Set(Object.values(m.POOLS).flat())];
-const bad = (await Promise.all(all.map(s => new Promise(r => {
-  const i = new Image();
-  i.onload = () => r(null);
-  i.onerror = () => r(s);
-  i.src = `https://images.unsplash.com/${s}?w=80&h=80&fit=crop`;
-})))).filter(Boolean);
-console.log(bad);
-```
-
-## نطاق المشروع
-
-المتجر معروض كمتجر يبيع ملابس — لا يوجد سرد لعلامة تجارية، ولا نشرة بريدية،
-ولا وعود شحن أو ضمانات أو استرجاع في أي مكان. المحتوى منتجات وأقسام فقط.
-
-## غير منجَز
-
-الواجهة فقط — لا يوجد خلفية. زر «إتمام الشراء» لا يربط ببوابة دفع.
+إعادة كتابة تاريخ Git عملية مدمرة للمساهمين الآخرين، لذلك لا تُنفّذ تلقائياً ضمن هذا الإصلاح.

@@ -612,7 +612,7 @@ export default function ProductForm({ initial, onSave, onCancel }) {
       setBusy(false);
     } catch (e2) {
       console.error(e2);
-      setErr('حدث خطأ أثناء الحفظ — تمت المحاولة محلياً.');
+      setErr(`لم يتم حفظ المنتج: ${e2?.message || 'تحقق من الاتصال وحاول مجددًا.'}`);
       setBusy(false);
     }
   };

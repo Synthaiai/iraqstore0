@@ -30,6 +30,7 @@ export default function Footer() {
       title: t('footerLinks'),
       links: [
         { label: t('favorites'), to: '/favorites' },
+        { label: lang === 'en' ? 'Store policies' : 'سياسات المتجر', to: '/policies' },
         { label: t('jewelry'), to: '/g/women/accessories/jewelry' },
         { label: t('eyewear'), to: '/g/women/accessories/eyewear' },
       ],

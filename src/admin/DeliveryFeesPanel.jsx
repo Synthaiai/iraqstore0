@@ -58,18 +58,17 @@ export default function DeliveryFeesPanel() {
       cleanFees[g] = parseSmartPrice(fees[g] ?? 5000);
     });
 
-    // Save to localStorage immediately
-    setDeliveryFees(cleanFees);
-    // Sync to Firebase
     try {
       await saveSetting('deliveryFees', cleanFees);
+      setDeliveryFees(cleanFees);
+      setFees(cleanFees);
+      setMsg('تم حفظ وتحديث أسعار التوصيل لجميع المحافظات بنجاح! 🟢');
     } catch (e) {
-      console.warn('Firebase delivery fees sync failed:', e);
+      console.error('Delivery fees sync failed:', e);
+      setMsg(`لم يتم حفظ أسعار التوصيل: ${e?.message || 'تحقق من الاتصال وحاول مجددًا.'}`);
+    } finally {
+      setBusy(false);
     }
-
-    setFees(cleanFees);
-    setBusy(false);
-    setMsg('تم حفظ وتحديث أسعار التوصيل لجميع المحافظات بنجاح! 🟢');
   };
 
 

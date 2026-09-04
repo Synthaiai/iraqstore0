@@ -4,7 +4,7 @@ import { useLiveData } from '../store/LiveDataContext';
 
 /**
  * Brand lockup: the logo artwork as a circular coin, plus the store name.
- * Uses the admin-uploaded logo when one exists, else the bundled /logo.png.
+ * Uses the admin-uploaded logo when one exists, else the bundled /logo.jpg.
  */
 export default function Logo({ to = '/', compact = false }) {
   const { t } = usePrefs();
@@ -13,7 +13,7 @@ export default function Logo({ to = '/', compact = false }) {
     <Link to={to} className={`logo ${compact ? 'logo--compact' : ''}`} aria-label="IRAQI STORE">
       <span className="logo__badge">
         <img
-          src={logoUrl || '/logo.png'}
+          src={logoUrl || '/logo.jpg'}
           alt="IRAQI STORE"
           width={compact ? 36 : 46}
           height={compact ? 36 : 46}

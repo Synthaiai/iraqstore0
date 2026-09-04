@@ -56,7 +56,7 @@ export default function ProductReorderPanel({ products }) {
       setMsg('✅ تم حفظ الترتيب بنجاح ويظهر الآن في المتجر!');
       setTimeout(() => setMsg(''), 4000);
     } catch (e) {
-      setMsg('⚠️ تم حفظ الترتيب محلياً.');
+      setMsg(`⚠️ لم يتم حفظ الترتيب: ${e?.message || 'تحقق من الاتصال.'}`);
     } finally {
       setSaving(false);
     }
@@ -246,7 +246,7 @@ export default function ProductReorderPanel({ products }) {
 
                 {/* Thumbnail */}
                 <img
-                  src={p.images?.[0] || p.image || '/logo.png'}
+                  src={p.images?.[0] || p.image || '/logo.jpg'}
                   alt=""
                   className="admin-reorder-thumb"
                   loading="lazy"

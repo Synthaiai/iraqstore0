@@ -33,7 +33,7 @@ export default function Login({ notAllowed }) {
     <div className="admin-auth">
       <div className="admin-auth__card">
         <div className="admin-auth__brand">
-          <img src="/logo.png" alt="" width="52" height="52" />
+          <img src="/logo.jpg" alt="" width="52" height="52" />
           <div>
             <strong>IRAQI STORE</strong>
             <span>لوحة الإدارة</span>

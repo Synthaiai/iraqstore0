@@ -49,7 +49,7 @@ export async function translateArabicAsync(text) {
   if (!trimmed) return '';
 
   // Already English
-  if (/^[a-zA-Z0-9\s.,\-'":;!()/+%&[\]{}|<>?#@~*=_\]+$/.test(trimmed)) {
+  if (!/[\u0600-\u06FF]/.test(trimmed)) {
     return trimmed;
   }
 
@@ -254,7 +254,7 @@ export function translateTextOffline(arabicText) {
   const trimmed = arabicText.trim();
   if (!trimmed) return '';
 
-  if (/^[a-zA-Z0-9\s.,\-'":;!()/+%&[\]{}|<>?#@~*=_\]+$/.test(trimmed)) {
+  if (!/[\u0600-\u06FF]/.test(trimmed)) {
     return trimmed;
   }
 
@@ -294,7 +294,7 @@ export function translateTextSync(arabicText) {
   const trimmed = arabicText.trim();
   if (!trimmed) return '';
 
-  if (/^[a-zA-Z0-9\s.,\-'":;!()/+%&[\]{}|<>?#@~*=_\]+$/.test(trimmed)) {
+  if (!/[\u0600-\u06FF]/.test(trimmed)) {
     return trimmed;
   }
 

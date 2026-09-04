@@ -3,9 +3,8 @@
     "products": {
       ".read": true,
       "$productId": {
-        ".write": "auth != null && (auth.token.email == 'adminiraq@gmail.com' || auth.token.email == 'adminiraqstore@gmail.com' || auth.token.email == 'adoiniraqstore@gmail.com')",
+        ".write": "auth != null && auth.token.email_verified == true && (auth.token.email == 'adminiraq@gmail.com' || auth.token.email == 'adminiraqstore@gmail.com' || auth.token.email == 'adoiniraqstore@gmail.com')",
         "stockQuantity": {
-          ".write": "true",
           ".validate": "newData.isNumber() && newData.val() >= 0"
         }
       },
@@ -13,22 +12,22 @@
     },
     "catalog": {
       ".read": true,
-      ".write": "auth != null && (auth.token.email == 'adminiraq@gmail.com' || auth.token.email == 'adminiraqstore@gmail.com' || auth.token.email == 'adoiniraqstore@gmail.com')"
+      ".write": "auth != null && auth.token.email_verified == true && (auth.token.email == 'adminiraq@gmail.com' || auth.token.email == 'adminiraqstore@gmail.com' || auth.token.email == 'adoiniraqstore@gmail.com')"
     },
     "settings": {
       ".read": true,
-      ".write": "auth != null && (auth.token.email == 'adminiraq@gmail.com' || auth.token.email == 'adminiraqstore@gmail.com' || auth.token.email == 'adoiniraqstore@gmail.com')"
+      ".write": "auth != null && auth.token.email_verified == true && (auth.token.email == 'adminiraq@gmail.com' || auth.token.email == 'adminiraqstore@gmail.com' || auth.token.email == 'adoiniraqstore@gmail.com')"
     },
     "deliveryFees": {
       ".read": true,
-      ".write": "auth != null && (auth.token.email == 'adminiraq@gmail.com' || auth.token.email == 'adminiraqstore@gmail.com' || auth.token.email == 'adoiniraqstore@gmail.com')"
+      ".write": "auth != null && auth.token.email_verified == true && (auth.token.email == 'adminiraq@gmail.com' || auth.token.email == 'adminiraqstore@gmail.com' || auth.token.email == 'adoiniraqstore@gmail.com')"
     },
     "orders": {
-      ".read": "auth != null && (auth.token.email == 'adminiraq@gmail.com' || auth.token.email == 'adminiraqstore@gmail.com' || auth.token.email == 'adoiniraqstore@gmail.com')",
+      ".read": "auth != null && auth.token.email_verified == true && (auth.token.email == 'adminiraq@gmail.com' || auth.token.email == 'adminiraqstore@gmail.com' || auth.token.email == 'adoiniraqstore@gmail.com')",
       ".indexOn": ["status", "createdAt", "phone"],
       "$orderId": {
-        ".read": "auth != null && (auth.token.email == 'adminiraq@gmail.com' || auth.token.email == 'adminiraqstore@gmail.com' || auth.token.email == 'adoiniraqstore@gmail.com')",
-        ".write": "data.val() == null || (auth != null && (auth.token.email == 'adminiraq@gmail.com' || auth.token.email == 'adminiraqstore@gmail.com' || auth.token.email == 'adoiniraqstore@gmail.com'))",
+        ".read": "auth != null && auth.token.email_verified == true && (auth.token.email == 'adminiraq@gmail.com' || auth.token.email == 'adminiraqstore@gmail.com' || auth.token.email == 'adoiniraqstore@gmail.com')",
+        ".write": "auth != null && auth.token.email_verified == true && (auth.token.email == 'adminiraq@gmail.com' || auth.token.email == 'adminiraqstore@gmail.com' || auth.token.email == 'adoiniraqstore@gmail.com')",
         ".validate": "newData.hasChildren(['id', 'orderNo', 'name', 'phone', 'governorate', 'city', 'address', 'total', 'cart']) && newData.child('name').isString() && newData.child('phone').isString() && newData.child('total').isNumber()"
       }
     }

@@ -11,35 +11,10 @@ import './styles/checkout.css';
 import './styles/theme.css';
 import './styles/admin.css';
 
-// Universal fix for Google Translate & browser extensions breaking React DOM reconciliation
-if (typeof Node === 'function' && Node.prototype) {
-  const originalRemoveChild = Node.prototype.removeChild;
-  Node.prototype.removeChild = function (child) {
-    if (child.parentNode !== this) {
-      if (console) {
-        console.warn('Cannot remove a child from a different parent', child, this);
-      }
-      return child;
-    }
-    return originalRemoveChild.apply(this, arguments);
-  };
-
-  const originalInsertBefore = Node.prototype.insertBefore;
-  Node.prototype.insertBefore = function (newNode, referenceNode) {
-    if (referenceNode && referenceNode.parentNode !== this) {
-      if (console) {
-        console.warn('Cannot insert before a reference node from a different parent', referenceNode, this);
-      }
-      return newNode;
-    }
-    return originalInsertBefore.apply(this, arguments);
-  };
-}
-
-// Ensure all mobile browsers & cached devices are immediately purged of stale service workers & caches
+// Remove obsolete service workers from older deployments without clearing the
+// browser's entire CacheStorage on every page load.
 if (typeof window !== 'undefined') {
   try {
-    // 1. Unregister any zombie Service Workers
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then((registrations) => {
         for (const registration of registrations) {
@@ -47,14 +22,7 @@ if (typeof window !== 'undefined') {
         }
       });
     }
-    // 2. Clear old CacheStorage caches
-    if ('caches' in window) {
-      caches.keys().then((keys) => {
-        keys.forEach((key) => caches.delete(key));
-      });
-    }
-    // 3. Clear old legacy build keys
-    const APP_BUILD_KEY = 'iraqstore_build_v2_6';
+    const APP_BUILD_KEY = 'iraqstore_build_v3';
     if (localStorage.getItem('iraqstore_build_version') !== APP_BUILD_KEY) {
       localStorage.removeItem('iraqstore_products_v1');
       localStorage.removeItem('iraqstore_catalog_v1');

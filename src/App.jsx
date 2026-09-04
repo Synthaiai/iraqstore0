@@ -7,6 +7,7 @@ import ScrollToTop from './components/ScrollToTop';
 import Toasts from './components/Toasts';
 import BackToTop from './components/BackToTop';
 import AutoTranslator from './components/AutoTranslator';
+import PageMeta from './components/PageMeta';
 import AllProductsPage from './pages/AllProductsPage';
 import CategoryPage from './pages/CategoryPage';
 import CheckoutPage from './pages/CheckoutPage';
@@ -16,6 +17,7 @@ import Home from './pages/Home';
 import ListingPage from './pages/ListingPage';
 import NotFound from './pages/NotFound';
 import OrderConfirmedPage from './pages/OrderConfirmedPage';
+import PoliciesPage from './pages/PoliciesPage';
 import ProductPage from './pages/ProductPage';
 
 // Admin (with Firebase auth + storage) is a separate lazy chunk — the storefront
@@ -29,6 +31,7 @@ export default function App() {
   if (location.pathname.startsWith('/admin')) {
     return (
       <>
+        <PageMeta />
         <ScrollToTop />
         <Suspense fallback={<div className="admin-auth"><div className="admin-spinner" /></div>}>
           <AdminApp />
@@ -39,6 +42,7 @@ export default function App() {
 
   return (
     <>
+      <PageMeta />
       <ScrollToTop />
       <Header />
 
@@ -55,6 +59,7 @@ export default function App() {
           <Route path="/favorites" element={<FavoritesPage />} />
           <Route path="/checkout" element={<CheckoutPage />} />
           <Route path="/order-confirmed" element={<OrderConfirmedPage />} />
+          <Route path="/policies" element={<PoliciesPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>

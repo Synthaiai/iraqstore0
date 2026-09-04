@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { usePrefs } from '../store/PrefsContext';
-import { translateTextSync, queueAsyncTranslation } from '../utils/translator';
+import { translateTextSync } from '../utils/translator';
 
 /**
  * Universal Auto-Translator Component
@@ -15,12 +15,24 @@ export default function AutoTranslator() {
     if (typeof window === 'undefined' || typeof document === 'undefined') return;
 
     if (lang === 'ar') {
-      // Revert all translated nodes back to original Arabic
-      const translatedEls = document.querySelectorAll('[data-ar-text]');
-      translatedEls.forEach((el) => {
-        if (el.dataset.arText) {
-          el.textContent = el.dataset.arText;
-          el.removeAttribute('data-ar-text');
+      // Restore text and attributes that were translated outside React.
+      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      let node = walker.nextNode();
+      while (node) {
+        if (node.__origArText !== undefined) {
+          node.nodeValue = node.__origArText;
+          delete node.__origArText;
+        }
+        node = walker.nextNode();
+      }
+      document.querySelectorAll('[data-orig-placeholder], [data-orig-title]').forEach((el) => {
+        if (el.dataset.origPlaceholder !== undefined) {
+          el.setAttribute('placeholder', el.dataset.origPlaceholder);
+          delete el.dataset.origPlaceholder;
+        }
+        if (el.dataset.origTitle !== undefined) {
+          el.setAttribute('title', el.dataset.origTitle);
+          delete el.dataset.origTitle;
         }
       });
       if (observerRef.current) {
@@ -59,10 +71,12 @@ export default function AutoTranslator() {
       // Check placeholder / title / aria-label
       if (el.getAttribute('placeholder') && /[\u0600-\u06FF]/.test(el.getAttribute('placeholder'))) {
         const ph = el.getAttribute('placeholder');
+        if (el.dataset.origPlaceholder === undefined) el.dataset.origPlaceholder = ph;
         el.setAttribute('placeholder', translateTextSync(ph));
       }
       if (el.getAttribute('title') && /[\u0600-\u06FF]/.test(el.getAttribute('title'))) {
         const title = el.getAttribute('title');
+        if (el.dataset.origTitle === undefined) el.dataset.origTitle = title;
         el.setAttribute('title', translateTextSync(title));
       }
     };

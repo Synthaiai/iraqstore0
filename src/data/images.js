@@ -14,7 +14,7 @@ const BASE = 'https://images.unsplash.com/';
 const Q = 38;
 
 export function img(slug, w = 340, h, q = Q) {
-  if (!slug) return '/logo.png';
+  if (!slug) return '/logo.jpg';
   if (typeof slug === 'string' && (slug.startsWith('http://') || slug.startsWith('https://') || slug.startsWith('data:') || slug.startsWith('/'))) {
     return slug;
   }

@@ -3270,6 +3270,10 @@ main {
     --page: min(1440px, 100% - 1.5rem);
   }
 
+  .header__pref {
+    display: none;
+  }
+
   .portal-grid {
     display: flex;
     flex-direction: column;

@@ -56,14 +56,14 @@ export function deliveryFee(governorate, customFeesMap) {
   if (!governorate) return 5000;
   const fees = customFeesMap || getDeliveryFees();
   if (fees[governorate] !== undefined) {
-    return Number(fees[governorate]);
+    const fee = Number(fees[governorate]);
+    if (Number.isInteger(fee) && fee >= 0 && fee <= 100000) return fee;
   }
   return governorate === 'بغداد' ? 3000 : 5000;
 }
 
 /**
- * Flexible Phone Number Validation:
- * Accepts any valid mobile or phone number (Iraqi or international, 7 to 16 digits).
+ * Iraqi mobile validation and Arabic digit normalization.
  * Automatically normalizes Arabic-Indic digits (٠١٢٣...) and removes spaces/dashes.
  */
 export function isValidIraqiPhone(raw) {
@@ -74,8 +74,7 @@ export function isValidIraqiPhone(raw) {
   arabicDigits.forEach((d, i) => {
     s = s.replaceAll(d, String(i));
   });
-  // Strip all non-digit characters
+  // Strip formatting, then accept the common Iraqi mobile representations.
   const digits = s.replace(/\D/g, '');
-  // Accept any phone number with at least 6 digits
-  return digits.length >= 6;
+  return /^07\d{9}$/.test(digits) || /^7\d{9}$/.test(digits) || /^9647\d{9}$/.test(digits) || /^009647\d{9}$/.test(digits);
 }

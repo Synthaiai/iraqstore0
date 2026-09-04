@@ -88,7 +88,7 @@ export default function ProductPage() {
       : (Array.isArray(product.large) && product.large.length)
         ? product.large
         : [product.image].filter(Boolean);
-  const large = rawImgs.length ? rawImgs : ['/logo.png'];
+  const large = rawImgs.length ? rawImgs : ['/logo.jpg'];
   const largeSet = Array.isArray(product.largeSet) ? product.largeSet : [];
   const thumbs = (Array.isArray(product.thumbs) && product.thumbs.length === large.length) ? product.thumbs : large;
 

@@ -4,29 +4,38 @@ import { useStore } from '../store/StoreContext';
 import { usePrefs } from '../store/PrefsContext';
 import { formatPrice, getProduct } from '../data/products';
 import { GOVERNORATES, deliveryFee, getDeliveryFees, isValidIraqiPhone } from '../data/iraq';
-import { STORE_CONTACT, buildWhatsAppInvoiceText, openWhatsAppInvoice } from '../data/contact';
 import { saveOrder } from '../data/remote';
+import { useLiveData } from '../store/LiveDataContext';
 import Breadcrumbs from '../components/Breadcrumbs';
-import { Bag, Card, Check, Truck, Whatsapp } from '../components/Icons';
+import TurnstileWidget from '../components/TurnstileWidget';
+import { Bag, Card, Truck } from '../components/Icons';
 
 const EMPTY = { name: '', phone: '', governorate: '', city: '', address: '', notes: '' };
 
 export default function CheckoutPage() {
   const { cart, subtotal, clearCart } = useStore();
   const { t, tf, lang } = usePrefs();
+  const { settings } = useLiveData();
   const navigate = useNavigate();
 
   const [form, setForm] = useState(EMPTY);
   const [payment, setPayment] = useState('cod'); // 'cod' | 'card'
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const [turnstileReset, setTurnstileReset] = useState(0);
 
-  const fees = useMemo(() => getDeliveryFees(), []);
+  const fees = useMemo(
+    () => ({ ...getDeliveryFees(), ...(settings?.deliveryFees || {}) }),
+    [settings?.deliveryFees]
+  );
   const fee = useMemo(() => deliveryFee(form.governorate, fees), [form.governorate, fees]);
   const total = subtotal + (form.governorate ? fee : 0);
 
   const set = (key) => (e) => {
     const val = e.target.value;
+    setSubmitError('');
     setForm((f) => ({ ...f, [key]: val }));
     setErrors((prev) => {
       if (!prev || !prev[key]) return prev;
@@ -71,7 +80,7 @@ export default function CheckoutPage() {
     if (!isValidIraqiPhone(form.phone)) next.phone = t('errPhone');
     if (!form.governorate) next.governorate = t('errGov');
     if (!form.city || form.city.trim().length < 2) next.city = t('errCity');
-    if (!form.address || form.address.trim().length < 2) next.address = t('errAddress');
+    if (!form.address || form.address.trim().length < 5) next.address = t('errAddress');
     return next;
   };
 
@@ -88,6 +97,7 @@ export default function CheckoutPage() {
     }
 
     setSubmitting(true);
+    setSubmitError('');
     try {
       // 1. Cross-verify cart prices and stock quantities against live catalog
       for (const line of cart) {
@@ -95,13 +105,13 @@ export default function CheckoutPage() {
         const currentStock = live && live.stockQuantity !== undefined ? Number(live.stockQuantity) : 15;
 
         if (currentStock <= 0) {
-          alert(lang === 'en' ? `Sorry, product "${line.product.nameEn || line.product.name}" is out of stock.` : `عذراً، المنتج «${line.product.name}» نفد من المخزون حالياً ❌.`);
+          setSubmitError(lang === 'en' ? `Sorry, product "${line.product.nameEn || line.product.name}" is out of stock.` : `عذراً، المنتج «${line.product.name}» نفد من المخزون حالياً.`);
           setSubmitting(false);
           return;
         }
 
         if (line.qty > currentStock) {
-          alert(lang === 'en' ? `Sorry, only ${currentStock} piece(s) available in stock for "${line.product.nameEn || line.product.name}". Please reduce quantity in cart.` : `عذراً، الكمية المتوفرة في المخزن للمنتج «${line.product.name}» هي ${currentStock} قطع فقط. يرجى تعديل الكمية في السلة.`);
+          setSubmitError(lang === 'en' ? `Sorry, only ${currentStock} piece(s) are available for "${line.product.nameEn || line.product.name}". Please reduce the quantity.` : `عذراً، الكمية المتوفرة للمنتج «${line.product.name}» هي ${currentStock} قطع فقط. يرجى تعديل الكمية في السلة.`);
           setSubmitting(false);
           return;
         }
@@ -128,9 +138,7 @@ export default function CheckoutPage() {
       const verifiedFee = deliveryFee(form.governorate, fees);
       const verifiedTotal = verifiedSubtotal + (form.governorate ? verifiedFee : 0);
 
-      const orderNo = `IQ${Date.now().toString().slice(-6)}`;
       const orderData = {
-        orderNo,
         name: form.name.trim(),
         phone: form.phone.trim(),
         governorate: form.governorate,
@@ -144,19 +152,21 @@ export default function CheckoutPage() {
         itemCount: verifiedCart.reduce((n, l) => n + l.qty, 0),
         payment, // 'cod' | 'card'
         paymentLabel: payment === 'card' ? 'الدفع عن طريق الماستر الرافدين' : 'الدفع عند الاستلام',
+        turnstileToken,
       };
 
-      // 2. Save order to Firebase Realtime DB & local IndexedDB
-      await saveOrder(orderData);
+      // The server recalculates every price and reserves inventory atomically.
+      const savedOrder = await saveOrder(orderData);
 
-      // 3. Clear cart and navigate directly to confirmation
+      // Clear only after the server confirms durable persistence.
       clearCart();
       setSubmitting(false);
-      navigate('/order-confirmed', { state: orderData, replace: true });
+      navigate('/order-confirmed', { state: savedOrder, replace: true });
     } catch (err) {
       console.error('Order checkout submission error:', err);
       setSubmitting(false);
-      alert(lang === 'en' ? 'An unexpected error occurred while placing your order. Please try again.' : 'حدث خطأ أثناء معالجة طلبك، يرجى المحاولة مرة أخرى.');
+      setTurnstileReset((value) => value + 1);
+      setSubmitError(err?.message || (lang === 'en' ? 'The order was not saved. Your cart is intact; please try again.' : 'لم يتم حفظ الطلب، وسلتك ما زالت محفوظة. يرجى المحاولة مجددًا.'));
     }
   };
 
@@ -183,6 +193,7 @@ export default function CheckoutPage() {
                 type="text"
                 value={form.name}
                 onChange={set('name')}
+                maxLength={80}
                 placeholder={t('fullNamePh')}
                 autoComplete="name"
                 aria-invalid={!!errors.name}
@@ -200,6 +211,7 @@ export default function CheckoutPage() {
                 inputMode="numeric"
                 value={form.phone}
                 onChange={set('phone')}
+                maxLength={18}
                 placeholder="07XXXXXXXXX / +964..."
                 autoComplete="tel"
                 dir="ltr"
@@ -241,6 +253,7 @@ export default function CheckoutPage() {
                   type="text"
                   value={form.city}
                   onChange={set('city')}
+                  maxLength={80}
                   placeholder={t('cityPh')}
                   aria-invalid={!!errors.city}
                   className={errors.city ? 'is-invalid' : ''}
@@ -257,6 +270,7 @@ export default function CheckoutPage() {
                 rows={3}
                 value={form.address}
                 onChange={set('address')}
+                maxLength={240}
                 placeholder={t('addressPh')}
                 aria-invalid={!!errors.address}
                 className={errors.address ? 'is-invalid' : ''}
@@ -271,6 +285,7 @@ export default function CheckoutPage() {
                 rows={2}
                 value={form.notes}
                 onChange={set('notes')}
+                maxLength={500}
                 placeholder={t('notesPh')}
               />
             </div>
@@ -315,12 +330,20 @@ export default function CheckoutPage() {
 
             {payment === 'card' && <p className="pay-note">{t('payCardNote')}</p>}
 
+            <TurnstileWidget
+              onToken={setTurnstileToken}
+              resetKey={turnstileReset}
+              lang={lang}
+            />
+
+            {submitError && <div className="checkout-error" role="alert" aria-live="assertive">{submitError}</div>}
+
             {/* Submit Button directly after payment selection */}
             <div style={{ marginTop: '1.25rem' }}>
               <button
                 type="submit"
                 className="btn btn--burgundy btn--block btn--lg"
-                disabled={submitting}
+                disabled={submitting || (!import.meta.env.DEV && !turnstileToken)}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -396,7 +419,7 @@ export default function CheckoutPage() {
               type="submit"
               className="btn btn--burgundy btn--block"
               onClick={submit}
-              disabled={submitting}
+              disabled={submitting || (!import.meta.env.DEV && !turnstileToken)}
             >
               {submitting ? (
                 lang === 'en' ? 'Processing order…' : 'جارٍ إتمام الطلب…'
