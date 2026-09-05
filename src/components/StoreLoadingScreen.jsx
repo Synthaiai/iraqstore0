@@ -21,8 +21,14 @@ export default function StoreLoadingScreen() {
   const dismiss = () => { completed.current = true; setLeaving(true); setFinished(true); };
 
   useEffect(() => {
-    // Cached visits finish before this threshold, without a spinner flash.
-    const timer = setTimeout(() => { if (!completed.current) setVisible(true); }, 400);
+    // On a recent successful visit, verify cached images quietly for a little
+    // longer. This hint never bypasses verification or hides a real failure.
+    let grace = 400;
+    try {
+      const lastReady = Number(localStorage.getItem('iraqstore.assets.decodedAt'));
+      if (lastReady > 0 && Date.now() - lastReady < 86400000) grace = 2000;
+    } catch {}
+    const timer = setTimeout(() => { if (!completed.current) setVisible(true); }, grace);
     return () => clearTimeout(timer);
   }, []);
 
@@ -36,6 +42,7 @@ export default function StoreLoadingScreen() {
       if (controller.signal.aborted) return;
       setResult(outcome);
       if (!outcome.failed.length) {
+        try { localStorage.setItem('iraqstore.assets.decodedAt', String(Date.now())); } catch {}
         window.dispatchEvent(new Event('store:images-ready'));
         dismiss();
       }
