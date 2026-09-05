@@ -560,9 +560,10 @@ h4 {
 
 .store-loading { position:fixed; inset:0; z-index:5000; display:grid; place-items:center; background:radial-gradient(circle at 50% 38%, #fff 0%, var(--paper,#fff) 58%, #f4eee9 100%); animation:store-fade-in .35s ease both; }
 .store-loading__card { display:grid; justify-items:center; gap:.7rem; width:min(88vw,360px); padding:2.2rem 1.5rem; color:var(--ink,#222); text-align:center; }
-.store-loading__logo-wrap { position:relative; display:grid; place-items:center; width:92px; height:92px; }
-.store-loading__mark { position:relative; z-index:1; border-radius:50%; object-fit:cover; box-shadow:0 8px 24px rgba(0,0,0,.14); }
-.store-loading__orbit { position:absolute; inset:2px; border:1px solid rgba(216,31,38,.2); border-top-color:var(--brand-red,#a9152a); border-radius:50%; animation:store-spin 1.8s linear infinite; }
+.store-loading__brand { display:flex; align-items:center; gap:.65rem; direction:ltr; }
+.store-loading__brand b { display:block; color:var(--brand-red,#d81f26); font:700 1.2rem var(--font-latin); letter-spacing:.02em; }
+.store-loading__brand small { display:block; color:var(--burgundy-700,#7e1b26); font:500 .72rem var(--font-display); text-align:right; }
+.store-loading__brand img { border-radius:50%; object-fit:cover; }
 .store-loading__card strong { font-size:1.1rem; }
 .store-loading__card span { color:var(--muted,#777); font-size:.9rem; }
 .store-loading__progress { width:min(78vw,260px); height:6px; overflow:hidden; border-radius:99px; background:rgba(120,30,30,.12); }
@@ -573,7 +574,7 @@ h4 {
 
 .logo:hover .logo__badge {
   transform: rotate(-6deg) scale(1.05);
-  box-shadow: 0 0 0 1px var(--brand-red), var(--shadow-md);
+  box-shadow: var(--shadow-md);
 }
 
 .logo--compact .logo__badge {
