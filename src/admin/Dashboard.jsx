@@ -487,7 +487,7 @@ export default function Dashboard() {
     <div className="admin" data-admin="on">
       <header className="admin-header">
         <div className="admin-header__brand">
-          <img src="/logo.jpg" alt="" width="34" height="34" />
+          <img src="/brand-logo.jpg" alt="" width="34" height="34" />
           <div>
             <strong>لوحة إدارة المتجر</strong>
             <ConnectionStatusBadge />

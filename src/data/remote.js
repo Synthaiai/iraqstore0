@@ -1,5 +1,6 @@
 import { SEED_PRODUCTS, toRecord } from './products';
 import { deleteIDBProduct, getIDBProducts, setIDBProduct, setIDBProducts } from './db';
+import { resolveEmbeddedProducts } from './embeddedImages';
 
 const STORAGE_KEY_PRODUCTS = 'iraqstore_products_v1';
 const STORAGE_KEY_CATALOG = 'iraqstore_catalog_v1';
@@ -122,7 +123,7 @@ async function fetchFirebaseFallback(includeDrafts = false) {
   const rawProducts = await productsRes.json();
   const products = rawProducts && typeof rawProducts === 'object' ? Object.entries(rawProducts).filter(([, p]) => p && typeof p === 'object').map(([id, p]) => ({ ...p, id: p.id || id })) : [];
   return {
-    products: includeDrafts ? products : products.filter((product) => product?.status !== 'draft'),
+    products: await resolveEmbeddedProducts(includeDrafts ? products : products.filter((product) => product?.status !== 'draft')),
     settings: settingsRes.ok ? (await settingsRes.json()) || {} : {},
     catalog: catalogRes.ok ? await catalogRes.json() : null,
   };
@@ -136,6 +137,7 @@ export function fetchFreshSnapshot({ includeDrafts = false } = {}) {
   return request;
 }
 async function fetchSnapshot(includeDrafts) {
+  notifyStatus('checking');
   try {
     const url = includeDrafts ? '/api/catalog?includeDrafts=1' : '/api/catalog';
     const body = await apiJson(url, { admin: includeDrafts });

@@ -1,5 +1,17 @@
 # Cloudflare Pages project configuration.
 # Lets `wrangler pages deploy` (and the dashboard) know how the site is built.
-name = "iraqstore"
+name = "iraqstore0"
 compatibility_date = "2024-11-01"
 pages_build_output_dir = "dist"
+
+# Production bindings are explicit; preview deploys do not share order data.
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "iraqstore0-orders"
+database_id = "49c4fde0-c16f-4bd6-9752-7a585acea829"
+
+[env.production.vars]
+ENVIRONMENT = "production"
+FIREBASE_WEB_API_KEY = "AIzaSyD4z7MljYOwlWc7eW27zBJsRt5pRD2JHfc"
+VITE_TURNSTILE_SITE_KEY = "0x4AAAAAAEpDPqAhZ08Jvekn"
+# TURNSTILE_SECRET and RATE_LIMIT_SALT are encrypted in Cloudflare only.

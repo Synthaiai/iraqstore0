@@ -1,0 +1,80 @@
+/* A garment label and tailor's stitching, using the supplied red/black mark. */
+.store-loading {
+  position: fixed; inset: 0; z-index: 5000; overflow: auto;
+  display: flex; flex-direction: column; background: #f5f1e9; color: #171719;
+  padding: clamp(20px, 4vw, 56px); outline: none; isolation: isolate;
+  transition: opacity 250ms ease, visibility 250ms ease;
+}
+.store-loading.is-leaving { opacity: 0; visibility: hidden; pointer-events: none; }
+.store-loading__top, .store-loading__bottom {
+  display: flex; align-items: center; justify-content: space-between; gap: 20px;
+  font: 600 10px var(--font-latin); letter-spacing: .16em; direction: ltr;
+}
+.store-loading__top { padding-bottom: 20px; border-bottom: 1px solid #ccc5bb; }
+.store-loading__top span:first-child { font-size: 14px; color: #ac1331; }
+.store-loading__bottom { padding-top: 20px; border-top: 1px solid #ccc5bb; color: #635c56; }
+.store-loading__bottom span:first-child { font-family: var(--font-display); letter-spacing: 0; }
+.store-loading__layout {
+  width: min(100%, 1000px); margin: auto; padding: 30px 0; display: grid;
+  grid-template-columns: 1fr 1fr; gap: clamp(32px, 6vw, 90px); align-items: center; direction: ltr;
+}
+.store-loading__visual {
+  position: relative; height: 440px; display: grid; justify-items: center;
+  background: repeating-linear-gradient(90deg, transparent 0 39px, #dbd4c650 39px 40px);
+  border: 1px solid #d7d0c4; border-radius: 180px 180px 4px 4px;
+}
+.store-loading__rail { position: absolute; top: 53px; width: 60%; height: 1px; background: #b9b0a4; }
+.store-loading__hanger { position: absolute; top: 32px; width: 285px; stroke: #a41330; stroke-width: 2; stroke-linecap: round; }
+.store-loading__stitch { stroke-dasharray: 3 7; animation: loading-stitch 3s linear infinite; }
+.store-loading__tag {
+  position: absolute; top: 181px; width: 176px; padding: 18px 16px 14px;
+  display: grid; justify-items: center; gap: 9px; background: #09090a; color: #f4efe7;
+  border: 1px solid #262226; transform-origin: 50% -55px; animation: loading-sway 4s ease-in-out infinite;
+}
+.store-loading__tag::before { content: ''; position: absolute; width: 1px; height: 59px; background: #a41330; top: -55px; left: 50%; }
+.store-loading__tag-hole { height: 5px; width: 5px; border: 1px solid #80716d; border-radius: 50%; }
+.store-loading__tag img { width: 100px; height: 100px; object-fit: contain; box-shadow: none; filter: none; }
+.store-loading__tag > span:not(.store-loading__tag-hole) { font: 600 11px var(--font-latin); letter-spacing: .16em; }
+.store-loading__tag small { font: 500 6px var(--font-latin); letter-spacing: .1em; color: #c6bebb; }
+.store-loading__barcode { height: 16px; width: 95px; background: repeating-linear-gradient(90deg,#b5aaa5 0 1px,transparent 1px 3px,#b5aaa5 3px 5px,transparent 5px 8px); opacity: .55; }
+.store-loading__edition { position: absolute; bottom: 15px; font: 500 8px var(--font-latin); letter-spacing: .2em; color: #7c7067; }
+.store-loading__content { direction: rtl; text-align: start; }
+.store-loading[dir='ltr'] .store-loading__content { direction: ltr; }
+.store-loading__eyebrow { color: #a41330; font-size: 12px; font-weight: 600; }
+.store-loading__content h1 { white-space: pre-line; font-size: clamp(29px, 3.2vw, 44px); line-height: 1.6; letter-spacing: -.03em; margin: 16px 0; color: #171719; }
+.store-loading__content p { color: #6b615b; font-size: 14px; line-height: 1.9; margin: 0 0 35px; }
+.store-loading__meter-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 12px; }
+.store-loading__meter-head b { font: 500 28px var(--font-latin); font-variant-numeric: tabular-nums; color: #a41330; }
+.store-loading__progress { height: 3px; width: 100%; background: #dcd4c9; margin: 12px 0; overflow: hidden; }
+.store-loading__progress i { display: block; height: 100%; width: 100%; background: #ad1432; transform-origin: right; transition: transform 220ms ease; }
+.store-loading[dir='ltr'] .store-loading__progress i { transform-origin: left; }
+.store-loading__status { min-height: 22px; color: #746962; font-size: 11px; font-variant-numeric: tabular-nums; }
+.store-loading__categories { margin-top: 34px; padding-top: 18px; border-top: 1px dashed #c9bfb4; color: #514740; font-size: 11px; word-spacing: .35em; }
+.store-loading__actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+.store-loading__actions button { padding: 10px 16px; min-height: 44px; background: #a41330; color: white; border: 1px solid #a41330; border-radius: 3px; font: inherit; font-size: 12px; cursor: pointer; }
+.store-loading__actions button + button { background: transparent; color: #a41330; }
+.store-loading__actions button:focus-visible { outline: 2px solid #171719; outline-offset: 3px; }
+@keyframes loading-sway { 0%,100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
+@keyframes loading-stitch { to { stroke-dashoffset: -30; } }
+@media (max-width: 680px) {
+  .store-loading { padding: 18px 24px; }
+  .store-loading__top { padding-bottom: 14px; font-size: 8px; }
+  .store-loading__layout { grid-template-columns: 1fr; gap: 24px; padding: 22px 0; width: min(100%,380px); }
+  .store-loading__visual { height: 245px; width: 225px; justify-self: center; border-radius: 110px 110px 4px 4px; }
+  .store-loading__rail { top: 28px; }
+  .store-loading__hanger { width: 190px; top: 10px; }
+  .store-loading__tag { top: 90px; width: 116px; padding: 10px; gap: 5px; }
+  .store-loading__tag::before { top: -25px; height: 29px; }
+  .store-loading__tag img { width: 66px; height: 66px; }
+  .store-loading__tag > span:not(.store-loading__tag-hole) { font-size: 8px; }
+  .store-loading__tag small { font-size: 4px; }
+  .store-loading__barcode { height: 9px; width: 70px; }
+  .store-loading__edition { display: none; }
+  .store-loading__content h1 { font-size: 29px; line-height: 1.45; margin: 10px 0; }
+  .store-loading__content p { font-size: 12px; margin-bottom: 18px; }
+  .store-loading__categories { margin-top: 18px; padding-top: 12px; }
+  .store-loading__bottom { font-size: 8px; padding-top: 14px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .store-loading *, .store-loading { animation: none !important; transition: none !important; }
+}

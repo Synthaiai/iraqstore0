@@ -22,4 +22,10 @@
 
 # The logo rarely changes; cache it for a month so it loads once per visitor.
 /logo.jpg
-  Cache-Control: public, max-age=2592000
+  Cache-Control: public, max-age=0, must-revalidate
+
+/brand-logo.jpg
+  Cache-Control: public, max-age=86400
+
+/catalog-images/*
+  Cache-Control: public, max-age=31536000, immutable

@@ -28,7 +28,14 @@ export default function Img({
   useEffect(() => {
     const el = imageRef.current;
     setState(el?.complete && el.naturalWidth > 0 ? 'done' : 'loading');
-  }, [src]);
+    setFailedSrc(null);
+  }, [src, srcSet]);
+
+  useEffect(() => {
+    const retry = () => { setFailedSrc(null); };
+    window.addEventListener('store:images-ready', retry);
+    return () => window.removeEventListener('store:images-ready', retry);
+  }, []);
 
   return (
     <span
@@ -39,7 +46,7 @@ export default function Img({
     >
       <img
         ref={imageRef}
-        src={failed ? '/logo.jpg' : (src || '/logo.jpg')}
+        src={failed ? '/product-placeholder.svg' : (src || '/product-placeholder.svg')}
         srcSet={failed ? undefined : srcSet}
         sizes={sizes}
         alt={alt}

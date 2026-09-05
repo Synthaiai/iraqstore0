@@ -7,8 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test test/security.test.mjs",
-    "check": "node --test test/security.test.mjs && vite build"
+    "test": "node --test test/*.test.mjs",
+    "check": "node --test test/*.test.mjs && vite build"
   },
   "dependencies": {
     "firebase": "^12.16.0",

@@ -12,12 +12,15 @@ with sync_playwright() as p:
     browser = p.chromium.launch(headless=True)
     context = browser.new_context(viewport={'width':390, 'height':844}, device_scale_factor=1)
     page = context.new_page()
+    # This fixture intentionally breaks a product image; explicitly browse the
+    # available items when the loader offers recovery instead of claiming 100%.
+    page.add_locator_handler(page.get_by_role('button', name='تصفّح المتاح'), lambda button: button.click())
     errors = []
     page.on('pageerror', lambda error: errors.append(str(error)))
     page.route('**/api/catalog', lambda route: route.fulfill(json={'ok':True, 'products':PRODUCTS, 'settings':{}, 'catalog':None}))
     page.route('https://**', lambda route: route.abort())
     page.goto(BASE + '/product/test-shoe')
-    expect(page.locator('h1')).to_contain_text('زارا')
+    expect(page.locator('main h1')).to_contain_text('زارا')
     # Stock and option selection survive a refresh, including the original server color.
     page.goto(BASE + '/g/men/all')
     expect(page.locator('.pcard')).to_have_count(2)

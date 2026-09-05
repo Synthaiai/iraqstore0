@@ -11,7 +11,7 @@ export default function Logo({ to = '/', compact = false }) {
     <Link to={to} className={`logo ${compact ? 'logo--compact' : ''}`} aria-label="IRAQI STORE">
       <span className="logo__badge">
         <img
-          src="/logo.jpg"
+          src="/brand-logo.jpg"
           alt="IRAQI STORE"
           width={compact ? 36 : 46}
           height={compact ? 36 : 46}

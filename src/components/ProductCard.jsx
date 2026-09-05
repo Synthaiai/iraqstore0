@@ -7,8 +7,8 @@ import Img from './Img';
 import QuickAdd from './QuickAdd';
 import { Bag, Heart } from './Icons';
 import Stars from './Stars';
+import { CARD_SIZES } from '../data/assetLoader';
 
-const CARD_SIZES = '(max-width: 380px) 92vw, (max-width: 760px) 46vw, (max-width: 1100px) 30vw, 22vw';
 const BADGE_KEY = { new: 'badgeNew', sale: 'badgeSale', best: 'badgeBest' };
 
 export default function ProductCard({ product, index = 0 }) {

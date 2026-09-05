@@ -1,3 +1,5 @@
+import { resolveEmbeddedProducts } from '../../src/data/embeddedImages.js';
+
 const DEFAULT_FIREBASE_URL = 'https://store-29692-default-rtdb.firebaseio.com';
 
 function firebaseUrl(env, path) {
@@ -38,7 +40,7 @@ export async function loadCatalog(env) {
     }
   }
 
-  return { products, settings: settings || {}, catalog: catalog || null };
+  return { products: await resolveEmbeddedProducts(products), settings: settings || {}, catalog: catalog || null };
 }
 
 export function deliveryFees(settings) {

@@ -578,7 +578,7 @@ function PrintInvoiceModal({ order, onClose }) {
           {/* Invoice Header */}
           <div className="invoice-header">
             <div className="invoice-brand">
-              <img src="/logo.jpg" alt="شعار المتجر" width="48" height="48" />
+              <img src="/brand-logo.jpg" alt="شعار المتجر" width="48" height="48" />
               <div>
                 <h2>عراق ستور | IRAQ STORE</h2>
                 <p>متجر الأزياء العراقي — وصل توصيل طلبية</p>
