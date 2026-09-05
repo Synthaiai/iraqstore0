@@ -558,12 +558,17 @@ h4 {
   object-fit: cover;
 }
 
-.store-loading { position:fixed; inset:0; z-index:5000; display:grid; place-items:center; background:var(--paper,#fff); }
-.store-loading__card { display:grid; justify-items:center; gap:.7rem; padding:2rem; color:var(--ink,#222); text-align:center; }
-.store-loading__mark { border-radius:50%; object-fit:cover; box-shadow:0 8px 24px rgba(0,0,0,.14); }
+.store-loading { position:fixed; inset:0; z-index:5000; display:grid; place-items:center; background:radial-gradient(circle at 50% 38%, #fff 0%, var(--paper,#fff) 58%, #f4eee9 100%); animation:store-fade-in .35s ease both; }
+.store-loading__card { display:grid; justify-items:center; gap:.7rem; width:min(88vw,360px); padding:2.2rem 1.5rem; color:var(--ink,#222); text-align:center; }
+.store-loading__logo-wrap { position:relative; display:grid; place-items:center; width:92px; height:92px; }
+.store-loading__mark { position:relative; z-index:1; border-radius:50%; object-fit:cover; box-shadow:0 8px 24px rgba(0,0,0,.14); }
+.store-loading__orbit { position:absolute; inset:2px; border:1px solid rgba(216,31,38,.2); border-top-color:var(--brand-red,#a9152a); border-radius:50%; animation:store-spin 1.8s linear infinite; }
 .store-loading__card strong { font-size:1.1rem; }
 .store-loading__card span { color:var(--muted,#777); font-size:.9rem; }
-.store-loading__spinner { width:28px; height:28px; border:3px solid rgba(150,20,35,.18); border-top-color:var(--brand-red,#a9152a); border-radius:50%; animation:store-spin .8s linear infinite; }
+.store-loading__progress { width:min(78vw,260px); height:6px; overflow:hidden; border-radius:99px; background:rgba(120,30,30,.12); }
+.store-loading__progress i { display:block; height:100%; border-radius:inherit; background:linear-gradient(90deg,#9e1728,var(--brand-red,#d81f26)); transition:width .35s ease; }
+.store-loading__card small { color:var(--brand-red,#a9152a); font-weight:700; }
+@keyframes store-fade-in { from { opacity:0; } to { opacity:1; } }
 @keyframes store-spin { to { transform:rotate(360deg); } }
 
 .logo:hover .logo__badge {
