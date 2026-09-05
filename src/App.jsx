@@ -19,6 +19,7 @@ import NotFound from './pages/NotFound';
 import OrderConfirmedPage from './pages/OrderConfirmedPage';
 import PoliciesPage from './pages/PoliciesPage';
 import ProductPage from './pages/ProductPage';
+import StoreLoadingScreen from './components/StoreLoadingScreen';
 
 // Admin (with Firebase auth + storage) is a separate lazy chunk — the storefront
 // never downloads it.
@@ -44,6 +45,7 @@ export default function App() {
     <>
       <PageMeta />
       <ScrollToTop />
+      <StoreLoadingScreen />
       <Header />
 
       {/* Re-keying on the path restarts the entrance animation each navigation. */}

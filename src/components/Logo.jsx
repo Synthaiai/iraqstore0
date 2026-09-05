@@ -1,19 +1,17 @@
 import { Link } from 'react-router-dom';
 import { usePrefs } from '../store/PrefsContext';
-import { useLiveData } from '../store/LiveDataContext';
 
 /**
  * Brand lockup: the logo artwork as a circular coin, plus the store name.
- * Uses the admin-uploaded logo when one exists, else the bundled /logo.jpg.
+ * Keep the header mark circular even when an admin uploads a rectangular lockup.
  */
 export default function Logo({ to = '/', compact = false }) {
   const { t } = usePrefs();
-  const { logoUrl } = useLiveData();
   return (
     <Link to={to} className={`logo ${compact ? 'logo--compact' : ''}`} aria-label="IRAQI STORE">
       <span className="logo__badge">
         <img
-          src={logoUrl || '/logo.jpg'}
+          src="/logo.jpg"
           alt="IRAQI STORE"
           width={compact ? 36 : 46}
           height={compact ? 36 : 46}

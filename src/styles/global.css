@@ -558,6 +558,14 @@ h4 {
   object-fit: cover;
 }
 
+.store-loading { position:fixed; inset:0; z-index:5000; display:grid; place-items:center; background:var(--paper,#fff); }
+.store-loading__card { display:grid; justify-items:center; gap:.7rem; padding:2rem; color:var(--ink,#222); text-align:center; }
+.store-loading__mark { border-radius:50%; object-fit:cover; box-shadow:0 8px 24px rgba(0,0,0,.14); }
+.store-loading__card strong { font-size:1.1rem; }
+.store-loading__card span { color:var(--muted,#777); font-size:.9rem; }
+.store-loading__spinner { width:28px; height:28px; border:3px solid rgba(150,20,35,.18); border-top-color:var(--brand-red,#a9152a); border-radius:50%; animation:store-spin .8s linear infinite; }
+@keyframes store-spin { to { transform:rotate(360deg); } }
+
 .logo:hover .logo__badge {
   transform: rotate(-6deg) scale(1.05);
   box-shadow: 0 0 0 1px var(--brand-red), var(--shadow-md);
