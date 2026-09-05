@@ -17,11 +17,12 @@ export default function StoreLoadingScreen() {
   const [result, setResult] = useState(null);
   const [count, setCount] = useState({ success: 0, total: 0 });
   const panel = useRef(null);
-  const dismiss = () => { setLeaving(true); setFinished(true); };
+  const completed = useRef(false);
+  const dismiss = () => { completed.current = true; setLeaving(true); setFinished(true); };
 
   useEffect(() => {
     // Cached visits finish before this threshold, without a spinner flash.
-    const timer = setTimeout(() => setVisible(true), 400);
+    const timer = setTimeout(() => { if (!completed.current) setVisible(true); }, 400);
     return () => clearTimeout(timer);
   }, []);
 
