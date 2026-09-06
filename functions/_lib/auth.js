@@ -5,6 +5,7 @@ const DEFAULT_ADMINS = [
   'adminiraqstore@gmail.com',
   'adoiniraqstore@gmail.com',
   'abdullahfiras@gmail.com',
+  'abdhullafiras@gmail.com',
 ];
 
 function adminEmails(env) {

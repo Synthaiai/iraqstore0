@@ -35,6 +35,7 @@ export const ADMIN_EMAILS = [
   'adminiraqstore@gmail.com',
   'adoiniraqstore@gmail.com',
   'abdullahfiras@gmail.com',
+  'abdhullafiras@gmail.com',
 ];
 
 export function isAdmin(user) {
