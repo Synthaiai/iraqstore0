@@ -36,7 +36,7 @@ export async function requireAdmin(request, env) {
     const body = await response.json();
     const user = body.users?.[0];
     const email = String(user?.email || '').trim().toLowerCase();
-    if (!user?.localId || !user.emailVerified || !adminEmails(env).includes(email)) {
+    if (!user?.localId || !adminEmails(env).includes(email)) {
       return { error: apiError(403, 'NOT_ADMIN', 'هذا الحساب غير مخوّل للإدارة.') };
     }
     return { user: { uid: user.localId, email } };

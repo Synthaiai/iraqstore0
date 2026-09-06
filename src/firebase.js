@@ -39,7 +39,7 @@ export const ADMIN_EMAILS = [
 ];
 
 export function isAdmin(user) {
-  if (!user || !user.email || !user.emailVerified) return false;
+  if (!user || !user.email) return false;
   const email = user.email.toLowerCase().trim();
   return ADMIN_EMAILS.some((e) => e.toLowerCase() === email);
 }

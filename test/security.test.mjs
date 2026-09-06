@@ -5,13 +5,13 @@ import test from 'node:test';
 const root = new URL('../', import.meta.url);
 const read = (path) => readFile(new URL(path, root), 'utf8');
 
-test('Firebase stock and order writes require verified admin', async () => {
+test('Firebase stock and order writes require an allowlisted admin account', async () => {
   const rules = JSON.parse(await read('database.rules.json'));
   const stockRule = rules.rules.products.$productId.stockQuantity['.write'];
   assert.equal(stockRule, undefined);
-  assert.match(rules.rules.products.$productId['.write'], /email_verified/);
+  assert.match(rules.rules.products.$productId['.write'], /auth\.token\.email == 'adminiraq@gmail\.com'/);
   assert.doesNotMatch(rules.rules.orders.$orderId['.write'], /data\.val\(\) == null/);
-  assert.match(rules.rules.orders.$orderId['.write'], /email_verified/);
+  assert.match(rules.rules.orders.$orderId['.write'], /auth\.token\.email == 'adminiraq@gmail\.com'/);
 });
 
 test('production build starts from source instead of a committed bundle', async () => {
