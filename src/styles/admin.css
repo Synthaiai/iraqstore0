@@ -1575,6 +1575,18 @@
   background: #ffffff;
 }
 
+.admin-invoice-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.admin-invoice-save-msg {
+  margin: 0.75rem 1rem 0;
+}
+
 .invoice-header {
   display: flex;
   justify-content: space-between;
@@ -1680,6 +1692,21 @@
   text-align: center;
   color: #6b7280;
   font-size: 0.85rem;
+}
+
+@media (max-width: 620px) {
+  .admin-invoice-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .admin-invoice-actions .admin-btn {
+    flex: 1 1 150px;
+  }
+
+  .admin-invoice-actions .admin-icon {
+    flex: 0 0 auto;
+  }
 }
 
 @media print {

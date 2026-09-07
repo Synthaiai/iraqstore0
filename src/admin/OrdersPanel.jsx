@@ -2,6 +2,7 @@ import { img } from '../data/images';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatPrice } from '../data/products';
 import { deleteOrder, fetchCloudOrdersSnapshot, hasMoreCloudOrders, loadMoreCloudOrders, updateOrderStatus } from '../data/remote';
+import { generateInvoiceImage } from '../utils/invoice';
 
 const STATUS_LABELS = {
   new: { label: 'طلب جديد 🆕', badge: 'admin-status--new' },
@@ -548,8 +549,58 @@ function OrderDetailsModal({ order, onClose, onStatusChange, onPrint }) {
 }
 
 function PrintInvoiceModal({ order, onClose }) {
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState('');
+
   const triggerPrint = () => {
     window.print();
+  };
+
+  const filename = `iraq-store-invoice-${String(order.orderNo || order.id || Date.now()).replace(/[^\w-]+/g, '-')}.png`;
+
+  const downloadBlob = (blob) => {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.rel = 'noopener';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30_000);
+    setSaveMsg('تم تجهيز الصورة للحفظ. إذا فتحها المتصفح، اختر حفظ الصورة.');
+  };
+
+  const saveInvoice = async () => {
+    setSaving(true);
+    setSaveMsg('');
+    try {
+      const blob = await generateInvoiceImage(order);
+      if (typeof File !== 'undefined' && navigator.share) {
+        const file = new File([blob], filename, { type: 'image/png' });
+        if (navigator.canShare?.({ files: [file] })) {
+          try {
+            await navigator.share({
+              files: [file],
+              title: `فاتورة طلب ${order.orderNo || order.id}`,
+              text: 'فاتورة الطلب من IRAQ STORE',
+            });
+            setSaveMsg('تم فتح خيارات الحفظ والمشاركة على الجهاز.');
+            return;
+          } catch (shareError) {
+            if (shareError?.name === 'AbortError') {
+              setSaveMsg('');
+              return;
+            }
+          }
+        }
+      }
+      downloadBlob(blob);
+    } catch (error) {
+      setSaveMsg(`تعذر حفظ الفاتورة: ${error?.message || 'حاول مرة أخرى.'}`);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const items = Array.isArray(order.cart)
@@ -566,13 +617,17 @@ function PrintInvoiceModal({ order, onClose }) {
       >
         <header className="admin-modal__head no-print">
           <h2>وصل توصيل طلبية #{order.orderNo || order.id}</h2>
-          <div>
+          <div className="admin-invoice-actions">
+            <button className="admin-btn admin-btn--primary" onClick={saveInvoice} disabled={saving}>
+              {saving ? 'جارٍ تجهيز الصورة…' : 'حفظ الفاتورة كصورة'}
+            </button>
             <button className="admin-btn admin-btn--primary" onClick={triggerPrint}>
               طباعة الآن 🖨️
             </button>
             <button className="admin-icon" onClick={onClose} style={{ marginInlineStart: 8 }}>✕</button>
           </div>
         </header>
+        {saveMsg && <p className="admin-note admin-note--ok no-print admin-invoice-save-msg">{saveMsg}</p>}
 
         <div className="admin-invoice-paper">
           {/* Invoice Header */}

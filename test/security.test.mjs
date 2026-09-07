@@ -123,3 +123,12 @@ test('reordering changes only display order and never resets sold inventory', as
   assert.match(remote, /if \(!reorderOnly\) await Promise.all\(recordsList.map\(syncInventory\)\)/);
   assert.match(remote, /batchMap\[\`\$\{record.id\}\/sortOrder\`\]/);
 });
+
+test('admin invoice can be saved as an image on mobile browsers', async () => {
+  const ordersPanel = await read('src/admin/OrdersPanel.jsx');
+  const invoice = await read('src/utils/invoice.js');
+  assert.match(ordersPanel, /generateInvoiceImage/);
+  assert.match(ordersPanel, /navigator\.share/);
+  assert.match(ordersPanel, /حفظ الفاتورة كصورة/);
+  assert.match(invoice, /Object\.values\(order\.cart\)/);
+});

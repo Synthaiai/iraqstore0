@@ -14,7 +14,11 @@ function loadImage(source) {
 
 // One product photograph per ordered variant, with the exact recorded options.
 export async function generateInvoiceImage(order) {
-  const lines = order.cart || [];
+  const lines = Array.isArray(order.cart)
+    ? order.cart
+    : order.cart && typeof order.cart === 'object'
+    ? Object.values(order.cart)
+    : [];
   const pictures = await Promise.all(lines.map((line) => loadImage(line.product?.images?.[0] || line.product?.image || line.image)));
   const canvas = document.createElement('canvas');
   canvas.width = 900;
