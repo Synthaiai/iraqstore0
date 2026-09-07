@@ -61,7 +61,7 @@ with sync_playwright() as p:
     page.route('**/api/orders', save_order)
     page.locator('button[type="submit"]').first.click()
     page.wait_for_url('**/order-confirmed')
-    expect(page.locator('button').filter(has_text='حفظ أو مشاركة')).to_be_enabled(timeout=15000)
+    expect(page.locator('button').filter(has_text='حفظ الفاتورة كصورة')).to_be_enabled(timeout=15000)
     page.locator('summary').click()
     page.locator('img[alt="فاتورة الطلب كاملة"]').screenshot(path='test/invoice-preview.png')
     page.screenshot(path='test/confirmation-mobile.png', full_page=True)

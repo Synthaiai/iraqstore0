@@ -50,18 +50,14 @@ export default function OrderConfirmedPage() {
     setSaving(true);
     setInvoiceError('');
     try {
-      if (navigator.canShare?.({ files: [invoiceFile] })) {
-        await navigator.share({ files: [invoiceFile], title: `فاتورة ${state.orderNo}` });
-      } else {
-        const link = document.createElement('a');
-        link.href = invoiceUrl;
-        link.download = invoiceFile.name;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-      }
+      const link = document.createElement('a');
+      link.href = invoiceUrl;
+      link.download = invoiceFile.name;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
     } catch (err) {
-      if (err.name !== 'AbortError') setInvoiceError('تعذرت المشاركة. افتح الصورة أدناه واحفظها بالضغط المطوّل.');
+      setInvoiceError('تعذر حفظ الصورة. افتح صورة الفاتورة أدناه واحفظها من المتصفح.');
     } finally { setSaving(false); }
   }, [invoiceFile, invoiceUrl, state]);
 
@@ -148,8 +144,8 @@ export default function OrderConfirmedPage() {
       {invoiceError && <p role="alert">{invoiceError}</p>}
       {invoiceUrl && <details className="confirm__card">
         <summary>عرض صورة الفاتورة وحفظها</summary>
-        <p>على الآيفون: اضغط زر المشاركة ثم «حفظ الصورة»، أو اضغط مطولاً على الصورة أدناه.</p>
-        <a href={invoiceUrl} target="_blank" rel="noreferrer">فتح صورة الفاتورة</a>
+        <p>اضغط زر الحفظ، أو افتح الصورة واحفظها داخل ملفات الجهاز من المتصفح.</p>
+        <a href={invoiceUrl} download={invoiceFile?.name || `invoice_${state.orderNo}.png`}>تنزيل صورة الفاتورة</a>
         <img src={invoiceUrl} alt="فاتورة الطلب كاملة" style={{ width: '100%', height: 'auto', marginTop: 12 }} />
       </details>}
       <p className="confirm__note">تم تسجيل طلبك. يُرجى الاحتفاظ بالفاتورة لضمان متابعة الطلب، ويمكنك إرسالها إلى واتساب المتجر لتسهيل التأكيد.</p>
@@ -168,7 +164,7 @@ export default function OrderConfirmedPage() {
           style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', width: '100%', maxWidth: '360px', justifyContent: 'center' }}
         >
           <DownloadIcon />
-          {saving ? 'جارٍ حفظ الفاتورة...' : 'حفظ أو مشاركة الفاتورة 🧾'}
+          {saving ? 'جارٍ حفظ الفاتورة...' : 'حفظ الفاتورة كصورة 🧾'}
         </button>
 
         <button

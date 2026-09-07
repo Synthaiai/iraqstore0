@@ -576,25 +576,6 @@ function PrintInvoiceModal({ order, onClose }) {
     setSaveMsg('');
     try {
       const blob = await generateInvoiceImage(order);
-      if (typeof File !== 'undefined' && navigator.share) {
-        const file = new File([blob], filename, { type: 'image/png' });
-        if (navigator.canShare?.({ files: [file] })) {
-          try {
-            await navigator.share({
-              files: [file],
-              title: `فاتورة طلب ${order.orderNo || order.id}`,
-              text: 'فاتورة الطلب من IRAQ STORE',
-            });
-            setSaveMsg('تم فتح خيارات الحفظ والمشاركة على الجهاز.');
-            return;
-          } catch (shareError) {
-            if (shareError?.name === 'AbortError') {
-              setSaveMsg('');
-              return;
-            }
-          }
-        }
-      }
       downloadBlob(blob);
     } catch (error) {
       setSaveMsg(`تعذر حفظ الفاتورة: ${error?.message || 'حاول مرة أخرى.'}`);

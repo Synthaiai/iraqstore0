@@ -6,7 +6,7 @@ const STORAGE_KEY_PRODUCTS = 'iraqstore_products_v1';
 const STORAGE_KEY_CATALOG = 'iraqstore_catalog_v1';
 const STORAGE_KEY_SETTINGS = 'iraqstore_settings_v1';
 const CATALOG_REFRESH_MS = 5 * 60_000;
-const ORDERS_REFRESH_MS = 30_000;
+const ORDERS_REFRESH_MS = 8_000;
 
 let connectionStatus = 'checking';
 const statusListeners = new Set();
@@ -21,6 +21,7 @@ let ordersCache = [];
 let ordersNextCursor = null;
 let catalogTimer = null;
 let ordersTimer = null;
+let ordersFetchRequest = null;
 let adminCatalogSubscribers = 0;
 
 function notifyStatus(status) {
@@ -329,11 +330,19 @@ function publishOrders(orders) {
 export function getLocalOrders() { return ordersCache; }
 
 export async function fetchCloudOrdersSnapshot(cb) {
-  const body = await apiJson('/api/orders?limit=100', { admin: true });
-  ordersNextCursor = body.nextCursor || null;
-  publishOrders(body.orders || []);
-  if (cb) cb(ordersCache);
-  return ordersCache;
+  if (ordersFetchRequest) return ordersFetchRequest;
+  ordersFetchRequest = apiJson('/api/orders?limit=100', { admin: true })
+    .then((body) => {
+      ordersNextCursor = body.nextCursor || null;
+      publishOrders(body.orders || []);
+      notifyStatus('online');
+      if (cb) cb(ordersCache);
+      return ordersCache;
+    })
+    .finally(() => {
+      ordersFetchRequest = null;
+    });
+  return ordersFetchRequest;
 }
 
 export function hasMoreCloudOrders() { return Boolean(ordersNextCursor); }
@@ -348,18 +357,31 @@ export async function loadMoreCloudOrders() {
   return ordersCache;
 }
 
+function refreshOrdersWhenActive() {
+  if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+  fetchCloudOrdersSnapshot().catch(() => notifyStatus('degraded'));
+}
+
 export function listenOrders(cb) {
   ordersListeners.add(cb);
   cb(ordersCache);
   fetchCloudOrdersSnapshot().catch(() => notifyStatus('degraded'));
   if (!ordersTimer) {
-    ordersTimer = setInterval(() => {
-      if (document.visibilityState === 'visible') fetchCloudOrdersSnapshot().catch(() => notifyStatus('degraded'));
-    }, ORDERS_REFRESH_MS);
+    ordersTimer = setInterval(refreshOrdersWhenActive, ORDERS_REFRESH_MS);
+    window.addEventListener('focus', refreshOrdersWhenActive);
+    window.addEventListener('online', refreshOrdersWhenActive);
+    window.addEventListener('visibilitychange', refreshOrdersWhenActive);
   }
   return () => {
     ordersListeners.delete(cb);
-    if (!ordersListeners.size && ordersTimer) { clearInterval(ordersTimer); ordersTimer = null; }
+    if (!ordersListeners.size && ordersTimer) {
+      clearInterval(ordersTimer);
+      ordersTimer = null;
+      window.removeEventListener('focus', refreshOrdersWhenActive);
+      window.removeEventListener('online', refreshOrdersWhenActive);
+      window.removeEventListener('visibilitychange', refreshOrdersWhenActive);
+    }
   };
 }
 

@@ -124,11 +124,23 @@ test('reordering changes only display order and never resets sold inventory', as
   assert.match(remote, /batchMap\[\`\$\{record.id\}\/sortOrder\`\]/);
 });
 
-test('admin invoice can be saved as an image on mobile browsers', async () => {
+test('invoices save as images without using browser share sheets', async () => {
   const ordersPanel = await read('src/admin/OrdersPanel.jsx');
+  const confirmedPage = await read('src/pages/OrderConfirmedPage.jsx');
   const invoice = await read('src/utils/invoice.js');
   assert.match(ordersPanel, /generateInvoiceImage/);
-  assert.match(ordersPanel, /navigator\.share/);
+  assert.doesNotMatch(ordersPanel, /navigator\.share|canShare/);
+  assert.doesNotMatch(confirmedPage, /navigator\.share|canShare|حفظ أو مشاركة/);
   assert.match(ordersPanel, /حفظ الفاتورة كصورة/);
+  assert.match(confirmedPage, /حفظ الفاتورة كصورة/);
   assert.match(invoice, /Object\.values\(order\.cart\)/);
+});
+
+test('admin orders refresh quickly and on app focus', async () => {
+  const remote = await read('src/data/remote.js');
+  assert.match(remote, /const ORDERS_REFRESH_MS = 8_000/);
+  assert.match(remote, /ordersFetchRequest/);
+  assert.match(remote, /if \(ordersFetchRequest\) return ordersFetchRequest/);
+  assert.match(remote, /window\.addEventListener\('focus', refreshOrdersWhenActive\)/);
+  assert.match(remote, /window\.addEventListener\('visibilitychange', refreshOrdersWhenActive\)/);
 });
