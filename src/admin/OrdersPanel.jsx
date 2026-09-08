@@ -2,7 +2,7 @@ import { img } from '../data/images';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatPrice } from '../data/products';
 import { deleteOrder, fetchCloudOrdersSnapshot, hasMoreCloudOrders, loadMoreCloudOrders, updateOrderStatus } from '../data/remote';
-import { generateInvoiceImage } from '../utils/invoice';
+import { blobToDataUrl, generateInvoiceImage } from '../utils/invoice';
 
 const STATUS_LABELS = {
   new: { label: 'طلب جديد 🆕', badge: 'admin-status--new' },
@@ -551,6 +551,8 @@ function OrderDetailsModal({ order, onClose, onStatusChange, onPrint }) {
 function PrintInvoiceModal({ order, onClose }) {
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
+  const [invoiceUrl, setInvoiceUrl] = useState('');
+  const [invoiceError, setInvoiceError] = useState('');
 
   const triggerPrint = () => {
     window.print();
@@ -558,31 +560,28 @@ function PrintInvoiceModal({ order, onClose }) {
 
   const filename = `iraq-store-invoice-${String(order.orderNo || order.id || Date.now()).replace(/[^\w-]+/g, '-')}.png`;
 
-  const downloadBlob = (blob) => {
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    link.rel = 'noopener';
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 30_000);
-    setSaveMsg('تم تجهيز الصورة للحفظ. إذا فتحها المتصفح، اختر حفظ الصورة.');
-  };
-
-  const saveInvoice = async () => {
+  useEffect(() => {
+    let active = true;
     setSaving(true);
-    setSaveMsg('');
-    try {
-      const blob = await generateInvoiceImage(order);
-      downloadBlob(blob);
-    } catch (error) {
-      setSaveMsg(`تعذر حفظ الفاتورة: ${error?.message || 'حاول مرة أخرى.'}`);
-    } finally {
-      setSaving(false);
-    }
-  };
+    setSaveMsg('جارٍ تجهيز صورة الفاتورة للحفظ…');
+    setInvoiceError('');
+    generateInvoiceImage(order)
+      .then((blob) => blobToDataUrl(blob))
+      .then((url) => {
+        if (!active) return;
+        setInvoiceUrl(url);
+        setSaveMsg('');
+      })
+      .catch((error) => {
+        if (active) setInvoiceError(`تعذر تجهيز صورة الفاتورة: ${error?.message || 'حاول مرة أخرى.'}`);
+      })
+      .finally(() => {
+        if (active) setSaving(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [order]);
 
   const items = Array.isArray(order.cart)
     ? order.cart
@@ -599,9 +598,15 @@ function PrintInvoiceModal({ order, onClose }) {
         <header className="admin-modal__head no-print">
           <h2>وصل توصيل طلبية #{order.orderNo || order.id}</h2>
           <div className="admin-invoice-actions">
-            <button className="admin-btn admin-btn--primary" onClick={saveInvoice} disabled={saving}>
+            <a
+              className={`admin-btn admin-btn--primary ${saving || !invoiceUrl ? 'is-disabled' : ''}`}
+              href={invoiceUrl || undefined}
+              download={filename}
+              onClick={() => setSaveMsg('بدأ تنزيل صورة الفاتورة. على الآيفون قد تظهر داخل التنزيلات/Files.')}
+              aria-disabled={saving || !invoiceUrl}
+            >
               {saving ? 'جارٍ تجهيز الصورة…' : 'حفظ الفاتورة كصورة'}
-            </button>
+            </a>
             <button className="admin-btn admin-btn--primary" onClick={triggerPrint}>
               طباعة الآن 🖨️
             </button>
@@ -609,6 +614,7 @@ function PrintInvoiceModal({ order, onClose }) {
           </div>
         </header>
         {saveMsg && <p className="admin-note admin-note--ok no-print admin-invoice-save-msg">{saveMsg}</p>}
+        {invoiceError && <p className="admin-auth__error no-print admin-invoice-save-msg">{invoiceError}</p>}
 
         <div className="admin-invoice-paper">
           {/* Invoice Header */}

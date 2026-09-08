@@ -165,6 +165,12 @@
   opacity: 0.55;
   cursor: default;
 }
+.admin-btn.is-disabled,
+.admin-btn[aria-disabled='true'] {
+  opacity: 0.55;
+  pointer-events: none;
+  cursor: default;
+}
 .admin-btn--primary {
   background: linear-gradient(180deg, var(--a-accent-2), var(--a-accent));
   border-color: transparent;

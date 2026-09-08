@@ -126,6 +126,26 @@ let currentGenders = [...INITIAL_GENDERS];
 let currentCategories = { ...INITIAL_CATEGORIES };
 let currentSubcategories = { ...INITIAL_SUBCATEGORIES };
 
+const LEGACY_SUBCATEGORY_LABELS = {
+  trainers: { title: 'أحذية كاجول (ترينرز)', latin: 'Trainers' },
+  casual: { title: 'أحذية كاجول (ترينرز)', latin: 'Trainers' },
+  sneakers: { title: 'أحذية ركض (سنيكرز)', latin: 'Sneakers' },
+  running: { title: 'أحذية ركض (سنيكرز)', latin: 'Running' },
+  formal: { title: 'أحذية رسمية', latin: 'Formal' },
+  loafers: { title: 'أحذية لوفرز', latin: 'Loafers' },
+  boots: { title: 'بوت', latin: 'Boots' },
+  heels: { title: 'كعب عالي', latin: 'Heels' },
+  flats: { title: 'باليرينا', latin: 'Flats' },
+};
+
+export function getSubcategoryLabel(gender, category, slug) {
+  const sub = getSubcategory(gender, category, slug);
+  if (sub) return { title: sub.title, latin: sub.latin || sub.slug };
+  const fallback = LEGACY_SUBCATEGORY_LABELS[String(slug || '').trim().toLowerCase()];
+  if (fallback) return fallback;
+  return { title: slug || 'قسم فرعي', latin: slug || 'Subcategory' };
+}
+
 // Try loading local catalog cache at module start
 const cached = getLocalCatalog();
 if (cached && cached.genders) {
@@ -177,7 +197,10 @@ export function getCategory(gender, slug) {
 }
 
 export function getSubcategories(gender, category) {
-  return currentSubcategories[`${gender}/${category}`] || [];
+  const key = `${gender}/${category}`;
+  const current = currentSubcategories[key];
+  if (Array.isArray(current) && current.filter((s) => s?.slug && s.slug !== 'all').length) return current;
+  return INITIAL_SUBCATEGORIES[key] || [];
 }
 
 export function getSubcategory(gender, category, slug) {

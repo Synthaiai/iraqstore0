@@ -130,10 +130,11 @@ test('invoices save as images without using browser share sheets', async () => {
   const invoice = await read('src/utils/invoice.js');
   assert.match(ordersPanel, /generateInvoiceImage/);
   assert.doesNotMatch(ordersPanel, /navigator\.share|canShare/);
-  assert.doesNotMatch(confirmedPage, /navigator\.share|canShare|حفظ أو مشاركة/);
+  assert.doesNotMatch(confirmedPage, /navigator\.share|canShare|openWhatsAppInvoice|حفظ أو مشاركة|إرسال نسخة عبر الواتساب/);
   assert.match(ordersPanel, /حفظ الفاتورة كصورة/);
   assert.match(confirmedPage, /حفظ الفاتورة كصورة/);
   assert.match(invoice, /Object\.values\(order\.cart\)/);
+  assert.match(invoice, /readAsDataURL\(blob\)/);
 });
 
 test('admin orders refresh quickly and on app focus', async () => {
@@ -143,4 +144,20 @@ test('admin orders refresh quickly and on app focus', async () => {
   assert.match(remote, /if \(ordersFetchRequest\) return ordersFetchRequest/);
   assert.match(remote, /window\.addEventListener\('focus', refreshOrdersWhenActive\)/);
   assert.match(remote, /window\.addEventListener\('visibilitychange', refreshOrdersWhenActive\)/);
+});
+
+
+
+test('shoe subcategories fall back to official Arabic labels', async () => {
+  const catalog = await read('src/data/catalog.js');
+  const browser = await read('src/components/ProductBrowser.jsx');
+  const form = await read('src/admin/ProductForm.jsx');
+  for (const label of ['أحذية كاجول (ترينرز)', 'أحذية ركض (سنيكرز)', 'أحذية رسمية', 'أحذية لوفرز', 'بوت']) {
+    assert.match(catalog, new RegExp(label.replace(/[()]/g, '\\$&')));
+  }
+  assert.match(catalog, /LEGACY_SUBCATEGORY_LABELS/);
+  assert.match(catalog, /getSubcategories\(gender, category\)/);
+  assert.match(browser, /getSubcategoryLabel/);
+  assert.match(form, /INITIAL_CATEGORIES/);
+  assert.doesNotMatch(form, />No Options</);
 });

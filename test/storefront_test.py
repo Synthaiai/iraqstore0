@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 from playwright.sync_api import sync_playwright, expect
 
@@ -26,7 +27,7 @@ with sync_playwright() as p:
     expect(page.locator('.pcard')).to_have_count(2)
     page.wait_for_function("Array.from(document.querySelectorAll('.pcard__img:not(.pcard__img--alt) img')).every(i => i.complete && i.naturalWidth > 0)")
     page.locator('.chip--action').click()
-    expect(page.locator('.filters')).to_have_class(__import__('re').compile('is-open'))
+    expect(page.locator('.filters')).to_have_class(re.compile('is-open'))
     page.locator('.filters .filter-group').first.locator('button').first.click()
     expect(page.locator('.pcard')).to_have_count(1)
     page.locator('.filters__foot .btn--ghost').click()
@@ -61,7 +62,8 @@ with sync_playwright() as p:
     page.route('**/api/orders', save_order)
     page.locator('button[type="submit"]').first.click()
     page.wait_for_url('**/order-confirmed')
-    expect(page.locator('button').filter(has_text='حفظ الفاتورة كصورة')).to_be_enabled(timeout=15000)
+    save_link = page.get_by_role('link', name=re.compile('حفظ الفاتورة كصورة'))
+    expect(save_link).to_have_attribute('href', re.compile(r'^data:image/png'), timeout=15000)
     page.locator('summary').click()
     page.locator('img[alt="فاتورة الطلب كاملة"]').screenshot(path='test/invoice-preview.png')
     page.screenshot(path='test/confirmation-mobile.png', full_page=True)

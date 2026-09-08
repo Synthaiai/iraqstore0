@@ -12,6 +12,15 @@ function loadImage(source) {
   });
 }
 
+export function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(reader.error || new Error('DATA_URL_FAILED'));
+    reader.readAsDataURL(blob);
+  });
+}
+
 // One product photograph per ordered variant, with the exact recorded options.
 export async function generateInvoiceImage(order) {
   const lines = Array.isArray(order.cart)

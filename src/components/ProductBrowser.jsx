@@ -1,4 +1,4 @@
-import { getSubcategory } from '../data/catalog';
+import { getSubcategoryLabel } from '../data/catalog';
 import { useEffect, useMemo, useState } from 'react';
 import { availableColors, availableSizes, formatPrice, priceBounds } from '../data/products';
 import { usePrefs } from '../store/PrefsContext';
@@ -32,8 +32,8 @@ export default function ProductBrowser({ pool, resetKey }) {
   const colors = useMemo(() => availableColors(pool), [pool]);
   const categories = useMemo(() => [...new Map(pool.filter((p) => p.sub).map((p) => {
     const key = `${p.gender}/${p.category}/${p.sub}`;
-    const category = getSubcategory(p.gender, p.category, p.sub);
-    return [key, { key, name: category?.title || p.sub, nameEn: category?.latin || p.sub }];
+    const category = getSubcategoryLabel(p.gender, p.category, p.sub);
+    return [key, { key, name: category.title, nameEn: category.latin }];
   })).values()], [pool]);
   const sizes = useMemo(() => availableSizes(pool), [pool]);
 

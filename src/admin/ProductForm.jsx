@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CATEGORIES, SUBCATEGORIES, getFullCatalogTree, getSubcategories } from '../data/catalog';
+import { CATEGORIES, INITIAL_CATEGORIES, getFullCatalogTree, getSubcategories } from '../data/catalog';
 import { formatPrice } from '../data/products';
 import { uploadImage } from '../data/upload';
 import { compressImage, formatBytes } from '../utils/imageCompressor';
@@ -288,8 +288,15 @@ export default function ProductForm({ initial, onSave, onCancel }) {
 
   const activeTypeCfg = TYPE_CONFIG[form.type] || TYPE_CONFIG.general;
   const currentTree = getFullCatalogTree();
-  const cats = (currentTree.categories && currentTree.categories[form.gender]) || CATEGORIES[form.gender] || [];
-  const subs = (getSubcategories(form.gender, form.category) || []).filter((s) => s.slug !== 'all');
+  const treeCats = (currentTree.categories && currentTree.categories[form.gender]) || CATEGORIES[form.gender] || [];
+  const cats = Array.isArray(treeCats) && treeCats.length ? treeCats : (INITIAL_CATEGORIES[form.gender] || []);
+  const subs = useMemo(() => (getSubcategories(form.gender, form.category) || []).filter((s) => s.slug !== 'all'), [form.gender, form.category]);
+
+  useEffect(() => {
+    if (!subs.length) return;
+    if (subs.some((s) => s.slug === form.sub)) return;
+    setForm((f) => ({ ...f, sub: subs[0].slug }));
+  }, [form.gender, form.category, form.sub, subs]);
 
   // Handle clicking Product Type card (e.g. Shoes, Clothing, Perfume, Bags, Watches)
   const handleTypeSelect = (typeId) => {
@@ -371,7 +378,9 @@ export default function ProductForm({ initial, onSave, onCancel }) {
   // Handle changing Gender
   const handleGenderChange = (newGender) => {
     setForm((f) => {
-      const availCats = CATEGORIES[newGender] || [];
+      const tree = getFullCatalogTree();
+      const treeCats = tree.categories?.[newGender] || CATEGORIES[newGender] || [];
+      const availCats = Array.isArray(treeCats) && treeCats.length ? treeCats : (INITIAL_CATEGORIES[newGender] || []);
       const targetCat = availCats.some((c) => c.slug === f.category) ? f.category : (availCats[0]?.slug || 'shoes');
       const availSubs = (getSubcategories(newGender, targetCat) || []).filter((s) => s.slug !== 'all');
       const targetSub = availSubs.some((s) => s.slug === f.sub) ? f.sub : (availSubs[0]?.slug || '');
@@ -672,9 +681,11 @@ export default function ProductForm({ initial, onSave, onCancel }) {
             <label className="admin-field">
               <span>القسم الفرعي</span>
               <select value={form.sub} onChange={(e) => set('sub', e.target.value)}>
-                {subs.map((s) => (
-                  <option key={s.slug} value={s.slug}>{s.title}</option>
-                ))}
+                {subs.length ? (
+                  subs.map((s) => <option key={s.slug} value={s.slug}>{s.title}</option>)
+                ) : (
+                  <option value="">لا توجد أقسام فرعية</option>
+                )}
               </select>
             </label>
           </div>

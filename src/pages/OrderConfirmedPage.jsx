@@ -1,11 +1,10 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, Navigate, useLocation } from 'react-router-dom';
 import { formatPrice } from '../data/products';
 import { usePrefs } from '../store/PrefsContext';
-import { Check, Truck, Whatsapp } from '../components/Icons';
-import { STORE_CONTACT, openWhatsAppInvoice } from '../data/contact';
+import { Check, Truck } from '../components/Icons';
 
-import { generateInvoiceImage } from '../utils/invoice';
+import { blobToDataUrl, generateInvoiceImage } from '../utils/invoice';
 import { img } from '../data/images';
 
 /* ─── Download Icon SVG ─── */
@@ -24,42 +23,22 @@ export default function OrderConfirmedPage() {
   const { t, lang } = usePrefs();
   const [saving, setSaving] = useState(false);
   const [invoiceUrl, setInvoiceUrl] = useState('');
-  const [invoiceFile, setInvoiceFile] = useState(null);
+  const [invoiceName, setInvoiceName] = useState('');
   const [invoiceError, setInvoiceError] = useState('');
 
   useEffect(() => {
     if (!state?.orderNo) return;
     let active = true;
-    let url;
-    generateInvoiceImage(state).then((blob) => {
+    setSaving(true);
+    generateInvoiceImage(state).then((blob) => blobToDataUrl(blob)).then((url) => {
       if (!active) return;
-      url = URL.createObjectURL(blob);
       setInvoiceUrl(url);
-      setInvoiceFile(new File([blob], `invoice_${state.orderNo}.png`, { type: 'image/png' }));
-    }).catch(() => active && setInvoiceError('تعذر تجهيز الصورة. أعد فتح الصفحة وحاول مجدداً.'));
-    return () => { active = false; if (url) URL.revokeObjectURL(url); };
+      setInvoiceName(`invoice_${state.orderNo}.png`);
+    }).catch(() => active && setInvoiceError('تعذر تجهيز الصورة. أعد فتح الصفحة وحاول مجدداً.'))
+      .finally(() => active && setSaving(false));
+    return () => { active = false; };
   }, [state]);
 
-
-  const resendWhatsApp = () => {
-    openWhatsAppInvoice(state);
-  };
-
-  const handleSaveInvoice = useCallback(async () => {
-    if (!invoiceFile) return;
-    setSaving(true);
-    setInvoiceError('');
-    try {
-      const link = document.createElement('a');
-      link.href = invoiceUrl;
-      link.download = invoiceFile.name;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-    } catch (err) {
-      setInvoiceError('تعذر حفظ الصورة. افتح صورة الفاتورة أدناه واحفظها من المتصفح.');
-    } finally { setSaving(false); }
-  }, [invoiceFile, invoiceUrl, state]);
 
   if (!state?.orderNo) return <Navigate to="/" replace />;
 
@@ -144,11 +123,11 @@ export default function OrderConfirmedPage() {
       {invoiceError && <p role="alert">{invoiceError}</p>}
       {invoiceUrl && <details className="confirm__card">
         <summary>عرض صورة الفاتورة وحفظها</summary>
-        <p>اضغط زر الحفظ، أو افتح الصورة واحفظها داخل ملفات الجهاز من المتصفح.</p>
-        <a href={invoiceUrl} download={invoiceFile?.name || `invoice_${state.orderNo}.png`}>تنزيل صورة الفاتورة</a>
+        <p>اضغط زر الحفظ، أو استخدم رابط التنزيل لحفظ الصورة داخل ملفات الجهاز.</p>
+        <a href={invoiceUrl} download={invoiceName || `invoice_${state.orderNo}.png`}>تنزيل صورة الفاتورة</a>
         <img src={invoiceUrl} alt="فاتورة الطلب كاملة" style={{ width: '100%', height: 'auto', marginTop: 12 }} />
       </details>}
-      <p className="confirm__note">تم تسجيل طلبك. يُرجى الاحتفاظ بالفاتورة لضمان متابعة الطلب، ويمكنك إرسالها إلى واتساب المتجر لتسهيل التأكيد.</p>
+      <p className="confirm__note">تم تسجيل طلبك. يُرجى الاحتفاظ بالفاتورة داخل ملفات الجهاز لضمان متابعة الطلب.</p>
       <div className="confirm__note">
         <Truck />
         <span>{state.payment === 'card' ? 'سيتم التواصل معك هاتفياً لتأكيد شحن طلبك.' : 'الدفع عند الاستلام. سيتم التواصل معك هاتفياً لتأكيد موعد التوصيل.'}</span>
@@ -156,27 +135,17 @@ export default function OrderConfirmedPage() {
 
       <div className="confirm__actions" style={{ flexDirection: 'column', gap: '0.75rem', alignItems: 'center' }}>
         {/* ── Save Invoice as Image ── */}
-        <button
-          type="button"
+        <a
           className="btn btn--burgundy"
-          onClick={handleSaveInvoice}
-          disabled={saving || !invoiceFile}
+          href={invoiceUrl || undefined}
+          download={invoiceName || `invoice_${state.orderNo}.png`}
+          onClick={() => setInvoiceError('')}
+          aria-disabled={saving || !invoiceUrl}
           style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', width: '100%', maxWidth: '360px', justifyContent: 'center' }}
         >
           <DownloadIcon />
           {saving ? 'جارٍ حفظ الفاتورة...' : 'حفظ الفاتورة كصورة 🧾'}
-        </button>
-
-        <button
-          type="button"
-          className="btn btn--ghost"
-          onClick={resendWhatsApp}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', width: '100%', maxWidth: '360px', justifyContent: 'center' }}
-        >
-          <Whatsapp />
-          إرسال نسخة عبر الواتساب (اختياري) 📱
-        </button>
-
+        </a>
         <Link to="/" className="btn btn--ghost" style={{ width: '100%', maxWidth: '360px', textAlign: 'center' }}>
           العودة لتصفح المتجر 🛍️
         </Link>
