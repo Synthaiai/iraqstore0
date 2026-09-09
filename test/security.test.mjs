@@ -51,12 +51,12 @@ test('checkout clears cart only after a confirmed API response', async () => {
   assert.match(checkout, /state: savedOrder/);
 });
 
-test('images are not embedded into Realtime Database as base64 fallback', async () => {
+test('image uploads fall back to bounded inline images when Firebase Storage is unavailable', async () => {
   const upload = await read('src/data/upload.js');
-  const categories = await read('src/admin/CategoryTree.jsx');
-  assert.doesNotMatch(upload, /readAsDataURL/);
-  assert.match(upload, /throw new Error/);
-  assert.doesNotMatch(categories, /setCover\(dataUrl\)/);
+  assert.match(upload, /storageUnavailableForSession/);
+  assert.match(upload, /INLINE_IMAGE_LIMIT = 950 \* 1024/);
+  assert.match(upload, /falling back to inline compressed image/);
+  assert.match(upload, /return await inlineCompressedImage\(file\)/);
 });
 
 test('draft products require authenticated catalogue access', async () => {
