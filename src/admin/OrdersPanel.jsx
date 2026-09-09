@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatPrice } from '../data/products';
 import { deleteOrder, fetchCloudOrdersSnapshot, hasMoreCloudOrders, loadMoreCloudOrders, updateOrderStatus } from '../data/remote';
 import { blobToDataUrl, blobToObjectUrl, generateInvoiceImage } from '../utils/invoice';
+import { forgetOldInvoiceImages, rememberInvoiceImage } from '../utils/invoiceSave';
 
 const STATUS_LABELS = {
   new: { label: 'طلب جديد 🆕', badge: 'admin-status--new' },
@@ -553,6 +554,7 @@ function PrintInvoiceModal({ order, onClose }) {
   const [saveMsg, setSaveMsg] = useState('');
   const [invoiceUrl, setInvoiceUrl] = useState('');
   const [invoicePreviewUrl, setInvoicePreviewUrl] = useState('');
+  const [invoicePageUrl, setInvoicePageUrl] = useState('');
   const [invoiceError, setInvoiceError] = useState('');
 
   const triggerPrint = () => {
@@ -575,8 +577,10 @@ function PrintInvoiceModal({ order, onClose }) {
       })
       .then(({ objectUrl: readyUrl, previewUrl }) => {
         if (!active) return;
+        forgetOldInvoiceImages();
         setInvoiceUrl(readyUrl);
         setInvoicePreviewUrl(previewUrl);
+        setInvoicePageUrl(rememberInvoiceImage(previewUrl, filename));
         setSaveMsg('');
       })
       .catch((error) => {
@@ -607,13 +611,23 @@ function PrintInvoiceModal({ order, onClose }) {
           <h2>وصل توصيل طلبية #{order.orderNo || order.id}</h2>
           <div className="admin-invoice-actions">
             <a
-              className={`admin-btn admin-btn--primary ${saving || !invoiceUrl ? 'is-disabled' : ''}`}
+              className={`admin-btn admin-btn--primary ${saving || !invoicePageUrl ? 'is-disabled' : ''}`}
+              href={invoicePageUrl || undefined}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setSaveMsg('افتح الصورة ثم اضغط عليها مطولاً واختر حفظ إلى الصور/الاستديو.')}
+              aria-disabled={saving || !invoicePageUrl}
+            >
+              {saving ? 'جارٍ تجهيز الصورة…' : 'فتح للحفظ بالاستديو'}
+            </a>
+            <a
+              className={`admin-btn ${saving || !invoiceUrl ? 'is-disabled' : ''}`}
               href={invoiceUrl || undefined}
               download={filename}
               onClick={() => setSaveMsg('بدأ تنزيل صورة الفاتورة داخل ملفات الجهاز / Downloads.')}
               aria-disabled={saving || !invoiceUrl}
             >
-              {saving ? 'جارٍ تجهيز الصورة…' : 'حفظ الفاتورة كصورة'}
+              تنزيل للملفات
             </a>
             <button className="admin-btn admin-btn--primary" onClick={triggerPrint}>
               طباعة الآن 🖨️

@@ -138,8 +138,10 @@ test('invoices save as images without using browser share sheets', async () => {
   assert.match(ordersPanel, /generateInvoiceImage/);
   assert.doesNotMatch(ordersPanel, /navigator\.share|canShare/);
   assert.doesNotMatch(confirmedPage, /navigator\.share|canShare|openWhatsAppInvoice|حفظ أو مشاركة|إرسال نسخة عبر الواتساب/);
-  assert.match(ordersPanel, /حفظ الفاتورة كصورة/);
-  assert.match(confirmedPage, /حفظ الفاتورة كصورة/);
+  assert.match(ordersPanel, /فتح للحفظ بالاستديو/);
+  assert.match(confirmedPage, /فتح الصورة للحفظ بالاستديو/);
+  assert.match(confirmedPage, /rememberInvoiceImage/);
+  assert.match(confirmedPage, /تنزيل للملفات/);
   assert.match(invoice, /Object\.values\(order\.cart\)/);
   assert.match(invoice, /readAsDataURL\(blob\)/);
   assert.match(invoice, /URL\.createObjectURL\(blob\)/);
@@ -171,4 +173,15 @@ test('shoe subcategories fall back to the official six Arabic shoe sections', as
   assert.match(browser, /getSubcategoryLabel/);
   assert.match(form, /INITIAL_CATEGORIES/);
   assert.doesNotMatch(form, />No Options</);
+});
+
+
+test('invoice image page gives iPhone a same-origin save surface', async () => {
+  const app = await read('src/App.jsx');
+  const page = await read('src/pages/InvoiceImagePage.jsx');
+  const save = await read('src/utils/invoiceSave.js');
+  assert.match(app, /path="\/invoice-image"/);
+  assert.match(page, /Save to Photos|حفظ إلى الصور/);
+  assert.match(page, /فاتورة الطلب للحفظ في الاستديو/);
+  assert.match(save, /localStorage\.setItem/);
 });

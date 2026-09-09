@@ -5,6 +5,7 @@ import { usePrefs } from '../store/PrefsContext';
 import { Check, Truck } from '../components/Icons';
 
 import { blobToDataUrl, blobToObjectUrl, generateInvoiceImage } from '../utils/invoice';
+import { forgetOldInvoiceImages, rememberInvoiceImage } from '../utils/invoiceSave';
 import { img } from '../data/images';
 
 /* ─── Download Icon SVG ─── */
@@ -25,6 +26,7 @@ export default function OrderConfirmedPage() {
   const [invoiceUrl, setInvoiceUrl] = useState('');
   const [invoicePreviewUrl, setInvoicePreviewUrl] = useState('');
   const [invoiceName, setInvoiceName] = useState('');
+  const [invoicePageUrl, setInvoicePageUrl] = useState('');
   const [invoiceError, setInvoiceError] = useState('');
 
   useEffect(() => {
@@ -38,9 +40,12 @@ export default function OrderConfirmedPage() {
       return { objectUrl, previewUrl };
     }).then(({ objectUrl: readyUrl, previewUrl }) => {
       if (!active) return;
+      const filename = `invoice_${state.orderNo}.png`;
+      forgetOldInvoiceImages();
       setInvoiceUrl(readyUrl);
       setInvoicePreviewUrl(previewUrl);
-      setInvoiceName(`invoice_${state.orderNo}.png`);
+      setInvoiceName(filename);
+      setInvoicePageUrl(rememberInvoiceImage(previewUrl, filename));
     }).catch(() => active && setInvoiceError('تعذر تجهيز الصورة. أعد فتح الصفحة وحاول مجدداً.'))
       .finally(() => active && setSaving(false));
     return () => { active = false; if (objectUrl) URL.revokeObjectURL(objectUrl); };
@@ -130,11 +135,14 @@ export default function OrderConfirmedPage() {
       {invoiceError && <p role="alert">{invoiceError}</p>}
       {invoiceUrl && <details className="confirm__card">
         <summary>عرض صورة الفاتورة وحفظها</summary>
-        <p>اضغط زر الحفظ، أو استخدم رابط التنزيل لحفظ الصورة داخل ملفات الجهاز.</p>
-        <a href={invoiceUrl} download={invoiceName || `invoice_${state.orderNo}.png`}>تنزيل صورة الفاتورة</a>
+        <p>للصور/الاستديو: افتح الصورة ثم اضغط عليها مطولاً واختر حفظ إلى الصور. وللملفات استخدم زر التنزيل.</p>
+        <div className="confirm__invoice-links">
+          <a href={invoicePageUrl || invoicePreviewUrl || invoiceUrl} target="_blank" rel="noopener noreferrer">فتح الصورة للحفظ بالاستديو</a>
+          <a href={invoiceUrl} download={invoiceName || `invoice_${state.orderNo}.png`}>تنزيل للملفات</a>
+        </div>
         <img src={invoicePreviewUrl || invoiceUrl} alt="فاتورة الطلب كاملة" style={{ width: '100%', height: 'auto', marginTop: 12 }} />
       </details>}
-      <p className="confirm__note">تم تسجيل طلبك. يُرجى الاحتفاظ بالفاتورة داخل ملفات الجهاز لضمان متابعة الطلب.</p>
+      <p className="confirm__note">تم تسجيل طلبك. احفظ الفاتورة في الصور أو الملفات لضمان متابعة الطلب.</p>
       <div className="confirm__note">
         <Truck />
         <span>{state.payment === 'card' ? 'سيتم التواصل معك هاتفياً لتأكيد شحن طلبك.' : 'الدفع عند الاستلام. سيتم التواصل معك هاتفياً لتأكيد موعد التوصيل.'}</span>
@@ -144,14 +152,24 @@ export default function OrderConfirmedPage() {
         {/* ── Save Invoice as Image ── */}
         <a
           className="btn btn--burgundy"
-          href={invoiceUrl || undefined}
-          download={invoiceName || `invoice_${state.orderNo}.png`}
+          href={invoicePageUrl || undefined}
+          target="_blank"
+          rel="noopener noreferrer"
           onClick={() => setInvoiceError('')}
-          aria-disabled={saving || !invoiceUrl}
+          aria-disabled={saving || !invoicePageUrl}
           style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', width: '100%', maxWidth: '360px', justifyContent: 'center' }}
         >
           <DownloadIcon />
-          {saving ? 'جارٍ حفظ الفاتورة...' : 'حفظ الفاتورة كصورة 🧾'}
+          {saving ? 'جارٍ تجهيز الفاتورة...' : 'فتح الصورة للحفظ بالاستديو 🧾'}
+        </a>
+        <a
+          className="btn btn--ghost"
+          href={invoiceUrl || undefined}
+          download={invoiceName || `invoice_${state.orderNo}.png`}
+          aria-disabled={saving || !invoiceUrl}
+          style={{ width: '100%', maxWidth: '360px', textAlign: 'center' }}
+        >
+          تنزيل للملفات
         </a>
         <Link to="/" className="btn btn--ghost" style={{ width: '100%', maxWidth: '360px', textAlign: 'center' }}>
           العودة لتصفح المتجر 🛍️

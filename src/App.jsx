@@ -17,6 +17,7 @@ import Home from './pages/Home';
 import ListingPage from './pages/ListingPage';
 import NotFound from './pages/NotFound';
 import OrderConfirmedPage from './pages/OrderConfirmedPage';
+import InvoiceImagePage from './pages/InvoiceImagePage';
 import PoliciesPage from './pages/PoliciesPage';
 import ProductPage from './pages/ProductPage';
 import StoreLoadingScreen from './components/StoreLoadingScreen';
@@ -61,6 +62,7 @@ export default function App() {
           <Route path="/favorites" element={<FavoritesPage />} />
           <Route path="/checkout" element={<CheckoutPage />} />
           <Route path="/order-confirmed" element={<OrderConfirmedPage />} />
+          <Route path="/invoice-image" element={<InvoiceImagePage />} />
           <Route path="/policies" element={<PoliciesPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>

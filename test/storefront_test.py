@@ -62,10 +62,15 @@ with sync_playwright() as p:
     page.route('**/api/orders', save_order)
     page.locator('button[type="submit"]').first.click()
     page.wait_for_url('**/order-confirmed')
-    save_link = page.get_by_role('link', name=re.compile('حفظ الفاتورة كصورة'))
-    expect(save_link).to_have_attribute('href', re.compile(r'^blob:'), timeout=15000)
+    photo_link = page.locator('a.btn--burgundy').filter(has_text=re.compile('فتح الصورة للحفظ بالاستديو'))
+    expect(photo_link).to_have_attribute('href', re.compile(r'^/invoice-image\?key='), timeout=15000)
+    file_link = page.get_by_role('link', name=re.compile('تنزيل للملفات')).first
+    expect(file_link).to_have_attribute('href', re.compile(r'^blob:'), timeout=15000)
     page.locator('summary').click()
     page.locator('img[alt="فاتورة الطلب كاملة"]').screenshot(path='test/invoice-preview.png')
+    photo_href = photo_link.get_attribute('href')
+    page.goto(BASE + photo_href)
+    expect(page.locator('img[alt="فاتورة الطلب للحفظ في الاستديو"]')).to_be_visible()
     page.screenshot(path='test/confirmation-mobile.png', full_page=True)
     assert json.loads(page.evaluate("localStorage.getItem('iraqstore.cart.v1')")) == []
     assert not errors, errors
