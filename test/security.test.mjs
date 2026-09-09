@@ -135,6 +135,9 @@ test('invoices save as images without using browser share sheets', async () => {
   assert.match(confirmedPage, /حفظ الفاتورة كصورة/);
   assert.match(invoice, /Object\.values\(order\.cart\)/);
   assert.match(invoice, /readAsDataURL\(blob\)/);
+  assert.match(invoice, /URL\.createObjectURL\(blob\)/);
+  assert.match(ordersPanel, /blobToObjectUrl/);
+  assert.match(confirmedPage, /blobToObjectUrl/);
 });
 
 test('admin orders refresh quickly and on app focus', async () => {
@@ -148,14 +151,15 @@ test('admin orders refresh quickly and on app focus', async () => {
 
 
 
-test('shoe subcategories fall back to official Arabic labels', async () => {
+test('shoe subcategories fall back to the official six Arabic shoe sections', async () => {
   const catalog = await read('src/data/catalog.js');
   const browser = await read('src/components/ProductBrowser.jsx');
   const form = await read('src/admin/ProductForm.jsx');
-  for (const label of ['أحذية كاجول (ترينرز)', 'أحذية ركض (سنيكرز)', 'أحذية رسمية', 'أحذية لوفرز', 'بوت']) {
+  for (const label of ['أحذية كاجول', 'أحذية ترينرز', 'أحذية ركض (سنيكرز)', 'أحذية رسمية', 'أحذية لوفرز', 'بوتات']) {
     assert.match(catalog, new RegExp(label.replace(/[()]/g, '\\$&')));
   }
-  assert.match(catalog, /LEGACY_SUBCATEGORY_LABELS/);
+  assert.match(catalog, /mergeRequiredSubcategories/);
+  assert.match(catalog, /'men\/shoes': mergeRequiredSubcategories\('men\/shoes'/);
   assert.match(catalog, /getSubcategories\(gender, category\)/);
   assert.match(browser, /getSubcategoryLabel/);
   assert.match(form, /INITIAL_CATEGORIES/);

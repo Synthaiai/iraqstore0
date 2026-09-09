@@ -4,7 +4,7 @@ import { formatPrice } from '../data/products';
 import { usePrefs } from '../store/PrefsContext';
 import { Check, Truck } from '../components/Icons';
 
-import { blobToDataUrl, generateInvoiceImage } from '../utils/invoice';
+import { blobToDataUrl, blobToObjectUrl, generateInvoiceImage } from '../utils/invoice';
 import { img } from '../data/images';
 
 /* ─── Download Icon SVG ─── */
@@ -23,20 +23,27 @@ export default function OrderConfirmedPage() {
   const { t, lang } = usePrefs();
   const [saving, setSaving] = useState(false);
   const [invoiceUrl, setInvoiceUrl] = useState('');
+  const [invoicePreviewUrl, setInvoicePreviewUrl] = useState('');
   const [invoiceName, setInvoiceName] = useState('');
   const [invoiceError, setInvoiceError] = useState('');
 
   useEffect(() => {
     if (!state?.orderNo) return;
     let active = true;
+    let objectUrl = '';
     setSaving(true);
-    generateInvoiceImage(state).then((blob) => blobToDataUrl(blob)).then((url) => {
+    generateInvoiceImage(state).then(async (blob) => {
+      objectUrl = blobToObjectUrl(blob);
+      const previewUrl = await blobToDataUrl(blob);
+      return { objectUrl, previewUrl };
+    }).then(({ objectUrl: readyUrl, previewUrl }) => {
       if (!active) return;
-      setInvoiceUrl(url);
+      setInvoiceUrl(readyUrl);
+      setInvoicePreviewUrl(previewUrl);
       setInvoiceName(`invoice_${state.orderNo}.png`);
     }).catch(() => active && setInvoiceError('تعذر تجهيز الصورة. أعد فتح الصفحة وحاول مجدداً.'))
       .finally(() => active && setSaving(false));
-    return () => { active = false; };
+    return () => { active = false; if (objectUrl) URL.revokeObjectURL(objectUrl); };
   }, [state]);
 
 
@@ -125,7 +132,7 @@ export default function OrderConfirmedPage() {
         <summary>عرض صورة الفاتورة وحفظها</summary>
         <p>اضغط زر الحفظ، أو استخدم رابط التنزيل لحفظ الصورة داخل ملفات الجهاز.</p>
         <a href={invoiceUrl} download={invoiceName || `invoice_${state.orderNo}.png`}>تنزيل صورة الفاتورة</a>
-        <img src={invoiceUrl} alt="فاتورة الطلب كاملة" style={{ width: '100%', height: 'auto', marginTop: 12 }} />
+        <img src={invoicePreviewUrl || invoiceUrl} alt="فاتورة الطلب كاملة" style={{ width: '100%', height: 'auto', marginTop: 12 }} />
       </details>}
       <p className="confirm__note">تم تسجيل طلبك. يُرجى الاحتفاظ بالفاتورة داخل ملفات الجهاز لضمان متابعة الطلب.</p>
       <div className="confirm__note">

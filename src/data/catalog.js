@@ -82,10 +82,12 @@ export const INITIAL_CATEGORIES = {
 export const INITIAL_SUBCATEGORIES = {
   'men/shoes': [
     { slug: 'all', title: 'كل الأحذية', latin: 'All Footwear', cover: POOLS.mFormal[2], feature: true },
-    { slug: 'casual', title: 'أحذية كاجول (ترينرز)', latin: 'Trainers', cover: POOLS.mSneakers[5] },
-    { slug: 'sneakers', title: 'أحذية ركض (سنيكرز)', latin: 'Running', cover: POOLS.mSneakers[0] },
+    { slug: 'casual', title: 'أحذية كاجول', latin: 'Casual', cover: POOLS.mSneakers[5] },
+    { slug: 'trainers', title: 'أحذية ترينرز', latin: 'Trainers', cover: POOLS.mSneakers[1] },
+    { slug: 'sneakers', title: 'أحذية ركض (سنيكرز)', latin: 'Running Sneakers', cover: POOLS.mSneakers[0] },
     { slug: 'formal', title: 'أحذية رسمية', latin: 'Formal', cover: POOLS.mFormal[1] },
     { slug: 'loafers', title: 'أحذية لوفرز', latin: 'Loafers', cover: POOLS.mLoafers[0] },
+    { slug: 'boots', title: 'بوتات', latin: 'Boots', cover: POOLS.mFormal[3] },
   ],
   'men/clothing': [
     { slug: 'all', title: 'كل الملابس', latin: 'All Clothing', cover: POOLS.mSuits[4], feature: true },
@@ -127,16 +129,30 @@ let currentCategories = { ...INITIAL_CATEGORIES };
 let currentSubcategories = { ...INITIAL_SUBCATEGORIES };
 
 const LEGACY_SUBCATEGORY_LABELS = {
-  trainers: { title: 'أحذية كاجول (ترينرز)', latin: 'Trainers' },
-  casual: { title: 'أحذية كاجول (ترينرز)', latin: 'Trainers' },
-  sneakers: { title: 'أحذية ركض (سنيكرز)', latin: 'Sneakers' },
-  running: { title: 'أحذية ركض (سنيكرز)', latin: 'Running' },
+  trainers: { title: 'أحذية ترينرز', latin: 'Trainers' },
+  casual: { title: 'أحذية كاجول', latin: 'Casual' },
+  sneakers: { title: 'أحذية ركض (سنيكرز)', latin: 'Running Sneakers' },
+  running: { title: 'أحذية ركض (سنيكرز)', latin: 'Running Sneakers' },
   formal: { title: 'أحذية رسمية', latin: 'Formal' },
   loafers: { title: 'أحذية لوفرز', latin: 'Loafers' },
-  boots: { title: 'بوت', latin: 'Boots' },
+  boots: { title: 'بوتات', latin: 'Boots' },
   heels: { title: 'كعب عالي', latin: 'Heels' },
   flats: { title: 'باليرينا', latin: 'Flats' },
 };
+
+function mergeRequiredSubcategories(key, list) {
+  const required = INITIAL_SUBCATEGORIES[key];
+  if (!Array.isArray(required) || !required.length) return list || [];
+  const merged = [];
+  const seen = new Set();
+  for (const item of [...required, ...(Array.isArray(list) ? list : [])]) {
+    if (!item?.slug || seen.has(item.slug)) continue;
+    const official = required.find((sub) => sub.slug === item.slug);
+    merged.push(official ? { ...item, ...official } : item);
+    seen.add(item.slug);
+  }
+  return merged;
+}
 
 export function getSubcategoryLabel(gender, category, slug) {
   const sub = getSubcategory(gender, category, slug);
@@ -180,7 +196,10 @@ export function getFullCatalogTree() {
   return {
     genders: currentGenders,
     categories: currentCategories,
-    subcategories: currentSubcategories,
+    subcategories: {
+      ...currentSubcategories,
+      'men/shoes': mergeRequiredSubcategories('men/shoes', currentSubcategories['men/shoes']),
+    },
   };
 }
 
@@ -199,6 +218,7 @@ export function getCategory(gender, slug) {
 export function getSubcategories(gender, category) {
   const key = `${gender}/${category}`;
   const current = currentSubcategories[key];
+  if (key === 'men/shoes') return mergeRequiredSubcategories(key, current);
   if (Array.isArray(current) && current.filter((s) => s?.slug && s.slug !== 'all').length) return current;
   return INITIAL_SUBCATEGORIES[key] || [];
 }

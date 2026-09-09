@@ -21,6 +21,10 @@ export function blobToDataUrl(blob) {
   });
 }
 
+export function blobToObjectUrl(blob) {
+  return URL.createObjectURL(blob);
+}
+
 // One product photograph per ordered variant, with the exact recorded options.
 export async function generateInvoiceImage(order) {
   const lines = Array.isArray(order.cart)

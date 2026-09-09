@@ -63,7 +63,7 @@ with sync_playwright() as p:
     page.locator('button[type="submit"]').first.click()
     page.wait_for_url('**/order-confirmed')
     save_link = page.get_by_role('link', name=re.compile('حفظ الفاتورة كصورة'))
-    expect(save_link).to_have_attribute('href', re.compile(r'^data:image/png'), timeout=15000)
+    expect(save_link).to_have_attribute('href', re.compile(r'^blob:'), timeout=15000)
     page.locator('summary').click()
     page.locator('img[alt="فاتورة الطلب كاملة"]').screenshot(path='test/invoice-preview.png')
     page.screenshot(path='test/confirmation-mobile.png', full_page=True)

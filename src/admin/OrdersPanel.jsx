@@ -2,7 +2,7 @@ import { img } from '../data/images';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatPrice } from '../data/products';
 import { deleteOrder, fetchCloudOrdersSnapshot, hasMoreCloudOrders, loadMoreCloudOrders, updateOrderStatus } from '../data/remote';
-import { blobToDataUrl, generateInvoiceImage } from '../utils/invoice';
+import { blobToDataUrl, blobToObjectUrl, generateInvoiceImage } from '../utils/invoice';
 
 const STATUS_LABELS = {
   new: { label: 'طلب جديد 🆕', badge: 'admin-status--new' },
@@ -552,6 +552,7 @@ function PrintInvoiceModal({ order, onClose }) {
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
   const [invoiceUrl, setInvoiceUrl] = useState('');
+  const [invoicePreviewUrl, setInvoicePreviewUrl] = useState('');
   const [invoiceError, setInvoiceError] = useState('');
 
   const triggerPrint = () => {
@@ -565,11 +566,17 @@ function PrintInvoiceModal({ order, onClose }) {
     setSaving(true);
     setSaveMsg('جارٍ تجهيز صورة الفاتورة للحفظ…');
     setInvoiceError('');
+    let objectUrl = '';
     generateInvoiceImage(order)
-      .then((blob) => blobToDataUrl(blob))
-      .then((url) => {
+      .then(async (blob) => {
+        objectUrl = blobToObjectUrl(blob);
+        const previewUrl = await blobToDataUrl(blob);
+        return { objectUrl, previewUrl };
+      })
+      .then(({ objectUrl: readyUrl, previewUrl }) => {
         if (!active) return;
-        setInvoiceUrl(url);
+        setInvoiceUrl(readyUrl);
+        setInvoicePreviewUrl(previewUrl);
         setSaveMsg('');
       })
       .catch((error) => {
@@ -580,6 +587,7 @@ function PrintInvoiceModal({ order, onClose }) {
       });
     return () => {
       active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [order]);
 
@@ -602,7 +610,7 @@ function PrintInvoiceModal({ order, onClose }) {
               className={`admin-btn admin-btn--primary ${saving || !invoiceUrl ? 'is-disabled' : ''}`}
               href={invoiceUrl || undefined}
               download={filename}
-              onClick={() => setSaveMsg('بدأ تنزيل صورة الفاتورة. على الآيفون قد تظهر داخل التنزيلات/Files.')}
+              onClick={() => setSaveMsg('بدأ تنزيل صورة الفاتورة داخل ملفات الجهاز / Downloads.')}
               aria-disabled={saving || !invoiceUrl}
             >
               {saving ? 'جارٍ تجهيز الصورة…' : 'حفظ الفاتورة كصورة'}
