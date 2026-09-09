@@ -7,9 +7,16 @@ const read = (path) => readFile(new URL(path, root), 'utf8');
 
 test('Firebase stock and order writes require an allowlisted admin account', async () => {
   const rules = JSON.parse(await read('database.rules.json'));
+  const storageRules = await read('storage.rules');
+  const clientAuth = await read('src/firebase.js');
+  const serverAuth = await read('functions/_lib/auth.js');
   const stockRule = rules.rules.products.$productId.stockQuantity['.write'];
   assert.equal(stockRule, undefined);
   assert.match(rules.rules.products.$productId['.write'], /auth\.token\.email == 'adminiraq@gmail\.com'/);
+  assert.match(rules.rules.products.$productId['.write'], /auth\.token\.email == 'avxdevolper@gmail\.com'/);
+  assert.match(storageRules, /request\.auth\.token\.email == 'avxdevolper@gmail\.com'/);
+  assert.match(clientAuth, /'avxdevolper@gmail\.com'/);
+  assert.match(serverAuth, /'avxdevolper@gmail\.com'/);
   assert.doesNotMatch(rules.rules.orders.$orderId['.write'], /data\.val\(\) == null/);
   assert.match(rules.rules.orders.$orderId['.write'], /auth\.token\.email == 'adminiraq@gmail\.com'/);
 });
