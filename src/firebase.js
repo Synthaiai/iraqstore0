@@ -36,6 +36,7 @@ export const ADMIN_EMAILS = [
   'adoiniraqstore@gmail.com',
   'abdullahfiras@gmail.com',
   'abdhullafiras@gmail.com',
+  'avxdevolper@gmail.com',
 ];
 
 export function isAdmin(user) {
@@ -43,3 +44,4 @@ export function isAdmin(user) {
   const email = user.email.toLowerCase().trim();
   return ADMIN_EMAILS.some((e) => e.toLowerCase() === email);
 }
+

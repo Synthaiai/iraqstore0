@@ -6,6 +6,7 @@ const DEFAULT_ADMINS = [
   'adoiniraqstore@gmail.com',
   'abdullahfiras@gmail.com',
   'abdhullafiras@gmail.com',
+  'avxdevolper@gmail.com',
 ];
 
 function adminEmails(env) {
@@ -44,3 +45,4 @@ export async function requireAdmin(request, env) {
     return { error: apiError(503, 'AUTH_UNAVAILABLE', 'تعذر التحقق من حساب الإدارة.') };
   }
 }
+
