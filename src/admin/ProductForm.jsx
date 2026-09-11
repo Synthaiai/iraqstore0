@@ -536,9 +536,13 @@ export default function ProductForm({ initial, onSave, onCancel }) {
   };
 
   const addCustomSize = () => {
-    const s = customSize.trim();
-    if (!s) return;
-    setForm((f) => ({ ...f, sizes: f.sizes.includes(s) ? f.sizes : [...f.sizes, s] }));
+    const parts = customSize.split(/[,،\s]+/).map((s) => s.trim()).filter(Boolean);
+    if (!parts.length) return;
+    setForm((f) => {
+      const next = [...f.sizes];
+      for (const s of parts) if (!next.includes(s)) next.push(s);
+      return { ...f, sizes: next };
+    });
     setCustomSize('');
   };
 
@@ -1166,7 +1170,16 @@ export default function ProductForm({ initial, onSave, onCancel }) {
                   type="button"
                   key={label}
                   className="admin-chip admin-chip--accent"
-                  onClick={() => set('sizes', arr)}
+                  onClick={() => {
+                    const allOn = arr.every((s) => form.sizes.includes(s));
+                    if (allOn) {
+                      set('sizes', form.sizes.filter((s) => !arr.includes(s)));
+                    } else {
+                      const next = [...form.sizes];
+                      for (const s of arr) if (!next.includes(s)) next.push(s);
+                      set('sizes', next);
+                    }
+                  }}
                 >
                   تحديد {label}
                 </button>

@@ -24,7 +24,7 @@ export function img(slug, w = 340, h, q = Q) {
     return slug;
   }
   const crop = h ? `&h=${h}` : '';
-  return `${BASE}${slug}?auto=format,compress&fm=webp&fit=crop&w=${w}${crop}&q=${q}`;
+  return `${BASE}${slug}?auto=format,compress&fit=crop&w=${w}${crop}&q=${q}`;
 }
 
 /**

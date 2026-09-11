@@ -18,6 +18,14 @@ const BADGE_ORDER = { best: 0, new: 1, sale: 2 };
 
 const emptyFilters = (max) => ({ maxPrice: max, colors: [], sizes: [], categories: [], onSale: false, isNew: false });
 
+const STORAGE_PREFIX = 'pb:';
+function saveSession(key, sort, filters) {
+  try { sessionStorage.setItem(STORAGE_PREFIX + key, JSON.stringify({ sort, filters })); } catch {}
+}
+function loadSession(key) {
+  try { const raw = sessionStorage.getItem(STORAGE_PREFIX + key); return raw ? JSON.parse(raw) : null; } catch { return null; }
+}
+
 /**
  * Toolbar + filter panel + product grid over a given `pool` of products.
  * Shared by the subcategory listing and the gender-wide "all products" page,
@@ -37,16 +45,32 @@ export default function ProductBrowser({ pool, resetKey }) {
   })).values()], [pool]);
   const sizes = useMemo(() => availableSizes(pool), [pool]);
 
-  const [sort, setSort] = useState('featured');
+  const [sort, setSort] = useState(() => {
+    const saved = loadSession(resetKey);
+    return saved?.sort || 'featured';
+  });
   const [panelOpen, setPanelOpen] = useState(false);
-  const [filters, setFilters] = useState(() => emptyFilters(bounds.max));
+  const [filters, setFilters] = useState(() => {
+    const saved = loadSession(resetKey);
+    return saved?.filters || emptyFilters(bounds.max);
+  });
   const [visibleLimit, setVisibleLimit] = useState(24);
 
   useEffect(() => {
-    setFilters(emptyFilters(bounds.max));
-    setSort('featured');
+    const saved = loadSession(resetKey);
+    if (saved) {
+      setFilters(saved.filters);
+      setSort(saved.sort);
+    } else {
+      setFilters(emptyFilters(bounds.max));
+      setSort('featured');
+    }
     setVisibleLimit(24);
   }, [bounds.max, resetKey]);
+
+  useEffect(() => {
+    saveSession(resetKey, sort, filters);
+  }, [resetKey, sort, filters]);
 
   useEffect(() => {
     setVisibleLimit(24);
