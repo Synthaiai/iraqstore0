@@ -9,6 +9,7 @@ import { useLiveData } from '../store/LiveDataContext';
 import Breadcrumbs from '../components/Breadcrumbs';
 import TurnstileWidget from '../components/TurnstileWidget';
 import { Bag, Card, Truck } from '../components/Icons';
+import { readCustomerProfile, rememberCustomerOrder, saveCustomerProfile } from '../utils/customerMemory';
 
 const EMPTY = { name: '', phone: '', governorate: '', city: '', address: '', notes: '' };
 
@@ -18,7 +19,7 @@ export default function CheckoutPage() {
   const { settings } = useLiveData();
   const navigate = useNavigate();
 
-  const [form, setForm] = useState(EMPTY);
+  const [form, setForm] = useState(() => ({ ...EMPTY, ...(readCustomerProfile() || {}) }));
   const [payment, setPayment] = useState('cod'); // 'cod' | 'card'
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
@@ -157,6 +158,8 @@ export default function CheckoutPage() {
 
       // The server recalculates every price and reserves inventory atomically.
       const savedOrder = await saveOrder(orderData);
+      saveCustomerProfile(form);
+      rememberCustomerOrder(savedOrder);
 
       // Clear only after the server confirms durable persistence.
       clearCart();

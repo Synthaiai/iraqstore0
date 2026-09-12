@@ -139,9 +139,9 @@ test('invoices save as images without using browser share sheets', async () => {
   assert.doesNotMatch(ordersPanel, /navigator\.share|canShare/);
   assert.doesNotMatch(confirmedPage, /navigator\.share|canShare|openWhatsAppInvoice|حفظ أو مشاركة|إرسال نسخة عبر الواتساب/);
   assert.match(ordersPanel, /فتح للحفظ بالاستديو/);
-  assert.match(confirmedPage, /فتح الصورة للحفظ بالاستديو/);
-  assert.match(confirmedPage, /rememberInvoiceImage/);
-  assert.match(confirmedPage, /تنزيل للملفات/);
+  assert.match(confirmedPage, /تنزيل الصورة للاندرويد فقط/);
+  assert.match(confirmedPage, /download=\{invoiceName/);
+  assert.doesNotMatch(confirmedPage, /rememberInvoiceImage|تنزيل للملفات/);
   assert.match(invoice, /Object\.values\(order\.cart\)/);
   assert.match(invoice, /readAsDataURL\(blob\)/);
   assert.match(invoice, /URL\.createObjectURL\(blob\)/);

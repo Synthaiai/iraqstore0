@@ -5,7 +5,6 @@ import { usePrefs } from '../store/PrefsContext';
 import { Check, Truck } from '../components/Icons';
 
 import { blobToDataUrl, blobToObjectUrl, generateInvoiceImage } from '../utils/invoice';
-import { forgetOldInvoiceImages, rememberInvoiceImage } from '../utils/invoiceSave';
 import { img } from '../data/images';
 
 export default function OrderConfirmedPage() {
@@ -15,7 +14,6 @@ export default function OrderConfirmedPage() {
   const [invoiceUrl, setInvoiceUrl] = useState('');
   const [invoicePreviewUrl, setInvoicePreviewUrl] = useState('');
   const [invoiceName, setInvoiceName] = useState('');
-  const [invoicePageUrl, setInvoicePageUrl] = useState('');
   const [invoiceError, setInvoiceError] = useState('');
 
   useEffect(() => {
@@ -30,11 +28,9 @@ export default function OrderConfirmedPage() {
     }).then(({ objectUrl: readyUrl, previewUrl }) => {
       if (!active) return;
       const filename = `invoice_${state.orderNo}.png`;
-      forgetOldInvoiceImages();
       setInvoiceUrl(readyUrl);
       setInvoicePreviewUrl(previewUrl);
       setInvoiceName(filename);
-      setInvoicePageUrl(rememberInvoiceImage(previewUrl, filename));
     }).catch(() => active && setInvoiceError('تعذر تجهيز الصورة. أعد فتح الصفحة وحاول مجدداً.'))
       .finally(() => active && setSaving(false));
     return () => { active = false; if (objectUrl) URL.revokeObjectURL(objectUrl); };
@@ -128,7 +124,7 @@ export default function OrderConfirmedPage() {
           <span className="confirm__important-note">ملاحظة مهمة</span>: على الآيفون اضغط مطولاً على صورة الفاتورة ثم اختر “<span className="confirm__important-note">Save to Photos</span>” أو “<span className="confirm__important-note">حفظ إلى الصور</span>”.
         </p>
         <div className="confirm__invoice-links">
-          <a href={invoicePageUrl || invoicePreviewUrl || invoiceUrl} target="_blank" rel="noopener noreferrer">تنزيل الصورة للاندرويد فقط</a>
+          <a href={invoiceUrl || invoicePreviewUrl} download={invoiceName || `invoice_${state.orderNo}.png`}>تنزيل الصورة للاندرويد فقط</a>
         </div>
         <img src={invoicePreviewUrl || invoiceUrl} alt="فاتورة الطلب كاملة" style={{ width: '100%', height: 'auto', marginTop: 12 }} />
       </details>}
