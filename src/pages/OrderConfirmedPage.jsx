@@ -8,17 +8,6 @@ import { blobToDataUrl, blobToObjectUrl, generateInvoiceImage } from '../utils/i
 import { forgetOldInvoiceImages, rememberInvoiceImage } from '../utils/invoiceSave';
 import { img } from '../data/images';
 
-/* ─── Download Icon SVG ─── */
-function DownloadIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-      <polyline points="7 10 12 15 17 10" />
-      <line x1="12" y1="15" x2="12" y2="3" />
-    </svg>
-  );
-}
-
 export default function OrderConfirmedPage() {
   const { state } = useLocation();
   const { t, lang } = usePrefs();
@@ -150,28 +139,6 @@ export default function OrderConfirmedPage() {
       </div>
 
       <div className="confirm__actions" style={{ flexDirection: 'column', gap: '0.75rem', alignItems: 'center' }}>
-        {/* ── Save Invoice as Image ── */}
-        <a
-          className="btn btn--burgundy"
-          href={invoicePageUrl || undefined}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={() => setInvoiceError('')}
-          aria-disabled={saving || !invoicePageUrl}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', width: '100%', maxWidth: '360px', justifyContent: 'center' }}
-        >
-          <DownloadIcon />
-          {saving ? 'جارٍ تجهيز الفاتورة...' : 'فتح الصورة للحفظ بالاستديو 🧾'}
-        </a>
-        <a
-          className="btn btn--ghost"
-          href={invoiceUrl || undefined}
-          download={invoiceName || `invoice_${state.orderNo}.png`}
-          aria-disabled={saving || !invoiceUrl}
-          style={{ width: '100%', maxWidth: '360px', textAlign: 'center' }}
-        >
-          تنزيل للملفات
-        </a>
         <Link to="/" className="btn btn--ghost" style={{ width: '100%', maxWidth: '360px', textAlign: 'center' }}>
           العودة لتصفح المتجر 🛍️
         </Link>

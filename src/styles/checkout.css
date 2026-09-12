@@ -558,9 +558,17 @@
 }
 
 .confirm__invoice-links a:first-child {
-  background: var(--burgundy);
+  background: #8a1020;
   color: #fff;
-  border-color: transparent;
+  border-color: #8a1020;
+  box-shadow: 0 10px 24px rgba(138, 16, 32, 0.18);
+}
+
+.confirm__invoice-links a:first-child:hover,
+.confirm__invoice-links a:first-child:focus-visible {
+  background: #6f0c19;
+  color: #fff;
+  border-color: #6f0c19;
 }
 
 
