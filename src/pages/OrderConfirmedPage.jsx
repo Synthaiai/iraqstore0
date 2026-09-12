@@ -122,13 +122,13 @@ export default function OrderConfirmedPage() {
       </div>
 
       {invoiceError && <p role="alert">{invoiceError}</p>}
-      {invoiceUrl && <details className="confirm__card">
+      {invoiceUrl && <details className="confirm__card confirm__invoice-card">
         <summary>عرض صورة الفاتورة وحفظها</summary>
         <p>
           <span className="confirm__important-note">ملاحظة مهمة</span>: على الآيفون اضغط مطولاً على صورة الفاتورة ثم اختر “<span className="confirm__important-note">Save to Photos</span>” أو “<span className="confirm__important-note">حفظ إلى الصور</span>”.
         </p>
         <div className="confirm__invoice-links">
-          <a href={invoicePageUrl || invoicePreviewUrl || invoiceUrl} target="_blank" rel="noopener noreferrer">عرض الصورة وحفظها</a>
+          <a href={invoicePageUrl || invoicePreviewUrl || invoiceUrl} target="_blank" rel="noopener noreferrer">تنزيل الصورة للاندرويد فقط</a>
         </div>
         <img src={invoicePreviewUrl || invoiceUrl} alt="فاتورة الطلب كاملة" style={{ width: '100%', height: 'auto', marginTop: 12 }} />
       </details>}
