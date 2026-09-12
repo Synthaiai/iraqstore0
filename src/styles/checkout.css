@@ -376,18 +376,35 @@
 }
 
 .confirm__invoice-card summary {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  justify-content: center;
-  align-self: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
   min-height: 48px;
-  padding: 0.75rem 1.35rem;
-  border-radius: 999px;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
   background: #8a1020;
   color: #fff;
   font-weight: 800;
   cursor: pointer;
+  text-align: start;
   box-shadow: 0 10px 24px rgba(138, 16, 32, 0.18);
+}
+
+.confirm__invoice-card summary::marker {
+  content: '';
+}
+
+.confirm__invoice-card summary::before {
+  content: '▼';
+  color: #fff;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.confirm__invoice-card[open] summary::before {
+  content: '▲';
 }
 
 .confirm__invoice-card summary:hover,
