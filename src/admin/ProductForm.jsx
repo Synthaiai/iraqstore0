@@ -520,8 +520,25 @@ export default function ProductForm({ initial, onSave, onCancel }) {
     }));
   };
 
+  const parseCustomSizes = (value) => {
+    const chunks = value
+      .replace(/\s+(?:و|أو|او|and|or)\s+/gi, ',')
+      .replace(/[،,؛;\n]+/g, ',')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    return chunks.flatMap((chunk) => {
+      if (/^(?:free\s*size|one\s*size|مقاس\s+واحد|قياس\s+واحد)$/i.test(chunk)) return [chunk];
+      if (/\s/.test(chunk) && /^[\d٠-٩۰-۹A-Za-z./\-\s]+$/.test(chunk)) {
+        return chunk.split(/\s+/).map((s) => s.trim()).filter(Boolean);
+      }
+      return [chunk];
+    }).filter((s) => !/^(?:و|أو|او|and|or)$/i.test(s));
+  };
+
   const addCustomSize = () => {
-    const parts = customSize.split(/[,،\s]+/).map((s) => s.trim()).filter(Boolean);
+    const parts = parseCustomSizes(customSize);
     if (!parts.length) return;
     setForm((f) => {
       const next = [...f.sizes];
