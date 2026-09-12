@@ -615,6 +615,9 @@ export default function ProductForm({ initial, onSave, onCancel }) {
     }
   };
 
+  const currentPresets = activeTypeCfg.getPresets(form.gender);
+  const currentGrid = activeTypeCfg.getGrid(form.gender);
+
   return (
     <div className="admin-modal" onClick={onCancel}>
       <form className="admin-modal__panel admin-modal__panel--lg" onClick={(e) => e.stopPropagation()} onSubmit={submit}>
@@ -1143,25 +1146,47 @@ export default function ProductForm({ initial, onSave, onCancel }) {
             </div>
           </div>
 
-          {/* STEP 7: Product sizes entered and saved by the admin */}
+          {/* STEP 7: Product sizes selected or entered by the admin */}
           <div className="admin-field">
             <span>قياسات المنتج ({activeTypeCfg.label})</span>
 
-            {form.sizes.length > 0 && (
-              <div className="admin-sizes-selector">
-                {form.sizes.map((sz) => (
+            <div className="admin-chips admin-chips--presets">
+              {Object.entries(currentPresets).map(([label, arr]) => {
+                const allOn = arr.every((s) => form.sizes.includes(s));
+                return (
                   <button
                     type="button"
-                    key={sz}
-                    className="admin-size-box is-on"
-                    onClick={() => toggleSize(sz)}
-                    title="اضغط لإزالة القياس"
+                    key={label}
+                    className={`admin-chip admin-chip--accent ${allOn ? 'is-on' : ''}`}
+                    onClick={() => {
+                      if (allOn) {
+                        set('sizes', form.sizes.filter((s) => !arr.includes(s)));
+                      } else {
+                        const next = [...form.sizes];
+                        for (const s of arr) if (!next.includes(s)) next.push(s);
+                        set('sizes', next);
+                      }
+                    }}
                   >
-                    {sz}
+                    تحديد {label}
                   </button>
-                ))}
-              </div>
-            )}
+                );
+              })}
+            </div>
+
+            <div className="admin-sizes-selector">
+              {[...currentGrid, ...form.sizes.filter((s) => !currentGrid.includes(s))].map((sz) => (
+                <button
+                  type="button"
+                  key={sz}
+                  className={`admin-size-box ${form.sizes.includes(sz) ? 'is-on' : ''}`}
+                  onClick={() => toggleSize(sz)}
+                  title={form.sizes.includes(sz) ? 'اضغط لإزالة القياس' : 'اضغط لاختيار القياس'}
+                >
+                  {sz}
+                </button>
+              ))}
+            </div>
 
             {/* Custom size input */}
             <div className="admin-size-add">

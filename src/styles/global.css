@@ -3682,6 +3682,11 @@ main {
 
 .invoice-save-page__important,
 .confirm__important-note {
-  color: #b10020;
+  color: #b10020 !important;
   font-weight: 800;
+}
+
+.invoice-save-page .invoice-save-page__card .invoice-save-page__important,
+.confirm__card .confirm__important-note {
+  color: #b10020 !important;
 }
