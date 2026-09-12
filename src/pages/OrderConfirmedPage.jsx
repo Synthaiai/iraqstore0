@@ -136,11 +136,10 @@ export default function OrderConfirmedPage() {
       {invoiceUrl && <details className="confirm__card">
         <summary>عرض صورة الفاتورة وحفظها</summary>
         <p>
-          <span className="confirm__important-note">ملاحظة مهمة</span>: للصور/الاستديو افتح الصورة ثم اضغط عليها مطولاً واختر <span className="confirm__important-note">حفظ إلى الصور</span>. وللملفات استخدم زر التنزيل.
+          <span className="confirm__important-note">ملاحظة مهمة</span>: على الآيفون اضغط مطولاً على صورة الفاتورة ثم اختر “<span className="confirm__important-note">Save to Photos</span>” أو “<span className="confirm__important-note">حفظ إلى الصور</span>”.
         </p>
         <div className="confirm__invoice-links">
-          <a href={invoicePageUrl || invoicePreviewUrl || invoiceUrl} target="_blank" rel="noopener noreferrer">فتح الصورة للحفظ بالاستديو</a>
-          <a href={invoiceUrl} download={invoiceName || `invoice_${state.orderNo}.png`}>تنزيل للملفات</a>
+          <a href={invoicePageUrl || invoicePreviewUrl || invoiceUrl} target="_blank" rel="noopener noreferrer">عرض الصورة وحفظها</a>
         </div>
         <img src={invoicePreviewUrl || invoiceUrl} alt="فاتورة الطلب كاملة" style={{ width: '100%', height: 'auto', marginTop: 12 }} />
       </details>}
