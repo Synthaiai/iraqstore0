@@ -262,14 +262,11 @@ export default function ProductForm({ initial, onSave, onCancel }) {
       else detectedType = 'shoes';
     }
 
-    const cfg = TYPE_CONFIG[detectedType] || TYPE_CONFIG.shoes;
-    const defaultSizes = init.sizes && init.sizes.length ? init.sizes : Object.values(cfg.getPresets(init.gender || 'men'))[0];
-
     return {
       ...empty,
       ...init,
       type: detectedType,
-      sizes: defaultSizes,
+      sizes: Array.isArray(init.sizes) ? init.sizes : [],
       images: existingImages,
     };
   });
@@ -322,15 +319,12 @@ export default function ProductForm({ initial, onSave, onCancel }) {
         targetSub = availSubs[0]?.slug || '';
       }
 
-      const presetsMap = cfg.getPresets(f.gender);
-      const defaultSizes = Object.values(presetsMap)[0] || ['مقاس واحد'];
-
       return {
         ...f,
         type: typeId,
         category: targetCat,
         sub: targetSub,
-        sizes: defaultSizes,
+        sizes: [],
         // Reset type-specific fields so old shoe questions don't linger on clothes
         heelType: typeId === 'shoes' ? f.heelType : '',
         soleMaterial: typeId === 'shoes' ? f.soleMaterial : '',
@@ -359,15 +353,12 @@ export default function ProductForm({ initial, onSave, onCancel }) {
 
       const availSubs = (getSubcategories(f.gender, newCat) || []).filter((s) => s.slug !== 'all');
       const targetSub = availSubs[0]?.slug || '';
-      const cfg = TYPE_CONFIG[newType] || TYPE_CONFIG.general;
-      const defaultSizes = cfg ? Object.values(cfg.getPresets(f.gender))[0] : ['مقاس واحد'];
-
       return {
         ...f,
         category: newCat,
         type: newType,
         sub: targetSub,
-        sizes: f.type !== newType ? defaultSizes : f.sizes,
+        sizes: f.type !== newType ? [] : f.sizes,
         heelType: newType === 'shoes' ? f.heelType : '',
         soleMaterial: newType === 'shoes' ? f.soleMaterial : '',
         fitType: newType === 'clothing' ? f.fitType : '',
@@ -385,18 +376,12 @@ export default function ProductForm({ initial, onSave, onCancel }) {
       const availSubs = (getSubcategories(newGender, targetCat) || []).filter((s) => s.slug !== 'all');
       const targetSub = availSubs.some((s) => s.slug === f.sub) ? f.sub : (availSubs[0]?.slug || '');
 
-      let sizes = f.sizes;
-      if (f.type === 'shoes') {
-        const presetsMap = TYPE_CONFIG.shoes.getPresets(newGender);
-        sizes = Object.values(presetsMap)[0] || range(39, 46);
-      }
-
       return {
         ...f,
         gender: newGender,
         category: targetCat,
         sub: targetSub,
-        sizes,
+        sizes: f.sizes,
       };
     });
   };
@@ -617,7 +602,7 @@ export default function ProductForm({ initial, onSave, onCancel }) {
         materialEn: form.materialEn || translateText(form.material || ''),
         price: Number(parsedPrice),
         oldPrice: parsedOldPrice ? Number(parsedOldPrice) : null,
-        sizes: form.sizes.length ? form.sizes : ['مقاس واحد'],
+        sizes: form.sizes,
         images,
       };
 
@@ -629,9 +614,6 @@ export default function ProductForm({ initial, onSave, onCancel }) {
       setBusy(false);
     }
   };
-
-  const currentPresets = activeTypeCfg.getPresets(form.gender);
-  const currentGrid = activeTypeCfg.getGrid(form.gender);
 
   return (
     <div className="admin-modal" onClick={onCancel}>
@@ -1161,43 +1143,25 @@ export default function ProductForm({ initial, onSave, onCancel }) {
             </div>
           </div>
 
-          {/* STEP 7: Multi-Size Picker (Adaptive Presets and Grid per Product Type) */}
+          {/* STEP 7: Product sizes entered and saved by the admin */}
           <div className="admin-field">
-            <span>القياسات والأحجام المتاحة لـ ({activeTypeCfg.label})</span>
-            <div className="admin-chips admin-chips--presets">
-              {Object.entries(currentPresets).map(([label, arr]) => (
-                <button
-                  type="button"
-                  key={label}
-                  className="admin-chip admin-chip--accent"
-                  onClick={() => {
-                    const allOn = arr.every((s) => form.sizes.includes(s));
-                    if (allOn) {
-                      set('sizes', form.sizes.filter((s) => !arr.includes(s)));
-                    } else {
-                      const next = [...form.sizes];
-                      for (const s of arr) if (!next.includes(s)) next.push(s);
-                      set('sizes', next);
-                    }
-                  }}
-                >
-                  تحديد {label}
-                </button>
-              ))}
-            </div>
+            <span>قياسات المنتج ({activeTypeCfg.label})</span>
 
-            <div className="admin-sizes-selector">
-              {[...currentGrid, ...form.sizes.filter((s) => !currentGrid.includes(s))].map((sz) => (
-                <button
-                  type="button"
-                  key={sz}
-                  className={`admin-size-box ${form.sizes.includes(sz) ? 'is-on' : ''}`}
-                  onClick={() => toggleSize(sz)}
-                >
-                  {sz}
-                </button>
-              ))}
-            </div>
+            {form.sizes.length > 0 && (
+              <div className="admin-sizes-selector">
+                {form.sizes.map((sz) => (
+                  <button
+                    type="button"
+                    key={sz}
+                    className="admin-size-box is-on"
+                    onClick={() => toggleSize(sz)}
+                    title="اضغط لإزالة القياس"
+                  >
+                    {sz}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Custom size input */}
             <div className="admin-size-add">
@@ -1217,6 +1181,7 @@ export default function ProductForm({ initial, onSave, onCancel }) {
                 + إضافة قياس
               </button>
             </div>
+            <small className="admin-help">اكتب قياس واحد أو أكثر. يمكن الفصل بينهم بمسافة أو فاصلة، والقياسات المضافة تبقى محفوظة داخل المنتج.</small>
           </div>
 
           {/* STEP 8: Custom Specs Table */}

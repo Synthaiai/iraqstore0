@@ -3680,3 +3680,8 @@ main {
   color: #dc2626;
 }
 
+.invoice-save-page__important,
+.confirm__important-note {
+  color: #b10020;
+  font-weight: 800;
+}

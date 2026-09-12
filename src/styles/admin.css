@@ -792,6 +792,14 @@
   flex: none;
 }
 
+.admin-help {
+  display: block;
+  margin-top: 0.45rem;
+  color: var(--a-dim);
+  font-size: 0.78rem;
+  line-height: 1.7;
+}
+
 /* ---------- Custom Specs Table ---------- */
 .admin-specs-list {
   display: flex;

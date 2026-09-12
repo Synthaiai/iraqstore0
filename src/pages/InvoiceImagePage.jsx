@@ -22,7 +22,7 @@ export default function InvoiceImagePage() {
     <section className="shell section invoice-save-page">
       <div className="invoice-save-page__card">
         <h1>حفظ الفاتورة في الصور</h1>
-        <p>على الآيفون: اضغط مطولاً على صورة الفاتورة ثم اختر “Save to Photos” أو “حفظ إلى الصور”.</p>
+        <p className="invoice-save-page__important">ملاحظة مهمة: على الآيفون اضغط مطولاً على صورة الفاتورة ثم اختر “Save to Photos” أو “حفظ إلى الصور”.</p>
         <a className="btn btn--ghost" href={invoice.dataUrl} download={invoice.filename || 'iraq-store-invoice.png'}>
           تنزيل للملفات
         </a>

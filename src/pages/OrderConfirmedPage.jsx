@@ -135,7 +135,7 @@ export default function OrderConfirmedPage() {
       {invoiceError && <p role="alert">{invoiceError}</p>}
       {invoiceUrl && <details className="confirm__card">
         <summary>عرض صورة الفاتورة وحفظها</summary>
-        <p>للصور/الاستديو: افتح الصورة ثم اضغط عليها مطولاً واختر حفظ إلى الصور. وللملفات استخدم زر التنزيل.</p>
+        <p className="confirm__important-note">ملاحظة مهمة: للصور/الاستديو افتح الصورة ثم اضغط عليها مطولاً واختر حفظ إلى الصور. وللملفات استخدم زر التنزيل.</p>
         <div className="confirm__invoice-links">
           <a href={invoicePageUrl || invoicePreviewUrl || invoiceUrl} target="_blank" rel="noopener noreferrer">فتح الصورة للحفظ بالاستديو</a>
           <a href={invoiceUrl} download={invoiceName || `invoice_${state.orderNo}.png`}>تنزيل للملفات</a>
