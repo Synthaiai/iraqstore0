@@ -386,6 +386,7 @@ function parseCsvProducts(text) {
     headers.forEach((header, i) => { raw[header] = cells[i] || ''; });
     const id = raw.id || `bulk-${Date.now().toString(36)}-${idx + 1}`;
     const images = [raw.image, raw.image2, raw.image3, raw.image4].filter(Boolean);
+    const imageFiles = [raw.imageFile, raw.imageFile2, raw.imageFile3, raw.imageFile4, raw['اسم الصورة']].filter(Boolean);
     return {
       id,
       name: raw.name || raw['اسم المنتج'] || '',
@@ -401,6 +402,7 @@ function parseCsvProducts(text) {
       status: raw.status || 'active',
       stockQuantity: raw.stockQuantity !== '' ? Number(raw.stockQuantity) : 15,
       images,
+      imageFiles,
       colors: raw.colors ? raw.colors.split('|').map((name) => ({ name: name.trim(), nameEn: name.trim(), hex: '#777777' })).filter((c) => c.name) : [],
       sizes: raw.sizes ? raw.sizes.split('|').map((s) => s.trim()).filter(Boolean) : [],
       material: raw.material || '',
@@ -424,14 +426,40 @@ function normalizeImportProducts(list, existingCount = 0) {
     status: product.status || 'active',
     type: product.type || 'general',
     images: Array.isArray(product.images) ? product.images.filter(Boolean).slice(0, 4) : [product.image].filter(Boolean),
+    imageFiles: Array.isArray(product.imageFiles) ? product.imageFiles.filter(Boolean).slice(0, 4) : [product.imageFile].filter(Boolean),
     sortOrder: product.sortOrder ?? existingCount + idx + 1,
   })).filter((product) => product.name && product.price > 0);
+}
+
+async function attachImportImages(products, files, onProgress) {
+  const fileMap = new Map(Array.from(files || []).map((file) => [file.name.toLowerCase(), file]));
+  let uploaded = 0;
+  const total = products.reduce((sum, product) => sum + (product.imageFiles || []).filter((name) => fileMap.has(String(name).toLowerCase())).length, 0);
+  if (!total) return products;
+
+  const result = [];
+  for (const product of products) {
+    const localImages = [];
+    for (const name of product.imageFiles || []) {
+      const file = fileMap.get(String(name).toLowerCase());
+      if (!file) continue;
+      uploaded += 1;
+      if (onProgress) onProgress(uploaded, total, file.name);
+      localImages.push(await uploadImage(file, 'products'));
+    }
+    result.push({
+      ...product,
+      images: [...(product.images || []), ...localImages.filter(Boolean)].slice(0, 4),
+    });
+  }
+  return result;
 }
 
 function SettingsPanel({ productCount, products }) {
   const [seeding, setSeeding] = useState(false);
   const [msg, setMsg] = useState('');
   const [logoBusy, setLogoBusy] = useState(false);
+  const [importImageFiles, setImportImageFiles] = useState([]);
 
   const doSeed = async () => {
     if (!window.confirm('سيتم كتابة الكتالوج المدمج إلى قاعدة البيانات والتخزين المحلي. متابعة؟')) return;
@@ -492,12 +520,15 @@ function SettingsPanel({ productCount, products }) {
           alert('الملف غير صالح أو لا يحتوي على منتجات مكتملة. تأكد من وجود الاسم والسعر.');
           return;
         }
-        const normalized = normalizeImportProducts(list, products.length);
+        let normalized = normalizeImportProducts(list, products.length);
         if (!normalized.length) {
           alert('لم يتم العثور على منتجات صالحة. الاسم والسعر مطلوبان لكل منتج.');
           return;
         }
         if (window.confirm(`هل تريد استيراد ${normalized.length} منتج إلى قاعدة البيانات؟`)) {
+          normalized = await attachImportImages(normalized, importImageFiles, (done, total, fileName) => {
+            setMsg(`جارٍ ضغط ورفع صور المنتجات: ${done} من ${total} (${fileName})`);
+          });
           setMsg(`جارٍ حفظ ${normalized.length} منتج…`);
           await saveProductsBatch(normalized, {
             onProgress(done, total, stage) {
@@ -529,16 +560,27 @@ function SettingsPanel({ productCount, products }) {
 
       <div className="admin-card">
         <h3>استيراد وتصدير المنتجات بالجملة (+1000 منتج) 🚀</h3>
-        <p>استورد 200 منتج أو أكثر عبر JSON أو CSV من إكسل. أعمدة CSV الأساسية: name, price, gender, category, sub, image, stockQuantity.</p>
+        <p>استورد 200 منتج أو أكثر عبر JSON أو CSV من إكسل. للصور من جهازك، اختر الصور هنا واكتب اسم ملف الصورة في عمود imageFile.</p>
         <div style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap', marginTop: '0.8rem' }}>
           <button className="admin-btn admin-btn--ghost" onClick={exportDataJSON}>
             ⬇️ تصدير النسخة الاحتياطية (JSON)
           </button>
+          <label className="admin-btn admin-btn--ghost admin-file">
+            🖼️ اختيار صور المنتجات من الجهاز ({importImageFiles.length})
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              hidden
+              onChange={(e) => setImportImageFiles(Array.from(e.target.files || []))}
+            />
+          </label>
           <label className="admin-btn admin-btn--primary admin-file">
             ⬆️ استيراد جماعي (JSON / CSV)
             <input type="file" accept=".json,.csv,text/csv,application/json" hidden onChange={handleImportFile} />
           </label>
         </div>
+        <small className="admin-help">مثال CSV: imageFile = shoe1.jpg، ولأكثر من صورة استخدم imageFile2 و imageFile3 و imageFile4.</small>
       </div>
 
       <div className="admin-card">
