@@ -7,6 +7,8 @@ const STORAGE_KEY_CATALOG = 'iraqstore_catalog_v1';
 const STORAGE_KEY_SETTINGS = 'iraqstore_settings_v1';
 const CATALOG_REFRESH_MS = 5 * 60_000;
 const ORDERS_REFRESH_MS = 8_000;
+const BULK_FIREBASE_CHUNK_SIZE = 80;
+const BULK_INVENTORY_CONCURRENCY = 8;
 
 let connectionStatus = 'checking';
 const statusListeners = new Set();
@@ -39,10 +41,10 @@ export function getConnectionStatus() {
   return connectionStatus;
 }
 
-function withTimeout(promise, ms = 6000) {
+function withTimeout(promise, ms = 18000, message = 'انتهت مهلة الاتصال. تحقق من الإنترنت وحاول مجددًا.') {
   return Promise.race([
     promise,
-    new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), ms)),
+    new Promise((_, reject) => setTimeout(() => reject(new Error(message)), ms)),
   ]);
 }
 
@@ -203,12 +205,31 @@ async function syncInventory(record) {
   });
 }
 
+async function runWithConcurrency(items, limit, worker, onProgress) {
+  let index = 0;
+  let done = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (index < items.length) {
+      const item = items[index];
+      index += 1;
+      await worker(item);
+      done += 1;
+      if (onProgress) onProgress(done, items.length);
+    }
+  });
+  await Promise.all(workers);
+}
+
 export async function saveProduct(record) {
   const { ref, set, db } = await firebaseAdminContext();
   const current = memoryProductsCache || (await getIDBProducts()) || [];
   const idx = current.findIndex((p) => String(p.id) === String(record.id));
   const updated = idx >= 0 ? current.map((p, i) => (i === idx ? record : p)) : [record, ...current];
-  await withTimeout(set(ref(db, `products/${record.id}`), record));
+  await withTimeout(
+    set(ref(db, `products/${record.id}`), record),
+    20000,
+    'انتهت مهلة حفظ بيانات المنتج في Firebase. حاول مرة ثانية بعد تقليل الصور أو تحسين الاتصال.'
+  );
   if (idx < 0 || Number(current[idx].stockQuantity ?? 15) !== Number(record.stockQuantity ?? 15)) await syncInventory(record);
   setLocalProducts(updated);
   setIDBProduct(record);
@@ -219,7 +240,7 @@ export async function saveProduct(record) {
 
 export async function deleteProduct(id) {
   const { ref, remove, db } = await firebaseAdminContext();
-  await withTimeout(remove(ref(db, `products/${id}`)));
+  await withTimeout(remove(ref(db, `products/${id}`)), 20000, 'انتهت مهلة حذف المنتج من Firebase.');
   await apiJson(`/api/inventory/${encodeURIComponent(id)}`, { admin: true, method: 'DELETE' });
   const current = memoryProductsCache || (await getIDBProducts()) || [];
   const updated = current.filter((p) => String(p.id) !== String(id));
@@ -229,21 +250,28 @@ export async function deleteProduct(id) {
   return true;
 }
 
-export async function saveProductsBatch(recordsList, { reorderOnly = false } = {}) {
+export async function saveProductsBatch(recordsList, { reorderOnly = false, onProgress } = {}) {
   const { ref, update, db } = await firebaseAdminContext();
   if (!Array.isArray(recordsList) || !recordsList.length) return true;
-  const batchMap = {};
-  recordsList.forEach((record) => {
-    if (record?.id) {
+  const validRecords = recordsList.filter((record) => record?.id);
+  for (let offset = 0; offset < validRecords.length; offset += BULK_FIREBASE_CHUNK_SIZE) {
+    const chunk = validRecords.slice(offset, offset + BULK_FIREBASE_CHUNK_SIZE);
+    const batchMap = {};
+    chunk.forEach((record) => {
       if (reorderOnly) batchMap[`${record.id}/sortOrder`] = Number(record.sortOrder) || 0;
       else batchMap[record.id] = record;
-    }
-  });
-  await withTimeout(update(ref(db, 'products'), batchMap), 12_000);
-  if (!reorderOnly) await Promise.all(recordsList.map(syncInventory));
+    });
+    await withTimeout(update(ref(db, 'products'), batchMap), 30000, 'انتهت مهلة حفظ دفعة من المنتجات.');
+    if (onProgress) onProgress(Math.min(offset + chunk.length, validRecords.length), validRecords.length, 'products');
+  }
+  if (!reorderOnly) {
+    await runWithConcurrency(validRecords, BULK_INVENTORY_CONCURRENCY, syncInventory, (done, total) => {
+      if (onProgress) onProgress(done, total, 'inventory');
+    });
+  }
   const current = memoryProductsCache || (await getIDBProducts()) || [];
   const map = new Map(current.map((p) => [String(p.id), p]));
-  recordsList.forEach((p) => {
+  validRecords.forEach((p) => {
     if (p?.id) map.set(String(p.id), reorderOnly ? { ...(map.get(String(p.id)) || p), sortOrder: p.sortOrder } : p);
   });
   const merged = [...map.values()];
@@ -272,7 +300,7 @@ export function listenSettings(cb) {
 
 export async function saveSetting(key, value) {
   const { ref, update, db } = await firebaseAdminContext();
-  await withTimeout(update(ref(db, 'settings'), { [key]: value }));
+  await withTimeout(update(ref(db, 'settings'), { [key]: value }), 20000, 'انتهت مهلة حفظ إعدادات المتجر.');
   latestSettings = { ...latestSettings, [key]: value };
   try { localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(latestSettings)); } catch {}
   settingsListeners.forEach((cb) => cb(latestSettings));
@@ -304,7 +332,7 @@ function encodeTreeForFirebase(tree) {
 
 export async function saveCatalog(tree) {
   const { ref, set, db } = await firebaseAdminContext();
-  await withTimeout(set(ref(db, 'catalog'), encodeTreeForFirebase(tree)));
+  await withTimeout(set(ref(db, 'catalog'), encodeTreeForFirebase(tree)), 20000, 'انتهت مهلة حفظ أقسام المتجر.');
   latestCatalog = tree;
   try { localStorage.setItem(STORAGE_KEY_CATALOG, JSON.stringify(tree)); } catch {}
   catalogListeners.forEach((cb) => cb(tree));

@@ -78,6 +78,26 @@ export async function compressImage(file, maxDimension = 1800, quality = 0.88) {
   });
 }
 
+export async function compressImageToLimit(file, {
+  maxBytes = 650 * 1024,
+  initialMaxDimension = 1200,
+  minDimension = 640,
+  initialQuality = 0.78,
+  minQuality = 0.48,
+} = {}) {
+  let maxDimension = initialMaxDimension;
+  let quality = initialQuality;
+  let best = await compressImage(file, maxDimension, quality);
+
+  while ((best.compressedSize || file.size) > maxBytes && (maxDimension > minDimension || quality > minQuality)) {
+    if (quality > minQuality) quality = Math.max(minQuality, quality - 0.08);
+    else maxDimension = Math.max(minDimension, Math.round(maxDimension * 0.82));
+    best = await compressImage(file, maxDimension, quality);
+  }
+
+  return best;
+}
+
 export function formatBytes(bytes) {
   if (!bytes || bytes <= 0) return '0 B';
   const k = 1024;

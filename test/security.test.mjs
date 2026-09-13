@@ -54,7 +54,9 @@ test('checkout clears cart only after a confirmed API response', async () => {
 test('image uploads fall back to bounded inline images when Firebase Storage is unavailable', async () => {
   const upload = await read('src/data/upload.js');
   assert.match(upload, /storageUnavailableForSession/);
-  assert.match(upload, /INLINE_IMAGE_LIMIT = 950 \* 1024/);
+  assert.match(upload, /UPLOAD_IMAGE_LIMIT = 700 \* 1024/);
+  assert.match(upload, /INLINE_IMAGE_LIMIT = 650 \* 1024/);
+  assert.match(upload, /compressImageToLimit/);
   assert.match(upload, /falling back to inline compressed image/);
   assert.match(upload, /return await inlineCompressedImage\(file\)/);
 });
@@ -127,7 +129,8 @@ test('reordering changes only display order and never resets sold inventory', as
   const panel = await read('src/admin/ProductReorderPanel.jsx');
   const remote = await read('src/data/remote.js');
   assert.match(panel, /reorderOnly: true/);
-  assert.match(remote, /if \(!reorderOnly\) await Promise.all\(recordsList.map\(syncInventory\)\)/);
+  assert.match(remote, /if \(!reorderOnly\) \{/);
+  assert.match(remote, /runWithConcurrency\(validRecords, BULK_INVENTORY_CONCURRENCY, syncInventory/);
   assert.match(remote, /batchMap\[\`\$\{record.id\}\/sortOrder\`\]/);
 });
 

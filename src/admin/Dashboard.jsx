@@ -354,6 +354,80 @@ function ProductsPanel({ products }) {
   );
 }
 
+function splitCsvLine(line) {
+  const cells = [];
+  let current = '';
+  let quoted = false;
+  for (let i = 0; i < line.length; i += 1) {
+    const char = line[i];
+    if (char === '"' && line[i + 1] === '"') {
+      current += '"';
+      i += 1;
+    } else if (char === '"') {
+      quoted = !quoted;
+    } else if (char === ',' && !quoted) {
+      cells.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  cells.push(current.trim());
+  return cells;
+}
+
+function parseCsvProducts(text) {
+  const lines = String(text || '').split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  if (lines.length < 2) throw new Error('ملف CSV يحتاج صف عناوين وصف منتج واحد على الأقل.');
+  const headers = splitCsvLine(lines[0]).map((h) => h.trim());
+  return lines.slice(1).map((line, idx) => {
+    const cells = splitCsvLine(line);
+    const raw = {};
+    headers.forEach((header, i) => { raw[header] = cells[i] || ''; });
+    const id = raw.id || `bulk-${Date.now().toString(36)}-${idx + 1}`;
+    const images = [raw.image, raw.image2, raw.image3, raw.image4].filter(Boolean);
+    return {
+      id,
+      name: raw.name || raw['اسم المنتج'] || '',
+      nameEn: raw.nameEn || '',
+      blurb: raw.blurb || raw.description || raw['الوصف'] || '',
+      blurbEn: raw.blurbEn || '',
+      price: Number(raw.price || raw['السعر']) || 0,
+      oldPrice: raw.oldPrice ? Number(raw.oldPrice) : null,
+      gender: raw.gender || 'men',
+      category: raw.category || 'shoes',
+      sub: raw.sub || '',
+      type: raw.type || 'general',
+      status: raw.status || 'active',
+      stockQuantity: raw.stockQuantity !== '' ? Number(raw.stockQuantity) : 15,
+      images,
+      colors: raw.colors ? raw.colors.split('|').map((name) => ({ name: name.trim(), nameEn: name.trim(), hex: '#777777' })).filter((c) => c.name) : [],
+      sizes: raw.sizes ? raw.sizes.split('|').map((s) => s.trim()).filter(Boolean) : [],
+      material: raw.material || '',
+      materialEn: raw.materialEn || '',
+      badge: raw.badge || null,
+      rating: raw.rating ? Number(raw.rating) : 4.8,
+      reviews: raw.reviews ? Number(raw.reviews) : 12,
+      sortOrder: raw.sortOrder ? Number(raw.sortOrder) : undefined,
+      customSpecs: [],
+    };
+  }).filter((product) => product.name && product.price > 0);
+}
+
+function normalizeImportProducts(list, existingCount = 0) {
+  return list.map((product, idx) => ({
+    ...product,
+    id: String(product.id || `bulk-${Date.now().toString(36)}-${idx + 1}`),
+    price: Number(product.price) || 0,
+    oldPrice: product.oldPrice ? Number(product.oldPrice) : null,
+    stockQuantity: Number.isFinite(Number(product.stockQuantity)) ? Number(product.stockQuantity) : 15,
+    status: product.status || 'active',
+    type: product.type || 'general',
+    images: Array.isArray(product.images) ? product.images.filter(Boolean).slice(0, 4) : [product.image].filter(Boolean),
+    sortOrder: product.sortOrder ?? existingCount + idx + 1,
+  })).filter((product) => product.name && product.price > 0);
+}
+
 function SettingsPanel({ productCount, products }) {
   const [seeding, setSeeding] = useState(false);
   const [msg, setMsg] = useState('');
@@ -400,25 +474,43 @@ function SettingsPanel({ productCount, products }) {
     URL.revokeObjectURL(url);
   };
 
-  const handleImportJSON = (e) => {
+  const handleImportFile = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = async (evt) => {
       try {
-        const parsed = JSON.parse(evt.target.result);
-        const list = Array.isArray(parsed) ? parsed : parsed.products;
+        const text = evt.target.result;
+        let list;
+        if (file.name.toLowerCase().endsWith('.csv')) {
+          list = parseCsvProducts(text);
+        } else {
+          const parsed = JSON.parse(text);
+          list = Array.isArray(parsed) ? parsed : parsed.products;
+        }
         if (!Array.isArray(list) || !list.length) {
-          alert('ملف JSON غير صالح أو لا يحتوي على منتجات.');
+          alert('الملف غير صالح أو لا يحتوي على منتجات مكتملة. تأكد من وجود الاسم والسعر.');
           return;
         }
-        if (window.confirm(`هل تريد استيراد ورفع ${list.length} منتج دفعة واحدة إلى قاعدة البيانات؟`)) {
-          setMsg('جارٍ رفع وحفظ المنتجات دفعة واحدة…');
-          await saveProductsBatch(list);
-          setMsg(`تم استيراد ورفع ${list.length} منتج بنجاح! 🚀`);
+        const normalized = normalizeImportProducts(list, products.length);
+        if (!normalized.length) {
+          alert('لم يتم العثور على منتجات صالحة. الاسم والسعر مطلوبان لكل منتج.');
+          return;
+        }
+        if (window.confirm(`هل تريد استيراد ${normalized.length} منتج إلى قاعدة البيانات؟`)) {
+          setMsg(`جارٍ حفظ ${normalized.length} منتج…`);
+          await saveProductsBatch(normalized, {
+            onProgress(done, total, stage) {
+              const label = stage === 'inventory' ? 'تحديث المخزون' : 'حفظ المنتجات';
+              setMsg(`${label}: ${done} من ${total}`);
+            },
+          });
+          setMsg(`تم استيراد ${normalized.length} منتج بنجاح!`);
         }
       } catch (err) {
-        alert('خطأ في قراءة ملف JSON: ' + err.message);
+        alert('خطأ في قراءة ملف الاستيراد: ' + err.message);
+      } finally {
+        e.target.value = '';
       }
     };
     reader.readAsText(file);
@@ -437,14 +529,14 @@ function SettingsPanel({ productCount, products }) {
 
       <div className="admin-card">
         <h3>استيراد وتصدير المنتجات بالجملة (+1000 منتج) 🚀</h3>
-        <p>تصدير واستيراد الكتالوج بالكامل لرفع آلاف المنتجات دفعة واحدة إلى قاعدة البيانات في ثوانٍ.</p>
+        <p>استورد 200 منتج أو أكثر عبر JSON أو CSV من إكسل. أعمدة CSV الأساسية: name, price, gender, category, sub, image, stockQuantity.</p>
         <div style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap', marginTop: '0.8rem' }}>
           <button className="admin-btn admin-btn--ghost" onClick={exportDataJSON}>
             ⬇️ تصدير النسخة الاحتياطية (JSON)
           </button>
           <label className="admin-btn admin-btn--primary admin-file">
-            ⬆️ استيراد جماعي (ملف JSON)
-            <input type="file" accept=".json" hidden onChange={handleImportJSON} />
+            ⬆️ استيراد جماعي (JSON / CSV)
+            <input type="file" accept=".json,.csv,text/csv,application/json" hidden onChange={handleImportFile} />
           </label>
         </div>
       </div>

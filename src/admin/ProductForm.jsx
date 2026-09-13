@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { CATEGORIES, INITIAL_CATEGORIES, getFullCatalogTree, getSubcategories } from '../data/catalog';
 import { formatPrice } from '../data/products';
 import { uploadImage } from '../data/upload';
-import { compressImage, formatBytes } from '../utils/imageCompressor';
+import { compressImageToLimit, formatBytes } from '../utils/imageCompressor';
 import { parseSmartPrice } from '../utils/smartPrice';
 import { autoTranslateProduct, translateArabicAsync, translateText } from '../utils/translator';
 
@@ -444,7 +444,7 @@ export default function ProductForm({ initial, onSave, onCancel }) {
     let comp = 0;
     for (const f of fileList) {
       orig += f.size;
-      const res = await compressImage(f, 1000, 0.75);
+      const res = await compressImageToLimit(f, { maxBytes: 700 * 1024 });
       comp += res.compressedSize;
     }
 
@@ -594,7 +594,11 @@ export default function ProductForm({ initial, onSave, onCancel }) {
     try {
       let images = form.images || [];
       if (files.length) {
-        const uploaded = await Promise.all(files.map((f) => uploadImage(f, 'products')));
+        const uploaded = [];
+        for (let i = 0; i < files.length; i += 1) {
+          setStatusText(`جارٍ ضغط ورفع الصورة ${i + 1} من ${files.length}…`);
+          uploaded.push(await uploadImage(files[i], 'products'));
+        }
         images = [...images, ...uploaded.filter(Boolean)];
       }
       // Never persist more than 4 images.

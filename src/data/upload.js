@@ -1,10 +1,11 @@
 import { getDownloadURL, ref as sref, uploadBytesResumable } from 'firebase/storage';
 import { storage } from '../firebase';
-import { compressImage, formatBytes } from '../utils/imageCompressor';
+import { compressImage, compressImageToLimit, formatBytes } from '../utils/imageCompressor';
 
 const ACCEPTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/avif']);
 const ORIGINAL_IMAGE_LIMIT = 12 * 1024 * 1024;
-const INLINE_IMAGE_LIMIT = 950 * 1024;
+const UPLOAD_IMAGE_LIMIT = 700 * 1024;
+const INLINE_IMAGE_LIMIT = 650 * 1024;
 let storageUnavailableForSession = false;
 
 function assertImage(file) {
@@ -21,8 +22,8 @@ async function uploadToFirebaseStorage(file, folder) {
   const snapshot = await new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
       uploadTask.cancel();
-      reject(new Error('Storage Timeout'));
-    }, 30_000);
+      reject(new Error('انتهت مهلة رفع الصورة. جرّب صورة أصغر أو اتصالاً أقوى.'));
+    }, 60_000);
     uploadTask.on('state_changed', undefined, (error) => {
       clearTimeout(timeout);
       reject(error);
@@ -35,12 +36,12 @@ async function uploadToFirebaseStorage(file, folder) {
 }
 
 async function inlineCompressedImage(file) {
-  const firstPass = await compressImage(file, 900, 0.62);
+  const firstPass = await compressImage(file, 820, 0.58);
   let dataUrl = firstPass.dataUrl;
   let compressedSize = firstPass.compressedSize || dataUrl?.length || file.size;
 
   if (!dataUrl || dataUrl.length > INLINE_IMAGE_LIMIT) {
-    const secondPass = await compressImage(firstPass.file || file, 720, 0.52);
+    const secondPass = await compressImage(firstPass.file || file, 640, 0.46);
     dataUrl = secondPass.dataUrl;
     compressedSize = secondPass.compressedSize || dataUrl?.length || compressedSize;
   }
@@ -61,7 +62,7 @@ export async function uploadImage(file, folder = 'products') {
   if (!file) return null;
   assertImage(file);
 
-  const { file: compressedFile } = await compressImage(file, 1200, 0.78);
+  const { file: compressedFile } = await compressImageToLimit(file, { maxBytes: UPLOAD_IMAGE_LIMIT });
   const targetFile = compressedFile || file;
 
   if (!storageUnavailableForSession) {
