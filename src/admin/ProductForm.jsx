@@ -584,8 +584,27 @@ export default function ProductForm({ initial, onSave, onCancel }) {
     set('oldPrice', String(Math.round(currentPrice / (1 - pct / 100))));
   };
 
+  const resetForNextProduct = () => {
+    setForm((f) => ({
+      ...empty,
+      type: f.type,
+      gender: f.gender,
+      category: f.category,
+      sub: f.sub,
+      colors: f.colors,
+      sizes: f.sizes,
+      sortOrder: '',
+    }));
+    setFiles([]);
+    setCompressionStats(null);
+    setCustomColorName('');
+    setCustomSize('');
+  };
+
   const submit = async (e) => {
     e.preventDefault();
+    const action = e.nativeEvent?.submitter?.value;
+    const keepOpen = action === 'save-and-add';
     if (!form.name || !form.price) return setErr('اسم المنتج والسعر مطلوبة');
     setBusy(true);
     setErr('');
@@ -627,7 +646,11 @@ export default function ProductForm({ initial, onSave, onCancel }) {
         images,
       };
 
-      await onSave(record);
+      await onSave(record, { keepOpen });
+      if (keepOpen) {
+        resetForNextProduct();
+        setStatusText('تم حفظ المنتج. أضف المنتج التالي…');
+      }
       setBusy(false);
     } catch (e2) {
       console.error(e2);
@@ -1320,6 +1343,11 @@ export default function ProductForm({ initial, onSave, onCancel }) {
           <button type="submit" className="admin-btn admin-btn--primary" disabled={busy}>
             {busy ? statusText || 'جارٍ الحفظ…' : 'حفظ المنتج'}
           </button>
+          {!form.id && (
+            <button type="submit" name="action" value="save-and-add" className="admin-btn admin-btn--primary" disabled={busy}>
+              {busy ? statusText || 'جارٍ الحفظ…' : 'حفظ وإضافة منتج آخر'}
+            </button>
+          )}
         </footer>
       </form>
     </div>

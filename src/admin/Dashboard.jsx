@@ -79,9 +79,9 @@ function ProductsPanel({ products }) {
     return list.sort((a, b) => (a.sortOrder ?? 9999) - (b.sortOrder ?? 9999));
   }, [products, q, gender, stockFilter]);
 
-  const save = async (record) => {
+  const save = async (record, options = {}) => {
     await saveProduct(record);
-    setEditing(null);
+    setEditing(options.keepOpen ? 'new' : null);
   };
 
   const del = async (p) => {
