@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { AuthProvider, useAuth } from '../store/AuthContext';
+import { warmUpRealtimeDatabase } from '../data/remote';
 import Dashboard from './Dashboard';
 import Login from './Login';
 
@@ -11,6 +12,11 @@ function AdminGate() {
     document.documentElement.setAttribute('data-admin', 'on');
     return () => document.documentElement.removeAttribute('data-admin');
   }, []);
+
+  // Start the database handshake as soon as /admin opens, so it is long done
+  // before anyone fills in a product and presses save. On a slow mobile link
+  // that handshake alone used to blow the save deadline.
+  useEffect(() => { warmUpRealtimeDatabase(); }, []);
 
   if (!ready) {
     return (

@@ -290,3 +290,19 @@ test('migrating a product can never leave its photos nowhere', async () => {
   // A single save that loses its gallery upload puts the photos back.
   assert.match(remote, /set\(ref\(db, `products\/\$\{record\.id\}\/images`\), images\)/);
 });
+
+test('a save never pays for a cold database handshake', async () => {
+  const remote = await read('src/data/remote.js');
+  const dashboard = await read('src/admin/Dashboard.jsx');
+  // The SDK opens its socket on first use, so the dashboard opens it on mount
+  // rather than letting a save absorb the handshake inside its deadline.
+  assert.match(remote, /ref\(db, '\.info\/connected'\)/);
+  const shell = await read('src/admin/AdminApp.jsx');
+  // Warm up from the login screen, not just once the dashboard renders.
+  assert.match(shell, /warmUpRealtimeDatabase\(\)/);
+  assert.match(dashboard, /warmUpRealtimeDatabase\(\)/);
+  // A write that cannot land must say so, instead of blaming a timeout.
+  assert.match(remote, /await awaitRealtimeConnection\(\)/);
+  assert.match(remote, /لا يوجد اتصال بالإنترنت/);
+  assert.match(remote, /تعذر الاتصال بقاعدة البيانات/);
+});

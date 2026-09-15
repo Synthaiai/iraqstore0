@@ -15,6 +15,8 @@ import {
   seedProducts,
   subscribeConnectionStatus,
   subscribeImageSyncFailures,
+  subscribeRealtimeStatus,
+  warmUpRealtimeDatabase,
 } from '../data/remote';
 import { uploadImage } from '../data/upload';
 import AnalyticsPanel from './AnalyticsPanel';
@@ -662,6 +664,15 @@ export default function Dashboard() {
   // A product can save while its photos or its stock mirror do not. Those used
   // to be console-only warnings, so the admin saw a success they did not get.
   const [syncWarnings, setSyncWarnings] = useState([]);
+  const [dbReady, setDbReady] = useState(false);
+
+  // Open the database connection now, not on the first save. Filling in a
+  // product takes far longer than the handshake, so by the time the admin
+  // presses save the socket is warm.
+  useEffect(() => {
+    warmUpRealtimeDatabase();
+    return subscribeRealtimeStatus(setDbReady);
+  }, []);
   const dismissWarning = (id) => setSyncWarnings((list) => list.filter((w) => w.id !== id));
 
   useEffect(() => subscribeImageSyncFailures(({ product, error }) => {
@@ -752,6 +763,11 @@ export default function Dashboard() {
       </header>
 
       <main className="admin-main">
+        {!dbReady && (
+          <div className="admin-note admin-note--warn" role="status">
+            ⏳ جارٍ فتح الاتصال بقاعدة البيانات… انتظر حتى يجهز قبل حفظ منتج.
+          </div>
+        )}
         {syncWarnings.map((warning) => (
           <div key={warning.id} className="admin-note admin-note--warn" role="status">
             ⚠️ {warning.name}: {warning.message}

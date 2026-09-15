@@ -159,6 +159,85 @@ async function firebaseAdminContext() {
   return { ref, remove, set, update, auth, db };
 }
 
+/**
+ * Realtime Database socket state.
+ *
+ * The SDK does not open its connection until the first operation, so a save
+ * used to pay for the WebSocket handshake and its auth round-trip inside the
+ * write deadline. On a slow mobile link that alone exceeded the timeout, and
+ * the admin was told the save had timed out when nothing had been sent yet.
+ *
+ * Opening the socket when the dashboard mounts means that by the time a
+ * product is actually saved the connection is warm and the write is a few KB
+ * over an established channel.
+ */
+let realtimeConnected = false;
+let realtimeWarmUp = null;
+const realtimeListeners = new Set();
+
+function notifyRealtime(connected) {
+  if (realtimeConnected === connected) return;
+  realtimeConnected = connected;
+  realtimeListeners.forEach((cb) => cb(connected));
+}
+
+export function isRealtimeConnected() {
+  return realtimeConnected;
+}
+
+export function subscribeRealtimeStatus(cb) {
+  realtimeListeners.add(cb);
+  cb(realtimeConnected);
+  return () => realtimeListeners.delete(cb);
+}
+
+/** Open the Realtime Database connection ahead of the first write. */
+export function warmUpRealtimeDatabase() {
+  if (realtimeWarmUp) return realtimeWarmUp;
+  realtimeWarmUp = (async () => {
+    const [{ onValue, ref }, { db }] = await Promise.all([
+      import('firebase/database'),
+      import('../firebase'),
+    ]);
+    // `.info/connected` is a local-only path: reading it forces the socket
+    // open and reports its true state without needing any permission.
+    onValue(ref(db, '.info/connected'), (snapshot) => notifyRealtime(snapshot.val() === true));
+  })().catch((error) => {
+    realtimeWarmUp = null;
+    console.warn('Could not open the Realtime Database connection:', error);
+  });
+  return realtimeWarmUp;
+}
+
+/**
+ * Resolve once the database socket is usable, or throw a message that says
+ * what is actually wrong instead of blaming a write that never left.
+ */
+async function awaitRealtimeConnection(ms = 25000) {
+  if (realtimeConnected) return;
+  warmUpRealtimeDatabase();
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    throw new Error('لا يوجد اتصال بالإنترنت. تحقق من الشبكة ثم احفظ مجددًا.');
+  }
+  const connected = await new Promise((resolve) => {
+    // `subscribeRealtimeStatus` reports the current state synchronously, so
+    // neither `stop` nor `timer` may be referenced from inside the callback.
+    let settle = () => {};
+    let stop = () => {};
+    const timer = setTimeout(() => settle(false), ms);
+    settle = (value) => {
+      settle = () => {};
+      clearTimeout(timer);
+      stop();
+      resolve(value);
+    };
+    stop = subscribeRealtimeStatus((state) => { if (state) settle(true); });
+  });
+  if (!connected) {
+    throw new Error('تعذر الاتصال بقاعدة البيانات. الشبكة بطيئة أو تحجب الاتصال — جرّب شبكة أخرى ثم احفظ مجددًا.');
+  }
+}
+
 async function authHeaders(required = false) {
   const headers = { accept: 'application/json' };
   if (!required) return headers;
@@ -375,6 +454,8 @@ async function saveProductGallery(record, images) {
 
 export async function saveProduct(record) {
   const { ref, set, db } = await firebaseAdminContext();
+  // Fail with the real reason before starting a write that cannot land.
+  await awaitRealtimeConnection();
   const current = memoryProductsCache || (await getIDBProducts()) || [];
   const idx = current.findIndex((p) => String(p.id) === String(record.id));
 
@@ -382,11 +463,12 @@ export async function saveProduct(record) {
   const cached = hydrateProduct({ ...lean, images: [] });
   const updated = idx >= 0 ? current.map((p, i) => (i === idx ? cached : p)) : [cached, ...current];
 
-  // The blocking write is now a few KB, so the timeout is generous rather than tight.
+  // A few KB over a connection that is already open. The deadline only has to
+  // cover a slow round-trip, not a cold handshake.
   await withTimeout(
     set(ref(db, `products/${record.id}`), lean),
-    20000,
-    'انتهت مهلة حفظ بيانات المنتج في Firebase. تحقق من الاتصال وحاول مجددًا.'
+    45000,
+    'استغرق حفظ المنتج وقتًا أطول من المتوقع. المنتج قد يكون حُفظ — حدّث الصفحة قبل إعادة المحاولة.'
   );
 
   if (idx < 0 || Number(current[idx].stockQuantity ?? 15) !== Number(record.stockQuantity ?? 15)) await syncInventory(record);
@@ -433,6 +515,7 @@ export async function deleteProduct(id) {
 
 export async function saveProductsBatch(recordsList, { reorderOnly = false, onProgress } = {}) {
   const { ref, update, db } = await firebaseAdminContext();
+  await awaitRealtimeConnection();
   if (!Array.isArray(recordsList) || !recordsList.length) return true;
   const validRecords = recordsList.filter((record) => record?.id);
   for (let offset = 0; offset < validRecords.length; offset += BULK_FIREBASE_CHUNK_SIZE) {
