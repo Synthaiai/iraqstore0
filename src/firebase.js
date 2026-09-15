@@ -1,7 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getDatabase } from 'firebase/database';
-import { getStorage } from 'firebase/storage';
 
 /**
  * Firebase web configuration.
@@ -16,7 +15,6 @@ const firebaseConfig = {
   authDomain: 'store-29692.firebaseapp.com',
   databaseURL: 'https://store-29692-default-rtdb.firebaseio.com',
   projectId: 'store-29692',
-  storageBucket: 'store-29692.firebasestorage.app',
   messagingSenderId: '708544997996',
   appId: '1:708544997996:web:913f4f694ae36bf397c649',
 };
@@ -24,7 +22,6 @@ const firebaseConfig = {
 export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getDatabase(app);
-export const storage = getStorage(app);
 
 /**
  * Emails allowed into the admin dashboard. Edit this list to grant access.

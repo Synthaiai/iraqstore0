@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { CATEGORIES, INITIAL_CATEGORIES, getFullCatalogTree, getSubcategories } from '../data/catalog';
 import { formatPrice } from '../data/products';
 import { uploadImage } from '../data/upload';
+import { loadProductImages } from '../data/remote';
 import { compressImageToLimit, formatBytes } from '../utils/imageCompressor';
 import { parseSmartPrice } from '../utils/smartPrice';
 import { autoTranslateProduct, translateArabicAsync, translateText } from '../utils/translator';
@@ -239,6 +240,7 @@ const empty = {
 };
 
 export default function ProductForm({ initial, onSave, onCancel }) {
+  const [galleryLoading, setGalleryLoading] = useState(false);
   const [form, setForm] = useState(() => {
     const init = initial || {};
     let existingImages = [];
@@ -268,6 +270,9 @@ export default function ProductForm({ initial, onSave, onCancel }) {
       type: detectedType,
       sizes: Array.isArray(init.sizes) ? init.sizes : [],
       images: existingImages,
+      // Carried through to the save path: while true, `images` is only the
+      // thumbnail stand-in and the stored gallery must be left untouched.
+      imagesArePlaceholder: Boolean(init.imagesArePlaceholder),
     };
   });
 
@@ -601,11 +606,27 @@ export default function ProductForm({ initial, onSave, onCancel }) {
     setCustomSize('');
   };
 
+  // A split product arrives carrying only its thumbnail. Swap in the real
+  // gallery so the admin edits (and re-saves) the actual photos.
+  useEffect(() => {
+    if (!initial?.id || !initial.imagesArePlaceholder) return undefined;
+    let active = true;
+    setGalleryLoading(true);
+    loadProductImages(initial.id)
+      .then((images) => {
+        if (!active || !images?.length) return;
+        setForm((prev) => ({ ...prev, images, imagesArePlaceholder: false }));
+      })
+      .finally(() => { if (active) setGalleryLoading(false); });
+    return () => { active = false; };
+  }, [initial?.id, initial?.imagesArePlaceholder]);
+
   const submit = async (e) => {
     e.preventDefault();
     const action = e.nativeEvent?.submitter?.value;
     const keepOpen = action === 'save-and-add';
     if (!form.name || !form.price) return setErr('اسم المنتج والسعر مطلوبة');
+    if (galleryLoading) return setErr('جارٍ تحميل صور المنتج… انتظر لحظة ثم احفظ.');
     setBusy(true);
     setErr('');
     setStatusText('جارٍ ضغط وحفظ الصور…');

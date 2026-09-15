@@ -10,6 +10,22 @@ async function orderWithItems(env, id) {
   return { order, items: items.results || [] };
 }
 
+/**
+ * Move stock by `delta` for one product.
+ *
+ * A bare UPDATE silently does nothing when the product has no inventory row
+ * (it was created before inventory tracking, or the row was pruned), which
+ * loses the returned stock. Seeding the row first makes the restore real.
+ */
+function adjustStock(env, productId, delta, now) {
+  return [
+    env.DB.prepare('INSERT OR IGNORE INTO inventory (product_id, stock, updated_at) VALUES (?, 0, ?)')
+      .bind(productId, now),
+    env.DB.prepare('UPDATE inventory SET stock = stock + ?, updated_at = ? WHERE product_id = ?')
+      .bind(delta, now, productId),
+  ];
+}
+
 export async function onRequestPatch({ request, env, params }) {
   if (!env.DB) return apiError(503, 'DATABASE_NOT_CONFIGURED', 'قاعدة الطلبات غير مهيأة.');
   const auth = await requireAdmin(request, env);
@@ -31,19 +47,9 @@ export async function onRequestPatch({ request, env, params }) {
   const now = new Date().toISOString();
   const statements = [];
   if (status === 'cancelled' && record.order.status !== 'cancelled') {
-    for (const item of record.items) {
-      statements.push(
-        env.DB.prepare('UPDATE inventory SET stock = stock + ?, updated_at = ? WHERE product_id = ?')
-          .bind(Number(item.quantity), now, item.product_id)
-      );
-    }
+    for (const item of record.items) statements.push(...adjustStock(env, item.product_id, Number(item.quantity), now));
   } else if (record.order.status === 'cancelled' && status !== 'cancelled') {
-    for (const item of record.items) {
-      statements.push(
-        env.DB.prepare('UPDATE inventory SET stock = stock - ?, updated_at = ? WHERE product_id = ?')
-          .bind(Number(item.quantity), now, item.product_id)
-      );
-    }
+    for (const item of record.items) statements.push(...adjustStock(env, item.product_id, -Number(item.quantity), now));
   }
   statements.push(
     env.DB.prepare('UPDATE orders SET status = ?, updated_at = ? WHERE id = ?').bind(status, now, record.order.id)
@@ -70,14 +76,14 @@ export async function onRequestDelete({ request, env, params }) {
   const now = new Date().toISOString();
   const statements = [];
   if (record.order.status !== 'cancelled') {
-    for (const item of record.items) {
-      statements.push(
-        env.DB.prepare('UPDATE inventory SET stock = stock + ?, updated_at = ? WHERE product_id = ?')
-          .bind(Number(item.quantity), now, item.product_id)
-      );
-    }
+    for (const item of record.items) statements.push(...adjustStock(env, item.product_id, Number(item.quantity), now));
   }
   statements.push(env.DB.prepare('DELETE FROM orders WHERE id = ?').bind(record.order.id));
-  await env.DB.batch(statements);
+  try {
+    await env.DB.batch(statements);
+  } catch (error) {
+    console.error('order delete failed', error);
+    return apiError(503, 'DELETE_FAILED', 'تعذر حذف الطلب. حاول مجددًا.');
+  }
   return json({ ok: true });
 }

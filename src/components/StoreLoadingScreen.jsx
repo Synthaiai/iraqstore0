@@ -45,6 +45,11 @@ export default function StoreLoadingScreen() {
         try { localStorage.setItem('iraqstore.assets.decodedAt', String(Date.now())); } catch {}
         window.dispatchEvent(new Event('store:images-ready'));
         dismiss();
+      } else if (outcome.timedOut) {
+        // A slow connection is not a broken store. Open it and let the cards
+        // lazy-load the rest rather than holding the customer on a spinner.
+        window.dispatchEvent(new Event('store:images-ready'));
+        dismiss();
       }
     });
     return () => controller.abort();

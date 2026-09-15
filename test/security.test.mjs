@@ -7,18 +7,48 @@ const read = (path) => readFile(new URL(path, root), 'utf8');
 
 test('Firebase stock and order writes require an allowlisted admin account', async () => {
   const rules = JSON.parse(await read('database.rules.json'));
-  const storageRules = await read('storage.rules');
   const clientAuth = await read('src/firebase.js');
   const serverAuth = await read('functions/_lib/auth.js');
   const stockRule = rules.rules.products.$productId.stockQuantity['.write'];
   assert.equal(stockRule, undefined);
   assert.match(rules.rules.products.$productId['.write'], /auth\.token\.email == 'adminiraq@gmail\.com'/);
   assert.match(rules.rules.products.$productId['.write'], /auth\.token\.email == 'avxdevolper@gmail\.com'/);
-  assert.match(storageRules, /request\.auth\.token\.email == 'avxdevolper@gmail\.com'/);
   assert.match(clientAuth, /'avxdevolper@gmail\.com'/);
   assert.match(serverAuth, /'avxdevolper@gmail\.com'/);
-  assert.doesNotMatch(rules.rules.orders.$orderId['.write'], /data\.val\(\) == null/);
-  assert.match(rules.rules.orders.$orderId['.write'], /auth\.token\.email == 'adminiraq@gmail\.com'/);
+  // Full-size galleries are a separate node and must stay admin-only to write.
+  assert.match(rules.rules.productImages.$productId['.write'], /auth\.token\.email == 'adminiraq@gmail\.com'/);
+  assert.equal(rules.rules.productImages['.write'], undefined);
+  // Orders live in Cloudflare D1, written only by the order API. A rules block
+  // here implied a second source of truth that nothing actually wrote to.
+  assert.equal(rules.rules.orders, undefined);
+});
+
+test('product records stay small enough to save and to serve', async () => {
+  const remote = await read('src/data/remote.js');
+  // Photos are split out of the record: the blocking write is a few KB, and the
+  // public catalogue every visitor downloads no longer carries base64 images.
+  assert.match(remote, /const PRODUCT_IMAGES_PATH = 'productImages'/);
+  assert.match(remote, /delete lean\.images/);
+  assert.match(remote, /saveProductGallery\(lean, images\)\.catch/);
+  // The product cache must be budgeted by bytes, not by product count, or it
+  // eats the whole localStorage quota and starves the cart.
+  assert.match(remote, /serialized\.length <= PRODUCT_CACHE_BUDGET/);
+  // An undeployed Worker answers 200 with HTML; that must not reach callers.
+  assert.match(remote, /code = 'API_UNAVAILABLE'/);
+});
+
+test('editing a split product cannot overwrite its gallery with the thumbnail', async () => {
+  const remote = await read('src/data/remote.js');
+  const form = await read('src/admin/ProductForm.jsx');
+  // List views receive `images: [thumb]` as a stand-in. Saving that back would
+  // destroy the original photos, so it must be flagged and skipped.
+  assert.match(remote, /imagesArePlaceholder: true/);
+  assert.match(remote, /const placeholderOnly = record\.imagesArePlaceholder && images\.length <= 1/);
+  assert.match(remote, /if \(images === null\) return cached/);
+  // The edit form loads the real gallery, and refuses to save until it has.
+  assert.match(form, /loadProductImages\(initial\.id\)/);
+  assert.match(form, /if \(galleryLoading\) return setErr/);
+  assert.match(form, /imagesArePlaceholder: Boolean\(init\.imagesArePlaceholder\)/);
 });
 
 test('production build starts from source instead of a committed bundle', async () => {
@@ -51,14 +81,28 @@ test('checkout clears cart only after a confirmed API response', async () => {
   assert.match(checkout, /state: savedOrder/);
 });
 
-test('image uploads fall back to bounded inline images when Firebase Storage is unavailable', async () => {
+test('image uploads never touch Firebase Storage and stay small enough to save', async () => {
   const upload = await read('src/data/upload.js');
-  assert.match(upload, /storageUnavailableForSession/);
-  assert.match(upload, /UPLOAD_IMAGE_LIMIT = 700 \* 1024/);
-  assert.match(upload, /INLINE_IMAGE_LIMIT = 650 \* 1024/);
+  const firebase = await read('src/firebase.js');
+  // Storage is not part of this project: attempting an upload against a
+  // disabled bucket used to stall every product save until a 60s timeout.
+  assert.doesNotMatch(upload, /firebase\/storage/);
+  assert.doesNotMatch(firebase, /firebase\/storage|storageBucket|getStorage/);
+  // Inline images must stay well under the 20s Realtime Database write budget.
+  assert.match(upload, /INLINE_IMAGE_LIMIT = 190 \* 1024/);
+  assert.match(upload, /INLINE_DATAURL_LIMIT = 300 \* 1024/);
   assert.match(upload, /compressImageToLimit/);
-  assert.match(upload, /falling back to inline compressed image/);
-  assert.match(upload, /return await inlineCompressedImage\(file\)/);
+  // Every outbound CDN upload is deadline-bounded.
+  assert.match(upload, /AbortSignal\.timeout\(CDN_UPLOAD_TIMEOUT_MS\)/);
+});
+
+test('product saves are never blocked by the optional inventory mirror', async () => {
+  const remote = await read('src/data/remote.js');
+  // Writes used to get no AbortSignal at all, so a hanging /api/inventory PUT
+  // left the admin UI spinning with no error.
+  assert.doesNotMatch(remote, /fetchOptions\.method === 'GET'\) \? AbortSignal/);
+  assert.match(remote, /signal: fetchOptions\.signal \|\| AbortSignal\.timeout\(15000\)/);
+  assert.match(remote, /Inventory sync skipped \(product was saved to Firebase\)/);
 });
 
 test('draft products require authenticated catalogue access', async () => {
@@ -187,4 +231,62 @@ test('invoice image page gives iPhone a same-origin save surface', async () => {
   assert.match(page, /Save to Photos|حفظ إلى الصور/);
   assert.match(page, /فاتورة الطلب للحفظ في الاستديو/);
   assert.match(save, /localStorage\.setItem/);
+});
+
+test('order totals and stock are decided by the server, never the client', async () => {
+  const api = await read('functions/api/orders/index.js');
+  // Price, fee and total come from the catalogue and settings, not the payload.
+  assert.match(api, /const price = integer\(product\.price\)/);
+  assert.match(api, /subtotal \+= price \* quantity/);
+  assert.match(api, /const fees = deliveryFees\(bundle\.settings\)/);
+  assert.doesNotMatch(api, /body\.(total|subtotal|price)/);
+  // Draft products must never be purchasable.
+  assert.match(api, /product\.status === 'draft'/);
+  // Inventory moves inside the same atomic batch as the order insert.
+  assert.match(api, /await env\.DB\.batch\(statements\)/);
+});
+
+test('a request body is bounded while it streams, not after it is buffered', async () => {
+  const http = await read('functions/_lib/http.js');
+  // content-length is optional, so the guard cannot rely on it alone.
+  assert.match(http, /request\.body\?\.getReader\(\)/);
+  assert.match(http, /received > maxBytes/);
+  assert.match(http, /await reader\.cancel\(\)/);
+  assert.doesNotMatch(http, /const text = await request\.text\(\)/);
+});
+
+test('cancelling an order really returns its stock', async () => {
+  const api = await read('functions/api/orders/[id].js');
+  // A bare UPDATE is a no-op when the product has no inventory row yet, which
+  // silently loses the returned stock.
+  assert.match(api, /INSERT OR IGNORE INTO inventory \(product_id, stock, updated_at\) VALUES \(\?, 0, \?\)/);
+  assert.match(api, /adjustStock\(env, item\.product_id, Number\(item\.quantity\), now\)/);
+  assert.match(api, /adjustStock\(env, item\.product_id, -Number\(item\.quantity\), now\)/);
+  // Every write path answers with a clean error instead of an unhandled throw.
+  assert.match(api, /DELETE_FAILED/);
+});
+
+test('production users never see raw error internals', async () => {
+  const boundary = await read('src/components/ErrorBoundary.jsx');
+  assert.match(boundary, /import\.meta\.env\.DEV/);
+});
+
+test('every outbound third-party request has a deadline', async () => {
+  const translator = await read('src/utils/translator.js');
+  // A hung translate request used to leave `isProcessingQueue` true forever.
+  assert.match(translator, /fetch\(url, \{ signal: AbortSignal\.timeout\(\d+\) \}\)/);
+});
+
+test('migrating a product can never leave its photos nowhere', async () => {
+  const remote = await read('src/data/remote.js');
+  // Photos must be copied to their new home before the product record drops
+  // them, so an interrupted run leaves the old (still readable) shape intact.
+  const galleryWrite = remote.indexOf('await saveProductGallery(gallery.record, gallery.images)');
+  const recordWrite = remote.indexOf("await withTimeout(update(ref(db, 'products'), batchMap)");
+  assert(galleryWrite > 0 && recordWrite > 0, 'both writes should exist');
+  assert(galleryWrite < recordWrite, 'the gallery copy must happen before the product record is slimmed');
+  // A product whose gallery failed is left untouched rather than half-migrated.
+  assert.match(remote, /batchMap\[gallery\.record\.id\] = gallery\.record;/);
+  // A single save that loses its gallery upload puts the photos back.
+  assert.match(remote, /set\(ref\(db, `products\/\$\{record\.id\}\/images`\), images\)/);
 });

@@ -3,6 +3,9 @@ import { useEffect, useRef, useState } from 'react';
 const SCRIPT_ID = 'cf-turnstile-script';
 const SCRIPT_URL = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
 
+/** A script tag that never fires load or error would leave checkout disabled forever. */
+const SCRIPT_TIMEOUT_MS = 15000;
+
 function loadTurnstile() {
   if (window.turnstile) return Promise.resolve(window.turnstile);
   return new Promise((resolve, reject) => {
@@ -15,8 +18,19 @@ function loadTurnstile() {
       script.defer = true;
       document.head.appendChild(script);
     }
-    script.addEventListener('load', () => resolve(window.turnstile), { once: true });
-    script.addEventListener('error', () => reject(new Error('TURNSTILE_LOAD_FAILED')), { once: true });
+    let settled = false;
+    const finish = (fn, value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      fn(value);
+    };
+    const timer = setTimeout(
+      () => finish(reject, new Error('TURNSTILE_LOAD_TIMEOUT')),
+      SCRIPT_TIMEOUT_MS
+    );
+    script.addEventListener('load', () => finish(resolve, window.turnstile), { once: true });
+    script.addEventListener('error', () => finish(reject, new Error('TURNSTILE_LOAD_FAILED')), { once: true });
   });
 }
 
@@ -42,7 +56,7 @@ export default function TurnstileWidget({ onToken, resetKey = 0, lang = 'ar' }) 
           'error-callback': () => { onToken(''); setFailed(true); },
         });
       })
-      .catch(() => setFailed(true));
+      .catch(() => { if (alive) { onToken(''); setFailed(true); } });
     return () => {
       alive = false;
       if (widgetId.current !== null && window.turnstile) window.turnstile.remove(widgetId.current);

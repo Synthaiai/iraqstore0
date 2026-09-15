@@ -70,7 +70,9 @@ export default class ErrorBoundary extends Component {
                 overflow: 'auto',
               }}
             >
-              {String(this.state.error?.message || this.state.error)}
+              {import.meta.env.DEV
+                ? String(this.state.error?.message || this.state.error)
+                : 'يمكنك إعادة المحاولة الآن. إذا تكرر الخطأ تواصل مع الدعم.'}
             </pre>
             <button
               type="button"

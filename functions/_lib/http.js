@@ -16,16 +16,39 @@ export function apiError(status, code, message, details) {
 }
 
 export async function readJson(request, maxBytes = 64 * 1024) {
+  const tooLarge = () => Object.assign(new Error('PAYLOAD_TOO_LARGE'), { status: 413 });
   const length = Number(request.headers.get('content-length') || 0);
-  if (length > maxBytes) throw Object.assign(new Error('PAYLOAD_TOO_LARGE'), { status: 413 });
+  if (length > maxBytes) throw tooLarge();
 
-  const text = await request.text();
-  if (new TextEncoder().encode(text).byteLength > maxBytes) {
-    throw Object.assign(new Error('PAYLOAD_TOO_LARGE'), { status: 413 });
+  // Content-length is optional (chunked encoding), so the body is read in
+  // chunks and abandoned the moment it exceeds the budget. Buffering first and
+  // measuring after would let an attacker force an unbounded allocation.
+  const reader = request.body?.getReader();
+  if (!reader) throw Object.assign(new Error('INVALID_JSON'), { status: 400 });
+
+  const chunks = [];
+  let received = 0;
+  for (;;) {
+    // eslint-disable-next-line no-await-in-loop
+    const { done, value } = await reader.read();
+    if (done) break;
+    received += value.byteLength;
+    if (received > maxBytes) {
+      await reader.cancel();
+      throw tooLarge();
+    }
+    chunks.push(value);
+  }
+
+  const body = new Uint8Array(received);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
   }
 
   try {
-    return JSON.parse(text);
+    return JSON.parse(new TextDecoder().decode(body));
   } catch {
     throw Object.assign(new Error('INVALID_JSON'), { status: 400 });
   }

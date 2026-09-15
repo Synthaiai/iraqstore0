@@ -397,6 +397,18 @@
   color: var(--a-ok);
   border-color: rgba(52, 211, 153, 0.25);
 }
+/* A product saved, but a follow-up sync (photos or stock) did not. */
+.admin-note--warn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.35);
+  background: rgba(251, 191, 36, 0.08);
+}
 
 /* ---------- Chips / swatches ---------- */
 .admin-chips {

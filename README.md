@@ -52,8 +52,8 @@ pnpm dlx firebase-tools deploy --only database,storage
 
 ```powershell
 pnpm dlx wrangler login
-pnpm dlx wrangler d1 create iraqstore-orders
-pnpm dlx wrangler d1 migrations apply iraqstore-orders --remote
+pnpm dlx wrangler d1 create iraqstore0-orders
+pnpm dlx wrangler d1 migrations apply iraqstore0-orders --remote
 ```
 
 بعد الإنشاء، أضف D1 binding إلى مشروع Pages بالاسم الدقيق `DB`. يمكن فعل ذلك من لوحة Cloudflare: **Workers & Pages → المشروع → Settings → Bindings → D1 database**.
@@ -93,7 +93,7 @@ pnpm dlx wrangler d1 migrations apply iraqstore-orders --remote
 
 ```powershell
 pnpm build
-pnpm dlx wrangler pages deploy dist --project-name iraqstore
+pnpm dlx wrangler pages deploy dist --project-name iraqstore0
 ```
 
 مجلد `functions/` يُنشر مع Pages Functions. بعد النشر اختبر `/api/health` ثم نفّذ طلباً تجريبياً حقيقياً وألغِه من لوحة الإدارة للتأكد من رجوع المخزون.

@@ -8,9 +8,12 @@ function firebaseUrl(env, path) {
 }
 
 async function firebaseJson(env, path) {
+  // The catalogue is on the critical path for checkout, so a stalled upstream
+  // must fail fast and surface a clear error rather than hanging the request.
   const response = await fetch(firebaseUrl(env, path), {
     headers: { accept: 'application/json' },
     cf: { cacheTtl: 30, cacheEverything: true },
+    signal: AbortSignal.timeout(10000),
   });
   if (!response.ok) throw new Error(`CATALOG_${response.status}`);
   return response.json();
@@ -37,6 +40,15 @@ export async function loadCatalog(env) {
     }
     for (const product of products) {
       if (inventory.has(String(product.id))) product.stockQuantity = inventory.get(String(product.id));
+    }
+  }
+
+  // Full-size photos live under `productImages/{id}` and are fetched by the
+  // product page on demand; a product record carries only its `thumb`. Expose
+  // that as `images` so every listing view keeps working unchanged.
+  for (const product of products) {
+    if ((!Array.isArray(product.images) || !product.images.length) && product.thumb) {
+      product.images = [product.thumb];
     }
   }
 

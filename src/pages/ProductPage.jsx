@@ -6,6 +6,7 @@ import { translateTextSync } from '../utils/translator';
 import { useStore } from '../store/StoreContext';
 import { usePrefs } from '../store/PrefsContext';
 import { useLiveData } from '../store/LiveDataContext';
+import { loadProductImages } from '../data/remote';
 import Breadcrumbs from '../components/Breadcrumbs';
 import Img from '../components/Img';
 import ProductCard from '../components/ProductCard';
@@ -28,6 +29,21 @@ export default function ProductPage() {
   const [color, setColor] = useState(null);
   const [qty, setQty] = useState(1);
   const [sizeError, setSizeError] = useState(false);
+  // Full-size photos live outside the product record, so the gallery is
+  // fetched per product page instead of shipping with the whole catalogue.
+  const [gallery, setGallery] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    setGallery(null);
+    if (!id) return undefined;
+    loadProductImages(id).then((images) => {
+      if (!active || !images?.length) return;
+      setGallery(images);
+      setFrame(0);
+    });
+    return () => { active = false; };
+  }, [id]);
   const [zoom, setZoom] = useState(false);
 
   // Escape closes the zoom lightbox.
@@ -59,7 +75,9 @@ export default function ProductPage() {
 
   const sizes = Array.isArray(product.sizes) ? product.sizes : [];
   const sizesEn = Array.isArray(product.sizesEn) ? product.sizesEn : sizes;
-  const rawImgs = (Array.isArray(product.images) && product.images.length)
+  const rawImgs = (Array.isArray(gallery) && gallery.length)
+    ? gallery
+    : (Array.isArray(product.images) && product.images.length)
     ? product.images
     : (Array.isArray(product.gallery) && product.gallery.length)
       ? product.large

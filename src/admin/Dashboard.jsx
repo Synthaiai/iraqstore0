@@ -14,6 +14,7 @@ import {
   saveSetting,
   seedProducts,
   subscribeConnectionStatus,
+  subscribeImageSyncFailures,
 } from '../data/remote';
 import { uploadImage } from '../data/upload';
 import AnalyticsPanel from './AnalyticsPanel';
@@ -460,6 +461,13 @@ function SettingsPanel({ productCount, products }) {
   const [msg, setMsg] = useState('');
   const [logoBusy, setLogoBusy] = useState(false);
   const [importImageFiles, setImportImageFiles] = useState([]);
+  const [migrating, setMigrating] = useState(false);
+
+  /** Products still carrying base64 photos inside their own record. */
+  const legacyImageCount = useMemo(
+    () => products.filter((p) => Array.isArray(p.images) && p.images.some((i) => typeof i === 'string' && i.startsWith('data:'))).length,
+    [products]
+  );
 
   const doSeed = async () => {
     if (!window.confirm('سيتم كتابة الكتالوج المدمج إلى قاعدة البيانات والتخزين المحلي. متابعة؟')) return;
@@ -547,6 +555,39 @@ function SettingsPanel({ productCount, products }) {
     reader.readAsText(file);
   };
 
+  /**
+   * Move base64 photos out of the product records and into `productImages/{id}`.
+   *
+   * Products saved before the split still carry ~330KB of inline images each,
+   * which is what every visitor downloads. Re-saving them through the normal
+   * batch path rebuilds them in the split shape.
+   */
+  const migrateImages = async () => {
+    const legacy = products.filter((p) => Array.isArray(p.images) && p.images.some((i) => typeof i === 'string' && i.startsWith('data:')));
+    if (!legacy.length) {
+      setMsg('كل المنتجات مُرحّلة بالفعل ✅');
+      return;
+    }
+    if (!window.confirm(`سيتم ترحيل صور ${legacy.length} منتج إلى تخزين منفصل.
+
+هذا يقلل حجم المتجر بشكل كبير ويحل مشكلة انتهاء المهلة. قد يستغرق عدة دقائق — لا تغلق الصفحة.`)) return;
+    setMigrating(true);
+    try {
+      await saveProductsBatch(legacy, {
+        onProgress(done, total, stage) {
+          const label = stage === 'images' ? 'ترحيل الصور' : stage === 'inventory' ? 'تحديث المخزون' : 'حفظ المنتجات';
+          setMsg(`${label}: ${done} من ${total}`);
+        },
+      });
+      setMsg(`تم ترحيل ${legacy.length} منتج بنجاح! المتجر الآن أخف بكثير 🚀`);
+    } catch (err) {
+      setMsg('');
+      alert('تعذر إكمال الترحيل: ' + (err?.message || 'حاول مجددًا.'));
+    } finally {
+      setMigrating(false);
+    }
+  };
+
   return (
     <div className="admin-panel admin-panel--narrow">
       <div className="admin-card">
@@ -584,6 +625,21 @@ function SettingsPanel({ productCount, products }) {
       </div>
 
       <div className="admin-card">
+        <h3>ترحيل الصور إلى التخزين المنفصل 🚀</h3>
+        <p>
+          المنتجات القديمة تخزّن صورها داخل سجل المنتج نفسه، فينزّلها كل زائر بالكامل.
+          الترحيل ينقلها إلى تخزين منفصل ويُبقي صورة مصغّرة فقط — يقلل حجم المتجر بأكثر من 95%
+          ويحل مشكلة «انتهت المهلة» عند الإضافة.
+        </p>
+        <p>
+          منتجات تحتاج ترحيلاً: <b>{legacyImageCount}</b> من {productCount}
+        </p>
+        <button className="admin-btn admin-btn--primary" onClick={migrateImages} disabled={migrating || !legacyImageCount}>
+          {migrating ? 'جارٍ الترحيل…' : legacyImageCount ? `ترحيل ${legacyImageCount} منتج` : 'لا حاجة للترحيل ✅'}
+        </button>
+      </div>
+
+      <div className="admin-card">
         <h3>تعبئة الكتالوج الافتراضي</h3>
         <p>
           يحتوي الكتالوج حالياً على <b>{productCount}</b> منتج.
@@ -603,6 +659,17 @@ export default function Dashboard() {
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
   const [tab, setTab] = useState('products');
+  // A product can save while its photos or its stock mirror do not. Those used
+  // to be console-only warnings, so the admin saw a success they did not get.
+  const [syncWarnings, setSyncWarnings] = useState([]);
+  const dismissWarning = (id) => setSyncWarnings((list) => list.filter((w) => w.id !== id));
+
+  useEffect(() => subscribeImageSyncFailures(({ product, error }) => {
+    setSyncWarnings((list) => [
+      ...list.filter((w) => w.id !== product?.id),
+      { id: product?.id || Date.now(), name: product?.name || 'منتج', message: error?.message || 'تعذر إكمال المزامنة.' },
+    ]);
+  }), []);
 
   useEffect(() => {
     const unsubP = listenProducts(setProducts, { includeDrafts: true });
@@ -685,6 +752,12 @@ export default function Dashboard() {
       </header>
 
       <main className="admin-main">
+        {syncWarnings.map((warning) => (
+          <div key={warning.id} className="admin-note admin-note--warn" role="status">
+            ⚠️ {warning.name}: {warning.message}
+            <button className="admin-btn admin-btn--sm admin-btn--ghost" onClick={() => dismissWarning(warning.id)}>إخفاء</button>
+          </div>
+        ))}
         {tab === 'products' && <ProductsPanel products={products} />}
         {tab === 'reorder' && <ProductReorderPanel products={products} />}
         {tab === 'orders' && <OrdersPanel orders={orders} />}

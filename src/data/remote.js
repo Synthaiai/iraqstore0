@@ -1,14 +1,116 @@
 import { SEED_PRODUCTS, toRecord } from './products';
 import { deleteIDBProduct, getIDBProducts, setIDBProduct, setIDBProducts } from './db';
 import { resolveEmbeddedProducts } from './embeddedImages';
+import { makeThumbnail } from '../utils/imageCompressor';
 
 const STORAGE_KEY_PRODUCTS = 'iraqstore_products_v1';
+/** Cart, favourites and preferences must always outrank the product cache. */
+const PRODUCT_CACHE_BUDGET = 1_500_000;
 const STORAGE_KEY_CATALOG = 'iraqstore_catalog_v1';
 const STORAGE_KEY_SETTINGS = 'iraqstore_settings_v1';
 const CATALOG_REFRESH_MS = 5 * 60_000;
 const ORDERS_REFRESH_MS = 8_000;
 const BULK_FIREBASE_CHUNK_SIZE = 80;
 const BULK_INVENTORY_CONCURRENCY = 8;
+
+/**
+ * Full-size photos live under `productImages/{id}`, never inside the product
+ * record itself. A product record carries only `thumb`, a ~8KB grid image.
+ *
+ * This is the difference between a catalogue payload every visitor downloads
+ * being ~300KB instead of ~12MB, and between saving a product writing ~10KB
+ * instead of ~1MB (which is what was timing out).
+ */
+const PRODUCT_IMAGES_PATH = 'productImages';
+const FIREBASE_REST_BASE = 'https://store-29692-default-rtdb.firebaseio.com';
+
+const imageFailureListeners = new Set();
+
+/** Notified when a product saved but its full-size gallery did not. */
+export function subscribeImageSyncFailures(cb) {
+  imageFailureListeners.add(cb);
+  return () => imageFailureListeners.delete(cb);
+}
+
+function reportImageSyncFailure(record, error) {
+  imageFailureListeners.forEach((cb) => cb({ product: record, error }));
+}
+
+/**
+ * Split a product into the lean record that ships to every visitor and the
+ * heavy gallery that only a product page needs.
+ */
+async function splitProductImages(record) {
+  const images = (Array.isArray(record.images) ? record.images : []).filter(Boolean);
+  const lean = { ...record };
+  delete lean.images;
+  delete lean.imagesArePlaceholder;
+
+  // Editing a split product hands back the thumbnail stand-in, not the real
+  // gallery. Writing that back would destroy the original photos, so leave the
+  // stored gallery alone unless the admin actually changed the images.
+  const placeholderOnly = record.imagesArePlaceholder && images.length <= 1;
+  if (placeholderOnly) {
+    lean.thumb = record.thumb || images[0] || null;
+    if (!lean.thumb) delete lean.thumb;
+    if (record.imageCount === undefined) delete lean.imageCount;
+    return { lean, images: null };
+  }
+
+  lean.imageCount = images.length;
+  lean.thumb = images.length ? await makeThumbnail(images[0]) : null;
+  if (!lean.thumb) delete lean.thumb;
+  return { lean, images };
+}
+
+/**
+ * Give list views something to render without changing ~20 call sites: a
+ * split product exposes its thumbnail as `images`. Products saved before the
+ * split still carry their own `images` and pass through untouched.
+ */
+function hydrateProduct(product) {
+  if (!product || typeof product !== 'object') return product;
+  if (Array.isArray(product.images) && product.images.length) return product;
+  if (!product.thumb) return product;
+  // `imagesArePlaceholder` tells the save path that `images` is a stand-in for
+  // the real gallery, so it must not be written back over the originals.
+  return { ...product, images: [product.thumb], imagesArePlaceholder: true };
+}
+
+function hydrateProducts(products) {
+  return Array.isArray(products) ? products.map(hydrateProduct) : [];
+}
+
+const galleryCache = new Map();
+
+/**
+ * Fetch the full-size gallery for one product, on demand.
+ * Falls back to whatever the record already carries (pre-split products, or a
+ * thumbnail) so a product page always shows something.
+ */
+export async function loadProductImages(productId, fallback = []) {
+  const id = String(productId || '');
+  if (!id) return fallback;
+  if (galleryCache.has(id)) return galleryCache.get(id);
+
+  const request = (async () => {
+    try {
+      const response = await fetch(`${FIREBASE_REST_BASE}/${PRODUCT_IMAGES_PATH}/${encodeURIComponent(id)}.json`, {
+        signal: AbortSignal.timeout(20000),
+      });
+      if (!response.ok) throw new Error(`IMAGES_${response.status}`);
+      const body = await response.json();
+      const images = (Array.isArray(body?.images) ? body.images : []).filter(Boolean);
+      return images.length ? images : fallback;
+    } catch {
+      galleryCache.delete(id);
+      return fallback;
+    }
+  })();
+
+  galleryCache.set(id, request);
+  return request;
+}
 
 let connectionStatus = 'checking';
 const statusListeners = new Set();
@@ -69,12 +171,23 @@ async function authHeaders(required = false) {
 async function apiJson(url, options = {}) {
   const { admin = false, ...fetchOptions } = options;
   const headers = { ...(await authHeaders(admin)), ...(fetchOptions.headers || {}) };
-  const response = await fetch(url, { ...fetchOptions, headers, signal: fetchOptions.signal || ((!fetchOptions.method || fetchOptions.method === 'GET') ? AbortSignal.timeout(15000) : undefined) });
+  // Every request gets a deadline: a hanging write used to leave the admin UI
+  // spinning forever with no error.
+  const response = await fetch(url, { ...fetchOptions, headers, signal: fetchOptions.signal || AbortSignal.timeout(15000) });
   let body = null;
   try { body = await response.json(); } catch {}
   if (!response.ok || body?.ok === false) {
     const error = new Error(body?.error?.message || `HTTP_${response.status}`);
     error.code = body?.error?.code || `HTTP_${response.status}`;
+    error.status = response.status;
+    throw error;
+  }
+  if (body === null) {
+    // The SPA redirect serves index.html for unknown paths, so an undeployed
+    // API answers 200 with HTML. Fail loudly here instead of letting every
+    // caller trip over `body.order` / `body.nextCursor`.
+    const error = new Error('خدمة الطلبات غير متاحة حاليًا. حاول بعد قليل.');
+    error.code = 'API_UNAVAILABLE';
     error.status = response.status;
     throw error;
   }
@@ -85,9 +198,15 @@ function setLocalProducts(products) {
   memoryProductsCache = Array.isArray(products) ? products : [];
   setIDBProducts(memoryProductsCache);
   try {
-    if (memoryProductsCache.length <= 80) localStorage.setItem(STORAGE_KEY_PRODUCTS, JSON.stringify(memoryProductsCache));
+    // Budget by size, not by product count: a count check once put 5MB of
+    // base64 into one key, which exhausts the whole localStorage quota on
+    // Safari/iOS and silently starves the cart and favourites.
+    const serialized = JSON.stringify(memoryProductsCache);
+    if (serialized.length <= PRODUCT_CACHE_BUDGET) localStorage.setItem(STORAGE_KEY_PRODUCTS, serialized);
     else localStorage.removeItem(STORAGE_KEY_PRODUCTS);
-  } catch {}
+  } catch {
+    try { localStorage.removeItem(STORAGE_KEY_PRODUCTS); } catch {}
+  }
 }
 
 function decodeTreeFromFirebase(tree) {
@@ -102,7 +221,7 @@ function decodeTreeFromFirebase(tree) {
 }
 
 function publishBundle(bundle) {
-  const products = Array.isArray(bundle?.products) ? bundle.products : [];
+  const products = hydrateProducts(bundle?.products);
   if (Array.isArray(bundle?.products)) {
     setLocalProducts(products);
     productListeners.forEach((cb) => cb(products));
@@ -198,11 +317,26 @@ export function listenProducts(cb, { includeDrafts = false } = {}) {
   };
 }
 
+/**
+ * Mirror the stock count into the Cloudflare D1 inventory table.
+ *
+ * This is a best-effort optimisation, not the source of truth — stock lives in
+ * the product record in the Realtime Database. The Worker is not available in
+ * local dev and may not be configured in every deployment, so a failure here
+ * must never undo or block a product save that already succeeded.
+ */
 async function syncInventory(record) {
   const stock = record.stockQuantity === undefined ? 15 : Number(record.stockQuantity);
-  await apiJson(`/api/inventory/${encodeURIComponent(record.id)}`, {
-    admin: true, method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ stock }),
-  });
+  try {
+    await apiJson(`/api/inventory/${encodeURIComponent(record.id)}`, {
+      admin: true, method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ stock }),
+    });
+  } catch (err) {
+    console.warn('Inventory sync skipped (product was saved to Firebase):', err);
+    // D1 overrides the Firebase value when the catalogue is served, so a failed
+    // sync makes an edited stock count silently revert. Say so.
+    reportImageSyncFailure(record, new Error('تعذر تحديث كمية المخزون على الخادم. قد تظهر الكمية القديمة حتى تعيد المحاولة.'));
+  }
 }
 
 async function runWithConcurrency(items, limit, worker, onProgress) {
@@ -220,28 +354,75 @@ async function runWithConcurrency(items, limit, worker, onProgress) {
   await Promise.all(workers);
 }
 
+/**
+ * Persist the full-size gallery. Separated from the product write so a slow
+ * upload of ~1MB of photos never holds up (or fails) the product itself.
+ */
+async function saveProductGallery(record, images) {
+  const { ref, set, remove, db } = await firebaseAdminContext();
+  const path = `${PRODUCT_IMAGES_PATH}/${record.id}`;
+  if (!images.length) {
+    await withTimeout(remove(ref(db, path)), 30000, 'انتهت مهلة تحديث صور المنتج.');
+    return;
+  }
+  await withTimeout(
+    set(ref(db, path), { images, updatedAt: Date.now() }),
+    90000,
+    'انتهت مهلة رفع صور المنتج. المنتج محفوظ، لكن صور المعرض لم تُحدَّث.'
+  );
+  galleryCache.set(String(record.id), Promise.resolve(images));
+}
+
 export async function saveProduct(record) {
   const { ref, set, db } = await firebaseAdminContext();
   const current = memoryProductsCache || (await getIDBProducts()) || [];
   const idx = current.findIndex((p) => String(p.id) === String(record.id));
-  const updated = idx >= 0 ? current.map((p, i) => (i === idx ? record : p)) : [record, ...current];
+
+  const { lean, images } = await splitProductImages(record);
+  const cached = hydrateProduct({ ...lean, images: [] });
+  const updated = idx >= 0 ? current.map((p, i) => (i === idx ? cached : p)) : [cached, ...current];
+
+  // The blocking write is now a few KB, so the timeout is generous rather than tight.
   await withTimeout(
-    set(ref(db, `products/${record.id}`), record),
+    set(ref(db, `products/${record.id}`), lean),
     20000,
-    'انتهت مهلة حفظ بيانات المنتج في Firebase. حاول مرة ثانية بعد تقليل الصور أو تحسين الاتصال.'
+    'انتهت مهلة حفظ بيانات المنتج في Firebase. تحقق من الاتصال وحاول مجددًا.'
   );
+
   if (idx < 0 || Number(current[idx].stockQuantity ?? 15) !== Number(record.stockQuantity ?? 15)) await syncInventory(record);
   setLocalProducts(updated);
-  setIDBProduct(record);
+  setIDBProduct(cached);
   notifyStatus('online');
   productListeners.forEach((cb) => cb(updated));
-  return record;
+
+  // Photos upload after the admin already has their confirmation. A null
+  // gallery means the admin never touched the images, so there is nothing to write.
+  if (images === null) return cached;
+  saveProductGallery(lean, images).catch(async (error) => {
+    console.error('Product gallery upload failed:', error);
+    // Put the photos back into the product record rather than losing them.
+    // That is the pre-split shape, which the storefront still reads natively.
+    try {
+      await set(ref(db, `products/${record.id}/images`), images);
+    } catch (restoreError) {
+      console.error('Could not restore images onto the product record:', restoreError);
+    }
+    reportImageSyncFailure(lean, error);
+  });
+
+  return cached;
 }
 
 export async function deleteProduct(id) {
   const { ref, remove, db } = await firebaseAdminContext();
   await withTimeout(remove(ref(db, `products/${id}`)), 20000, 'انتهت مهلة حذف المنتج من Firebase.');
-  await apiJson(`/api/inventory/${encodeURIComponent(id)}`, { admin: true, method: 'DELETE' });
+  galleryCache.delete(String(id));
+  remove(ref(db, `${PRODUCT_IMAGES_PATH}/${id}`)).catch((error) => console.warn('Gallery cleanup failed:', error));
+  try {
+    await apiJson(`/api/inventory/${encodeURIComponent(id)}`, { admin: true, method: 'DELETE' });
+  } catch (err) {
+    console.warn('Inventory delete skipped (product was removed from Firebase):', err);
+  }
   const current = memoryProductsCache || (await getIDBProducts()) || [];
   const updated = current.filter((p) => String(p.id) !== String(id));
   setLocalProducts(updated);
@@ -257,11 +438,41 @@ export async function saveProductsBatch(recordsList, { reorderOnly = false, onPr
   for (let offset = 0; offset < validRecords.length; offset += BULK_FIREBASE_CHUNK_SIZE) {
     const chunk = validRecords.slice(offset, offset + BULK_FIREBASE_CHUNK_SIZE);
     const batchMap = {};
-    chunk.forEach((record) => {
-      if (reorderOnly) batchMap[`${record.id}/sortOrder`] = Number(record.sortOrder) || 0;
-      else batchMap[record.id] = record;
-    });
-    await withTimeout(update(ref(db, 'products'), batchMap), 30000, 'انتهت مهلة حفظ دفعة من المنتجات.');
+    const galleries = [];
+    // eslint-disable-next-line no-await-in-loop
+    await Promise.all(chunk.map(async (record) => {
+      if (reorderOnly) {
+        batchMap[`${record.id}/sortOrder`] = Number(record.sortOrder) || 0;
+        return;
+      }
+      const { lean, images } = await splitProductImages(record);
+      if (images?.length) galleries.push({ record: lean, images, original: record });
+      else batchMap[record.id] = lean;
+    }));
+
+    // Photos are copied to their new home BEFORE the product record drops them.
+    // The reverse order would mean an interrupted run (a closed tab, a dropped
+    // connection) leaves products whose images exist nowhere at all.
+    for (let i = 0; i < galleries.length; i += 1) {
+      const gallery = galleries[i];
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        await saveProductGallery(gallery.record, gallery.images);
+        batchMap[gallery.record.id] = gallery.record;
+      } catch (error) {
+        // Leave this product exactly as it was: still carrying its own images,
+        // which the storefront reads natively. Nothing is lost, and re-running
+        // the migration will pick it up again.
+        console.error('Gallery copy failed; leaving the product untouched:', error);
+        reportImageSyncFailure(gallery.record, error);
+      }
+      if (onProgress) onProgress(i + 1, galleries.length, 'images');
+    }
+
+    if (Object.keys(batchMap).length) {
+      // eslint-disable-next-line no-await-in-loop
+      await withTimeout(update(ref(db, 'products'), batchMap), 30000, 'انتهت مهلة حفظ دفعة من المنتجات.');
+    }
     if (onProgress) onProgress(Math.min(offset + chunk.length, validRecords.length), validRecords.length, 'products');
   }
   if (!reorderOnly) {
@@ -272,7 +483,7 @@ export async function saveProductsBatch(recordsList, { reorderOnly = false, onPr
   const current = memoryProductsCache || (await getIDBProducts()) || [];
   const map = new Map(current.map((p) => [String(p.id), p]));
   validRecords.forEach((p) => {
-    if (p?.id) map.set(String(p.id), reorderOnly ? { ...(map.get(String(p.id)) || p), sortOrder: p.sortOrder } : p);
+    if (p?.id) map.set(String(p.id), reorderOnly ? { ...(map.get(String(p.id)) || p), sortOrder: p.sortOrder } : hydrateProduct(p));
   });
   const merged = [...map.values()];
   setLocalProducts(merged);

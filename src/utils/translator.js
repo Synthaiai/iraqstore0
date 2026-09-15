@@ -59,7 +59,9 @@ export async function translateArabicAsync(text) {
 
   try {
     const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ar&tl=en&dt=t&q=${encodeURIComponent(trimmed)}`;
-    const res = await fetch(url);
+    // Without a deadline a hung request never settles, and `processQueue` would
+    // hold `isProcessingQueue` forever - killing every later translation.
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
     if (res.ok) {
       const data = await res.json();
       if (data && data[0] && Array.isArray(data[0])) {
