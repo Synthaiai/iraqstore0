@@ -665,6 +665,7 @@ export default function Dashboard() {
   // to be console-only warnings, so the admin saw a success they did not get.
   const [syncWarnings, setSyncWarnings] = useState([]);
   const [dbReady, setDbReady] = useState(false);
+  const [slowLink, setSlowLink] = useState(false);
 
   // Open the database connection now, not on the first save. Filling in a
   // product takes far longer than the handshake, so by the time the admin
@@ -673,6 +674,14 @@ export default function Dashboard() {
     warmUpRealtimeDatabase();
     return subscribeRealtimeStatus(setDbReady);
   }, []);
+
+  // Saving is never blocked on this, so only mention it once the link has
+  // actually been slow for a while - and never as a reason to wait.
+  useEffect(() => {
+    if (dbReady) { setSlowLink(false); return undefined; }
+    const timer = setTimeout(() => setSlowLink(true), 12000);
+    return () => clearTimeout(timer);
+  }, [dbReady]);
   const dismissWarning = (id) => setSyncWarnings((list) => list.filter((w) => w.id !== id));
 
   useEffect(() => subscribeImageSyncFailures(({ product, error }) => {
@@ -763,9 +772,9 @@ export default function Dashboard() {
       </header>
 
       <main className="admin-main">
-        {!dbReady && (
+        {slowLink && (
           <div className="admin-note admin-note--warn" role="status">
-            ⏳ جارٍ فتح الاتصال بقاعدة البيانات… انتظر حتى يجهز قبل حفظ منتج.
+            📶 الاتصال بقاعدة البيانات بطيء. تكدر تحفظ عادي، بس الحفظ ممكن ياخذ وقت أطول.
           </div>
         )}
         {syncWarnings.map((warning) => (

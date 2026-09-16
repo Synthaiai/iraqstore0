@@ -93,15 +93,15 @@ test('image uploads never touch Firebase Storage and stay small enough to save',
   assert.match(upload, /INLINE_DATAURL_LIMIT = 300 \* 1024/);
   assert.match(upload, /compressImageToLimit/);
   // Every outbound CDN upload is deadline-bounded.
-  assert.match(upload, /AbortSignal\.timeout\(CDN_UPLOAD_TIMEOUT_MS\)/);
+  assert.match(upload, /timeoutSignal\(CDN_UPLOAD_TIMEOUT_MS\)/);
 });
 
 test('product saves are never blocked by the optional inventory mirror', async () => {
   const remote = await read('src/data/remote.js');
   // Writes used to get no AbortSignal at all, so a hanging /api/inventory PUT
   // left the admin UI spinning with no error.
-  assert.doesNotMatch(remote, /fetchOptions\.method === 'GET'\) \? AbortSignal/);
-  assert.match(remote, /signal: fetchOptions\.signal \|\| AbortSignal\.timeout\(15000\)/);
+  assert.doesNotMatch(remote, /fetchOptions\.method === 'GET'\) \? timeoutSignal/);
+  assert.match(remote, /signal: fetchOptions\.signal \|\| timeoutSignal\(15000\)/);
   assert.match(remote, /Inventory sync skipped \(product was saved to Firebase\)/);
 });
 
@@ -274,7 +274,7 @@ test('production users never see raw error internals', async () => {
 test('every outbound third-party request has a deadline', async () => {
   const translator = await read('src/utils/translator.js');
   // A hung translate request used to leave `isProcessingQueue` true forever.
-  assert.match(translator, /fetch\(url, \{ signal: AbortSignal\.timeout\(\d+\) \}\)/);
+  assert.match(translator, /fetch\(url, \{ signal: timeoutSignal\(\d+\) \}\)/);
 });
 
 test('migrating a product can never leave its photos nowhere', async () => {
@@ -301,8 +301,23 @@ test('a save never pays for a cold database handshake', async () => {
   // Warm up from the login screen, not just once the dashboard renders.
   assert.match(shell, /warmUpRealtimeDatabase\(\)/);
   assert.match(dashboard, /warmUpRealtimeDatabase\(\)/);
-  // A write that cannot land must say so, instead of blaming a timeout.
-  assert.match(remote, /await awaitRealtimeConnection\(\)/);
+  // Connection state may only word an error, never gate a write: `.info/connected`
+  // can read false on a link that works, and refusing the save would be worse
+  // than the slow handshake it was meant to avoid.
+  assert.doesNotMatch(remote, /await awaitRealtimeConnection\(\)/);
+  assert.match(remote, /function describeWriteFailure/);
   assert.match(remote, /لا يوجد اتصال بالإنترنت/);
-  assert.match(remote, /تعذر الاتصال بقاعدة البيانات/);
+});
+
+test('deadlines work on browsers without AbortSignal.timeout', async () => {
+  const helper = await read('src/utils/timeoutSignal.js');
+  // Safari below 16 has no AbortSignal.timeout; calling it throws and takes the
+  // whole request with it, which broke the catalogue and saves on older iPhones.
+  assert.match(helper, /typeof AbortSignal\.timeout === 'function'/);
+  assert.match(helper, /new AbortController\(\)/);
+  for (const file of ['src/data/remote.js', 'src/data/upload.js', 'src/utils/translator.js']) {
+    const source = await read(file);
+    assert.doesNotMatch(source, /AbortSignal\.timeout/, `${file} must go through timeoutSignal`);
+    assert.match(source, /timeoutSignal\(/, `${file} should still set a deadline`);
+  }
 });

@@ -1,5 +1,6 @@
 import { IMAGE_UPLOAD, uploadConfigured } from '../config';
 import { compressImageToLimit, formatBytes } from '../utils/imageCompressor';
+import { timeoutSignal } from '../utils/timeoutSignal';
 
 const ACCEPTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/avif']);
 const ORIGINAL_IMAGE_LIMIT = 12 * 1024 * 1024;
@@ -25,7 +26,7 @@ function assertImage(file) {
 }
 
 async function postForm(url, form) {
-  const response = await fetch(url, { method: 'POST', body: form, signal: AbortSignal.timeout(CDN_UPLOAD_TIMEOUT_MS) });
+  const response = await fetch(url, { method: 'POST', body: form, signal: timeoutSignal(CDN_UPLOAD_TIMEOUT_MS) });
   const body = await response.json().catch(() => null);
   if (!response.ok) throw new Error(body?.error?.message || `فشل رفع الصورة (HTTP ${response.status}).`);
   return body;

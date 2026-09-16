@@ -283,6 +283,15 @@ export default function ProductForm({ initial, onSave, onCancel }) {
   const [err, setErr] = useState('');
   const [customColorName, setCustomColorName] = useState('');
   const [customColorHex, setCustomColorHex] = useState('#336699');
+  const [colorAdded, setColorAdded] = useState('');
+  // iOS Safari renders <input type="color"> as a plain text box, so the picker
+  // is unusable there. Detect it once and offer a hex field instead.
+  const nativeColorPicker = useMemo(() => {
+    if (typeof document === 'undefined') return true;
+    const probe = document.createElement('input');
+    probe.setAttribute('type', 'color');
+    return probe.type === 'color';
+  }, []);
   const [customSize, setCustomSize] = useState('');
   const [multiColorMode, setMultiColorMode] = useState(false);
 
@@ -503,17 +512,22 @@ export default function ProductForm({ initial, onSave, onCancel }) {
 
   const addCustomColor = () => {
     const name = customColorName.trim();
-    if (!name) return;
-    const c = {
-      name,
-      nameEn: translateText(name) || name,
-      hex: customColorHex || '#336699',
-    };
-    setForm((f) => ({
-      ...f,
-      colors: f.colors.some((x) => x.name === c.name) ? f.colors : [...f.colors, c],
-    }));
+    if (!name) {
+      setErr('اكتب اسم اللون أولاً (مثال: ماروني).');
+      return;
+    }
+    const hex = /^#[0-9a-fA-F]{6}$/.test(customColorHex) ? customColorHex : '#336699';
+    const c = { name, nameEn: translateText(name) || name, hex };
+    let duplicate = false;
+    setForm((f) => {
+      duplicate = f.colors.some((x) => x.name === c.name);
+      return duplicate ? f : { ...f, colors: [...f.colors, c] };
+    });
     setCustomColorName('');
+    setErr('');
+    // Clicking add used to give no sign it had worked.
+    setColorAdded(duplicate ? `اللون «${name}» مضاف مسبقاً` : `تمت إضافة «${name}» ✓`);
+    setTimeout(() => setColorAdded(''), 2500);
   };
 
   const toggleSize = (sizeStr) => {
@@ -1179,14 +1193,38 @@ export default function ProductForm({ initial, onSave, onCancel }) {
                 ➕ إضافة لون مخصص جديد (مع الترجمة التلقائية):
               </span>
               <div className="admin-color-custom-row">
-                <div className="admin-color-picker-wrapper" title="اختر درجة اللون بالضغط هنا">
-                  <input
-                    type="color"
-                    value={customColorHex}
-                    onChange={(e) => setCustomColorHex(e.target.value)}
-                    className="admin-color-picker"
-                  />
-                  <span className="admin-color-hex-val">{customColorHex}</span>
+                <div className="admin-color-picker-wrapper" title="اختر درجة اللون">
+                  {nativeColorPicker ? (
+                    <>
+                      <input
+                        type="color"
+                        value={customColorHex}
+                        onChange={(e) => setCustomColorHex(e.target.value)}
+                        className="admin-color-picker"
+                      />
+                      <span className="admin-color-hex-val">{customColorHex}</span>
+                    </>
+                  ) : (
+                    <>
+                      <span
+                        className="admin-color-swatch-preview"
+                        style={{ background: /^#[0-9a-fA-F]{6}$/.test(customColorHex) ? customColorHex : '#336699' }}
+                      />
+                      <input
+                        type="text"
+                        inputMode="text"
+                        value={customColorHex}
+                        onChange={(e) => {
+                          const next = e.target.value.startsWith('#') ? e.target.value : `#${e.target.value}`;
+                          setCustomColorHex(next.slice(0, 7));
+                        }}
+                        className="admin-color-hex-input"
+                        placeholder="#336699"
+                        aria-label="كود اللون"
+                        maxLength={7}
+                      />
+                    </>
+                  )}
                 </div>
                 <input
                   value={customColorName}
@@ -1207,6 +1245,9 @@ export default function ProductForm({ initial, onSave, onCancel }) {
                 >
                   + إضافة اللون للمنتج
                 </button>
+              </div>
+              <div className="admin-color-feedback">
+                {colorAdded && <small className="admin-note--ok">{colorAdded}</small>}
               </div>
             </div>
           </div>

@@ -2115,3 +2115,22 @@
   color: var(--a-dim);
   direction: ltr;
 }
+
+/* iOS Safari has no native colour picker, so the hex is typed instead. */
+.admin-color-swatch-preview {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid var(--a-line);
+  display: inline-block;
+  flex: 0 0 auto;
+}
+.admin-color-hex-input {
+  width: 8ch;
+  text-align: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.admin-color-feedback {
+  min-height: 1.2rem;
+  margin-top: 0.4rem;
+}

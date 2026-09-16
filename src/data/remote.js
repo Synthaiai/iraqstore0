@@ -2,6 +2,7 @@ import { SEED_PRODUCTS, toRecord } from './products';
 import { deleteIDBProduct, getIDBProducts, setIDBProduct, setIDBProducts } from './db';
 import { resolveEmbeddedProducts } from './embeddedImages';
 import { makeThumbnail } from '../utils/imageCompressor';
+import { timeoutSignal } from '../utils/timeoutSignal';
 
 const STORAGE_KEY_PRODUCTS = 'iraqstore_products_v1';
 /** Cart, favourites and preferences must always outrank the product cache. */
@@ -96,7 +97,7 @@ export async function loadProductImages(productId, fallback = []) {
   const request = (async () => {
     try {
       const response = await fetch(`${FIREBASE_REST_BASE}/${PRODUCT_IMAGES_PATH}/${encodeURIComponent(id)}.json`, {
-        signal: AbortSignal.timeout(20000),
+        signal: timeoutSignal(20000),
       });
       if (!response.ok) throw new Error(`IMAGES_${response.status}`);
       const body = await response.json();
@@ -210,32 +211,21 @@ export function warmUpRealtimeDatabase() {
 }
 
 /**
- * Resolve once the database socket is usable, or throw a message that says
- * what is actually wrong instead of blaming a write that never left.
+ * Explain a write that ran out of time.
+ *
+ * Connection state is only ever used to word the failure. Gating the write on
+ * it would be worse than the bug it was meant to fix: `.info/connected` can
+ * read false on a connection that works (an older browser, a proxied network),
+ * and a save that would have succeeded must never be refused for that.
  */
-async function awaitRealtimeConnection(ms = 25000) {
-  if (realtimeConnected) return;
-  warmUpRealtimeDatabase();
+function describeWriteFailure(fallback) {
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-    throw new Error('لا يوجد اتصال بالإنترنت. تحقق من الشبكة ثم احفظ مجددًا.');
+    return 'لا يوجد اتصال بالإنترنت. تحقق من الشبكة ثم احفظ مجددًا.';
   }
-  const connected = await new Promise((resolve) => {
-    // `subscribeRealtimeStatus` reports the current state synchronously, so
-    // neither `stop` nor `timer` may be referenced from inside the callback.
-    let settle = () => {};
-    let stop = () => {};
-    const timer = setTimeout(() => settle(false), ms);
-    settle = (value) => {
-      settle = () => {};
-      clearTimeout(timer);
-      stop();
-      resolve(value);
-    };
-    stop = subscribeRealtimeStatus((state) => { if (state) settle(true); });
-  });
-  if (!connected) {
-    throw new Error('تعذر الاتصال بقاعدة البيانات. الشبكة بطيئة أو تحجب الاتصال — جرّب شبكة أخرى ثم احفظ مجددًا.');
+  if (!realtimeConnected) {
+    return 'الشبكة بطيئة أو تحجب الاتصال بقاعدة البيانات. جرّب شبكة أخرى ثم احفظ مجددًا.';
   }
+  return fallback;
 }
 
 async function authHeaders(required = false) {
@@ -252,7 +242,7 @@ async function apiJson(url, options = {}) {
   const headers = { ...(await authHeaders(admin)), ...(fetchOptions.headers || {}) };
   // Every request gets a deadline: a hanging write used to leave the admin UI
   // spinning forever with no error.
-  const response = await fetch(url, { ...fetchOptions, headers, signal: fetchOptions.signal || AbortSignal.timeout(15000) });
+  const response = await fetch(url, { ...fetchOptions, headers, signal: fetchOptions.signal || timeoutSignal(15000) });
   let body = null;
   try { body = await response.json(); } catch {}
   if (!response.ok || body?.ok === false) {
@@ -318,7 +308,7 @@ function publishBundle(bundle) {
 async function fetchFirebaseFallback(includeDrafts = false) {
   const base = 'https://store-29692-default-rtdb.firebaseio.com';
   const [productsRes, settingsRes, catalogRes] = await Promise.all([
-    fetch(`${base}/products.json`, { signal: AbortSignal.timeout(10000) }), fetch(`${base}/settings.json`, { signal: AbortSignal.timeout(10000) }), fetch(`${base}/catalog.json`, { signal: AbortSignal.timeout(10000) }),
+    fetch(`${base}/products.json`, { signal: timeoutSignal(10000) }), fetch(`${base}/settings.json`, { signal: timeoutSignal(10000) }), fetch(`${base}/catalog.json`, { signal: timeoutSignal(10000) }),
   ]);
   if (!productsRes.ok) throw new Error('CATALOG_UNAVAILABLE');
   const rawProducts = await productsRes.json();
@@ -454,8 +444,8 @@ async function saveProductGallery(record, images) {
 
 export async function saveProduct(record) {
   const { ref, set, db } = await firebaseAdminContext();
-  // Fail with the real reason before starting a write that cannot land.
-  await awaitRealtimeConnection();
+  // Opening the socket early is what makes the save fast; it is never a gate.
+  warmUpRealtimeDatabase();
   const current = memoryProductsCache || (await getIDBProducts()) || [];
   const idx = current.findIndex((p) => String(p.id) === String(record.id));
 
@@ -463,13 +453,15 @@ export async function saveProduct(record) {
   const cached = hydrateProduct({ ...lean, images: [] });
   const updated = idx >= 0 ? current.map((p, i) => (i === idx ? cached : p)) : [cached, ...current];
 
-  // A few KB over a connection that is already open. The deadline only has to
-  // cover a slow round-trip, not a cold handshake.
-  await withTimeout(
-    set(ref(db, `products/${record.id}`), lean),
-    45000,
-    'استغرق حفظ المنتج وقتًا أطول من المتوقع. المنتج قد يكون حُفظ — حدّث الصفحة قبل إعادة المحاولة.'
-  );
+  // A few KB, usually over a socket the dashboard opened minutes ago.
+  try {
+    await withTimeout(set(ref(db, `products/${record.id}`), lean), 45000, 'WRITE_TIMEOUT');
+  } catch (error) {
+    if (error?.message !== 'WRITE_TIMEOUT') throw error;
+    throw new Error(describeWriteFailure(
+      'استغرق حفظ المنتج وقتًا أطول من المتوقع. قد يكون حُفظ — حدّث الصفحة قبل إعادة المحاولة.'
+    ));
+  }
 
   if (idx < 0 || Number(current[idx].stockQuantity ?? 15) !== Number(record.stockQuantity ?? 15)) await syncInventory(record);
   setLocalProducts(updated);
@@ -515,7 +507,7 @@ export async function deleteProduct(id) {
 
 export async function saveProductsBatch(recordsList, { reorderOnly = false, onProgress } = {}) {
   const { ref, update, db } = await firebaseAdminContext();
-  await awaitRealtimeConnection();
+  warmUpRealtimeDatabase();
   if (!Array.isArray(recordsList) || !recordsList.length) return true;
   const validRecords = recordsList.filter((record) => record?.id);
   for (let offset = 0; offset < validRecords.length; offset += BULK_FIREBASE_CHUNK_SIZE) {
