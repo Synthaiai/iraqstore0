@@ -67,13 +67,23 @@ export default function StoreLoadingScreen() {
     const previousFocus = document.activeElement;
     const previousOverflow = document.body.style.overflow;
     const background = [...document.querySelector('#root').children].filter((el) => el !== panel.current);
-    const inertStates = background.map((el) => el.inert);
-    background.forEach((el) => { el.inert = true; });
+    // `inert` is Safari 15.5; aria-hidden keeps the background out of the
+    // accessibility tree on anything older.
+    const supportsInert = 'inert' in HTMLElement.prototype;
+    const inertStates = background.map((el) => (supportsInert ? el.inert : el.getAttribute('aria-hidden')));
+    background.forEach((el) => {
+      if (supportsInert) el.inert = true;
+      else el.setAttribute('aria-hidden', 'true');
+    });
     document.body.style.overflow = 'hidden';
     panel.current?.focus({ preventScroll: true });
     return () => {
       document.body.style.overflow = previousOverflow;
-      background.forEach((el, i) => { el.inert = inertStates[i]; });
+      background.forEach((el, i) => {
+        if (supportsInert) el.inert = inertStates[i];
+        else if (inertStates[i] === null) el.removeAttribute('aria-hidden');
+        else el.setAttribute('aria-hidden', inertStates[i]);
+      });
       if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
     };
   }, [shown]);

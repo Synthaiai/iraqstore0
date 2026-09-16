@@ -283,7 +283,7 @@ function decodeTreeFromFirebase(tree) {
   const copy = JSON.parse(JSON.stringify(tree));
   if (copy.subcategories && typeof copy.subcategories === 'object') {
     const decoded = {};
-    Object.entries(copy.subcategories).forEach(([key, value]) => { decoded[key.replaceAll('__', '/')] = value; });
+    Object.entries(copy.subcategories).forEach(([key, value]) => { decoded[key.split('__').join('/')] = value; });
     copy.subcategories = decoded;
   }
   return copy;
@@ -610,7 +610,7 @@ function encodeTreeForFirebase(tree) {
   const copy = JSON.parse(JSON.stringify(tree));
   if (copy.subcategories && typeof copy.subcategories === 'object') {
     const encoded = {};
-    Object.entries(copy.subcategories).forEach(([key, value]) => { encoded[key.replaceAll('/', '__')] = value; });
+    Object.entries(copy.subcategories).forEach(([key, value]) => { encoded[key.split('/').join('__')] = value; });
     copy.subcategories = encoded;
   }
   return copy;

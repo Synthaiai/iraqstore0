@@ -5,7 +5,10 @@ export default defineConfig({
   plugins: [react()],
   server: { port: 5173 },
   build: {
-    target: 'es2020',
+    // Real device baselines, not an abstract ES year: esbuild lowers whatever
+    // syntax these versions lack. Safari 13.1 is iOS 13.4 (2020), which still
+    // shows up on older iPhones in Iraq.
+    target: ['es2019', 'safari13.1', 'chrome80', 'firefox78', 'edge88'],
     rollupOptions: {
       output: {
         manualChunks: {

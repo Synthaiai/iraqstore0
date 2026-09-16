@@ -31,6 +31,27 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="robots" content="index,follow" />
     <script type="module" src="/src/main.jsx"></script>
+    <!--
+      A browser too old for ES modules ignores the line above entirely and would
+      otherwise show a blank page. `nomodule` runs only on those engines.
+    -->
+    <script nomodule>
+      document.addEventListener('DOMContentLoaded', function () {
+        var root = document.getElementById('root');
+        if (!root) return;
+        root.innerHTML =
+          '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;' +
+          'background:#0b0b0c;color:#fff;font-family:system-ui,sans-serif;text-align:center;line-height:1.9">' +
+          '<div style="max-width:380px">' +
+          '<div style="font-size:40px;margin-bottom:12px">🛍️</div>' +
+          '<h1 style="font-size:20px;margin:0 0 10px">متصفحك قديم جداً</h1>' +
+          '<p style="color:rgba(255,255,255,.7);margin:0 0 14px">' +
+          'حدّث المتصفح أو افتح المتجر من Chrome أو Safari بنسخة أحدث.</p>' +
+          '<p style="color:rgba(255,255,255,.55);font-size:14px;margin:0">' +
+          'للطلب مباشرة: <a href="tel:07866700010" style="color:#ff6b6b">07866700010</a></p>' +
+          '</div></div>';
+      });
+    </script>
   </head>
   <body>
     <div id="root"></div>

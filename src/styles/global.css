@@ -272,6 +272,7 @@ h4 {
 .btn::after {
   content: '';
   position: absolute;
+  top: 0; right: 0; bottom: 0; left: 0;
   inset: 0;
   z-index: -1;
   background: var(--burgundy-700);
@@ -382,6 +383,7 @@ h4 {
   top: 0;
   z-index: 60;
   background: rgba(255, 255, 255, 0.86);
+  -webkit-backdrop-filter: saturate(180%) blur(18px);
   backdrop-filter: saturate(180%) blur(18px);
   -webkit-backdrop-filter: saturate(180%) blur(18px);
   border-bottom: 1px solid transparent;
@@ -645,6 +647,7 @@ h4 {
 /* ---- Mobile drawer nav ---- */
 .mobile-nav {
   position: fixed;
+  top: 0; right: 0; bottom: 0; left: 0;
   inset: 0;
   z-index: 90;
   background: var(--paper);
@@ -709,6 +712,7 @@ h4 {
 
 .hero__media {
   position: absolute;
+  top: 0; right: 0; bottom: 0; left: 0;
   inset: 0;
   z-index: -2;
 }
@@ -733,6 +737,7 @@ h4 {
 
 .hero__scrim {
   position: absolute;
+  top: 0; right: 0; bottom: 0; left: 0;
   inset: 0;
   z-index: -1;
   background: linear-gradient(
@@ -763,6 +768,7 @@ h4 {
   border-radius: var(--radius-pill);
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.18);
+  -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
   color: #fff;
   font-family: var(--font-display);
@@ -891,6 +897,7 @@ h4 {
 
 .portal__img {
   position: absolute;
+  top: 0; right: 0; bottom: 0; left: 0;
   inset: 0;
   transform: scale(1.02);
   transition: transform 1.1s var(--ease-out-expo), filter var(--dur-slow) var(--ease);
@@ -904,6 +911,7 @@ h4 {
 
 .portal__scrim {
   position: absolute;
+  top: 0; right: 0; bottom: 0; left: 0;
   inset: 0;
   background: linear-gradient(
     to top,
@@ -986,6 +994,7 @@ h4 {
   border: 1px solid rgba(255, 255, 255, 0.4);
   border-radius: var(--radius);
   background: rgba(255, 255, 255, 0.06);
+  -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
   transform: translateY(12px);
   opacity: 0;
@@ -1046,6 +1055,7 @@ h4 {
 
 .tile__img {
   position: absolute;
+  top: 0; right: 0; bottom: 0; left: 0;
   inset: 0;
   filter: saturate(0.9);
   transform: scale(1.02);
@@ -1059,6 +1069,7 @@ h4 {
 
 .tile__scrim {
   position: absolute;
+  top: 0; right: 0; bottom: 0; left: 0;
   inset: 0;
   background: linear-gradient(to top, rgba(11, 11, 12, 0.85), rgba(11, 11, 12, 0.1) 60%);
   transition: background var(--dur-slow) var(--ease);
@@ -1106,6 +1117,7 @@ h4 {
   display: grid;
   place-items: center;
   background: rgba(255, 255, 255, 0.14);
+  -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
   border: 1px solid rgba(255, 255, 255, 0.25);
   color: #fff;
@@ -1196,6 +1208,7 @@ h4 {
 
 .pcard__img {
   position: absolute;
+  top: 0; right: 0; bottom: 0; left: 0;
   inset: 0;
   transition: transform 0.9s var(--ease-out-expo), opacity var(--dur-slow) var(--ease);
 }
@@ -1257,6 +1270,7 @@ h4 {
   place-items: center;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.9);
+  -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
   color: var(--ink-700);
   box-shadow: var(--shadow-sm);
@@ -1309,6 +1323,7 @@ h4 {
   padding: 0.8rem 1rem;
   border-radius: var(--radius);
   background: rgba(255, 255, 255, 0.94);
+  -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
   color: var(--ink-900);
   font-family: var(--font-display);
@@ -1514,6 +1529,7 @@ h4 {
   background: rgba(11, 11, 12, 0.55);
   color: #fff;
   font-size: 1.1rem;
+  -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
   opacity: 0;
   transition: opacity var(--dur) var(--ease);
@@ -1527,9 +1543,11 @@ h4 {
 /* ---------- Quick add (size/colour picker from a card) ---------- */
 .qa {
   position: fixed;
+  top: 0; right: 0; bottom: 0; left: 0;
   inset: 0;
   z-index: 95;
   background: rgba(11, 11, 12, 0.5);
+  -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
   display: flex;
   align-items: flex-end;
@@ -1649,9 +1667,11 @@ h4 {
 /* ---------- Zoom lightbox ---------- */
 .lightbox {
   position: fixed;
+  top: 0; right: 0; bottom: 0; left: 0;
   inset: 0;
   z-index: 100;
   background: rgba(8, 8, 10, 0.92);
+  -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
   display: flex;
   flex-direction: column;
@@ -2088,9 +2108,11 @@ h4 {
 
 .overlay {
   position: fixed;
+  top: 0; right: 0; bottom: 0; left: 0;
   inset: 0;
   z-index: 80;
   background: rgba(11, 11, 12, 0.42);
+  -webkit-backdrop-filter: blur(3px);
   backdrop-filter: blur(3px);
   opacity: 0;
   pointer-events: none;
@@ -2487,6 +2509,7 @@ h4 {
   inset-inline: 0;
   z-index: 88;
   background: rgba(255, 255, 255, 0.98);
+  -webkit-backdrop-filter: blur(20px);
   backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--line);
   transform: translateY(-100%);
@@ -2610,6 +2633,7 @@ h4 {
 .imgw.is-loading::after {
   content: '';
   position: absolute;
+  top: 0; right: 0; bottom: 0; left: 0;
   inset: 0;
   background: linear-gradient(
     100deg,
@@ -2814,9 +2838,11 @@ h4 {
 
 .sheet-overlay {
   position: fixed;
+  top: 0; right: 0; bottom: 0; left: 0;
   inset: 0;
   z-index: 78;
   background: rgba(11, 11, 12, 0.42);
+  -webkit-backdrop-filter: blur(3px);
   backdrop-filter: blur(3px);
   opacity: 0;
   pointer-events: none;
@@ -3298,6 +3324,7 @@ main {
   }
 
   .portal__body {
+    top: 0; right: 0; bottom: 0; left: 0;
     inset: 0;
     padding: 1rem 1.25rem;
     display: flex;
@@ -3337,6 +3364,7 @@ main {
     gap: 0.35rem;
     border-radius: var(--radius-pill);
     background: rgba(255, 255, 255, 0.16);
+    -webkit-backdrop-filter: blur(8px);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     opacity: 1;
@@ -3686,3 +3714,17 @@ main {
   font-weight: 800;
   font-size: 1.08em;
 }
+
+/* ==========================================================================
+   Legacy browser fallbacks
+
+   `aspect-ratio` is Safari 15 / iOS 15. It deliberately has no polyfill here:
+   every one of these containers holds an in-flow image that already gives it
+   height, so an older engine renders the photo at very nearly the same size
+   (measured: 354px against 387px on a product card) instead of collapsing.
+   A ::before padding-ratio shim was tried and removed - it stacks on top of
+   that existing height and doubles the box.
+
+   `text-wrap: balance` is Safari 17.4; unbalanced headings are fine.
+   `inset` longhands and `-webkit-backdrop-filter` are emitted inline above.
+   ========================================================================== */

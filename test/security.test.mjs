@@ -321,3 +321,29 @@ test('deadlines work on browsers without AbortSignal.timeout', async () => {
     assert.match(source, /timeoutSignal\(/, `${file} should still set a deadline`);
   }
 });
+
+test('the store runs on older phones, not just current ones', async () => {
+  const css = await read('src/styles/global.css');
+  const html = await read('index.html');
+  const vite = await read('vite.config.js');
+  const remote = await read('src/data/remote.js');
+  const loading = await read('src/components/StoreLoadingScreen.jsx');
+
+  // The build targets real device versions so esbuild lowers what they lack.
+  assert.match(vite, /safari13\.1/);
+
+  // A ::before padding-ratio shim for aspect-ratio must not come back: these
+  // containers hold an in-flow image that already provides height, so the shim
+  // stacks on top of it and doubles the box.
+  assert.doesNotMatch(css, /\.pcard__media::before/);
+  // `inset` is Safari 14.1, so the longhands must be emitted alongside it.
+  assert.match(css, /top: 0; right: 0; bottom: 0; left: 0;/);
+  assert.match(css, /-webkit-backdrop-filter/);
+
+  // Runtime APIs newer than the baseline must not be called bare.
+  assert.doesNotMatch(remote, /replaceAll\(/);
+  assert.match(loading, /'inert' in HTMLElement\.prototype/);
+
+  // An engine without ES modules gets a readable page, not a white screen.
+  assert.match(html, /<script nomodule>/);
+});
