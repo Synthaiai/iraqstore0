@@ -74,6 +74,17 @@ test('a newly added product is visible, not buried at the end of the shop', asyn
   assert.match(remote, /if \(isNew && !hasPosition\)/);
 });
 
+test('the migration counter counts only products that still need migrating', async () => {
+  const dashboard = await read('src/admin/Dashboard.jsx');
+  // A migrated product is shown as `images: [thumb]`, and the thumb is itself a
+  // data URL, so an `images`-only check counted it as unmigrated forever.
+  assert.match(dashboard, /function needsImageMigration\(product\)/);
+  assert.match(dashboard, /if \(!product \|\| product\.imagesArePlaceholder\) return false;/);
+  assert.match(dashboard, /products\.filter\(needsImageMigration\)/);
+  // Neither the badge nor the migration itself may use the old test.
+  assert.doesNotMatch(dashboard, /Array\.isArray\(p\.images\) && p\.images\.some/);
+});
+
 test('an unreachable orders service is reported, not shown as zero orders', async () => {
   const remote = await read('src/data/remote.js');
   const panel = await read('src/admin/OrdersPanel.jsx');

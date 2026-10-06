@@ -479,6 +479,22 @@ async function attachImportImages(products, files, onProgress) {
   return result.map(({ imageFiles, ...product }) => product);
 }
 
+/**
+ * Does this product still keep its photos inside its own record?
+ *
+ * A migrated product is handed to list views as `images: [thumb]`, and that
+ * thumbnail is itself a data URL — so looking only at `images` counted every
+ * already-migrated product as needing migration. The dashboard offered to
+ * migrate 26 of 41 products when 3 actually needed it, and the number never
+ * reached zero however many times it was run. `imagesArePlaceholder` is the
+ * flag that says "this is the stand-in, not the real gallery".
+ */
+function needsImageMigration(product) {
+  if (!product || product.imagesArePlaceholder) return false;
+  return Array.isArray(product.images)
+    && product.images.some((image) => typeof image === 'string' && image.startsWith('data:'));
+}
+
 function SettingsPanel({ productCount, products }) {
   const [msg, setMsg] = useState('');
   const [logoBusy, setLogoBusy] = useState(false);
@@ -486,10 +502,7 @@ function SettingsPanel({ productCount, products }) {
   const [migrating, setMigrating] = useState(false);
 
   /** Products still carrying base64 photos inside their own record. */
-  const legacyImageCount = useMemo(
-    () => products.filter((p) => Array.isArray(p.images) && p.images.some((i) => typeof i === 'string' && i.startsWith('data:'))).length,
-    [products]
-  );
+  const legacyImageCount = useMemo(() => products.filter(needsImageMigration).length, [products]);
 
   const onLogo = async (e) => {
     const file = e.target.files[0];
@@ -575,7 +588,7 @@ function SettingsPanel({ productCount, products }) {
    * batch path rebuilds them in the split shape.
    */
   const migrateImages = async () => {
-    const legacy = products.filter((p) => Array.isArray(p.images) && p.images.some((i) => typeof i === 'string' && i.startsWith('data:')));
+    const legacy = products.filter(needsImageMigration);
     if (!legacy.length) {
       setMsg('كل المنتجات مُرحّلة بالفعل ✅');
       return;
@@ -611,11 +624,14 @@ function SettingsPanel({ productCount, products }) {
             صور أكبر مما يحتاج.
           </p>
           <p>
-            الحل يستغرق دقيقتين: افتح حساباً مجانياً على <b>Cloudinary</b>، ثم
-            Settings ← Upload ← أضف upload preset بوضع <b>Unsigned</b>، وضع الاسمين في
-            متغيّرات البناء <code>VITE_CLOUDINARY_CLOUD_NAME</code> و
-            <code> VITE_CLOUDINARY_UPLOAD_PRESET</code> (أو مباشرة في <code>src/config.js</code>).
-            بعدها يُخزَّن رابط قصير بدل الصورة كاملة.
+            الحل يستغرق دقيقتين: افتح حساباً مجانياً على <b>ImgBB</b> (
+            <code>imgbb.com</code>)، خذ مفتاح الـAPI من <code>api.imgbb.com</code>، وأضف
+            متغيّري البناء <code>VITE_IMAGE_PROVIDER=imgbb</code> و
+            <code> VITE_IMGBB_API_KEY</code>. بعدها يُخزَّن رابط قصير بدل الصورة كاملة.
+          </p>
+          <p>
+            <b>ملاحظة:</b> Cloudinary محجوب على العراق ولا يقبل التسجيل من هنا، فلا تضيّع
+            وقتك معه. البديل الآخر هو <b>Cloudflare R2</b> على حسابك نفسه.
           </p>
         </div>
       )}
