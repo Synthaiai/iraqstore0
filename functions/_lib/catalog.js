@@ -55,8 +55,6 @@ export async function loadCatalog(env) {
     }
   }
 
-  trimInlineGalleries(products);
-
   return { products: await resolveEmbeddedProducts(products), settings: settings || {}, catalog: catalog || null };
 }
 
@@ -68,8 +66,12 @@ export async function loadCatalog(env) {
  * in full by every shopper, on every visit, for a grid that shows one small
  * picture per product. Only the first image is kept here; the product page asks
  * for the rest by id, and `imageCount` tells the gallery how many to expect.
+ *
+ * This is for the SHOP only. The dashboard has to see the real gallery: it is
+ * what migrates those photos to their own node, and a migration that ran on a
+ * trimmed copy would write back the one image it was given and delete the rest.
  */
-function trimInlineGalleries(products) {
+export function trimInlineGalleries(products) {
   for (const product of products) {
     const images = Array.isArray(product.images) ? product.images : null;
     if (!images || images.length < 2) continue;

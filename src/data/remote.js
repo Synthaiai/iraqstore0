@@ -111,6 +111,14 @@ async function splitProductImages(record) {
   // stored gallery alone unless the admin actually changed the images.
   const placeholderOnly = record.imagesArePlaceholder && images.length <= 1;
   if (placeholderOnly) {
+    // A record that never had its photos split still keeps them in `images`, and
+    // `update()` replaces the whole child — so writing a lean record here would
+    // delete a gallery that was never copied anywhere. `imageCount` says the
+    // product has more photos than this stand-in carries; keep the stored
+    // record exactly as it is rather than write a lossy version of it.
+    const standsInForMore = Number(record.imageCount) > images.length;
+    if (standsInForMore && !record.thumb) return { lean: null, images: null };
+
     lean.thumb = record.thumb || images[0] || null;
     if (!lean.thumb) delete lean.thumb;
     if (record.imageCount === undefined) delete lean.imageCount;
@@ -406,7 +414,7 @@ async function fetchFirebaseFallback(includeDrafts = false) {
   // Mirrors `trimInlineGalleries` in the Worker: when the API is unreachable the
   // browser reads Firebase directly, and it must not pull megabytes of inline
   // photos into a product grid either.
-  for (const product of visible) {
+  for (const product of includeDrafts ? [] : visible) {
     const images = Array.isArray(product.images) ? product.images : null;
     if (!images || images.length < 2) continue;
     if (!images.some((image) => typeof image === 'string' && image.startsWith('data:'))) continue;
@@ -596,6 +604,9 @@ export async function saveProduct(record) {
   }
 
   const { lean, images } = await splitProductImages(record);
+  if (!lean) {
+    throw new Error('صور هذا المنتج لم تُحمَّل بالكامل. حدّث الصفحة ثم افتح المنتج مرة أخرى قبل الحفظ.');
+  }
   const cached = hydrateProduct({ ...lean, images: [] });
   const updated = idx >= 0 ? current.map((p, i) => (i === idx ? cached : p)) : [cached, ...current];
 
@@ -661,6 +672,7 @@ export async function saveProductsBatch(recordsList, { reorderOnly = false, onPr
   warmUpRealtimeDatabase();
   if (!Array.isArray(recordsList) || !recordsList.length) return true;
   const validRecords = recordsList.filter((record) => record?.id);
+  const skipped = [];
   for (let offset = 0; offset < validRecords.length; offset += BULK_FIREBASE_CHUNK_SIZE) {
     const chunk = validRecords.slice(offset, offset + BULK_FIREBASE_CHUNK_SIZE);
     const batchMap = {};
@@ -672,7 +684,9 @@ export async function saveProductsBatch(recordsList, { reorderOnly = false, onPr
         return;
       }
       const { lean, images } = await splitProductImages(record);
-      if (images?.length) galleries.push({ record: lean, images, original: record });
+      // `null` means writing this record would lose photos; skip it untouched.
+      if (!lean) skipped.push(record);
+      else if (images?.length) galleries.push({ record: lean, images, original: record });
       else batchMap[record.id] = lean;
     }));
 
@@ -714,6 +728,10 @@ export async function saveProductsBatch(recordsList, { reorderOnly = false, onPr
   const merged = [...map.values()];
   setLocalProducts(merged);
   productListeners.forEach((cb) => cb(merged));
+  skipped.forEach((record) => reportImageSyncFailure(
+    record,
+    new Error('تُرك هذا المنتج كما هو: صوره لم تصل كاملة إلى المتصفح، وحفظه كان سيحذف بعضها.')
+  ));
   return true;
 }
 

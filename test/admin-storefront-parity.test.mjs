@@ -89,6 +89,27 @@ test('every stand-in gallery is flagged, on every path that creates one', async 
   assert.match(remote, /const placeholderOnly = record\.imagesArePlaceholder && images\.length <= 1/);
 });
 
+test('the dashboard is never served a trimmed gallery, and refuses lossy writes', async () => {
+  const lib = await read('functions/_lib/catalog.js');
+  const route = await read('functions/api/catalog.js');
+  const remote = await read('src/data/remote.js');
+
+  // Trimming is a shop-payload optimisation. Applying it to the dashboard hands
+  // the migration one image out of four, and the migration writes back what it
+  // was given — so the other three would be deleted.
+  assert.doesNotMatch(lib, /^\s*trimInlineGalleries\(products\);/m);
+  assert.match(route, /trimInlineGalleries/);
+  assert.match(route, /product\.status !== 'draft'\);[\s\S]{0,160}?trimInlineGalleries\(bundle\.products\)/);
+  assert.match(remote, /includeDrafts \? \[\] : visible/);
+
+  // Belt and braces: the writer itself refuses a record whose stand-in covers
+  // more photos than it carries, rather than trusting every caller.
+  assert.match(remote, /const standsInForMore = Number\(record\.imageCount\) > images\.length;/);
+  assert.match(remote, /if \(standsInForMore && !record\.thumb\) return \{ lean: null, images: null \};/);
+  assert.match(remote, /if \(!lean\) \{/);
+  assert.match(remote, /if \(!lean\) skipped\.push\(record\);/);
+});
+
 test('the migration counter counts only products that still need migrating', async () => {
   const dashboard = await read('src/admin/Dashboard.jsx');
   // A migrated product is shown as `images: [thumb]`, and the thumb is itself a

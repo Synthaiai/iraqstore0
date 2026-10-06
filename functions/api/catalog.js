@@ -1,4 +1,4 @@
-import { loadCatalog } from '../_lib/catalog.js';
+import { loadCatalog, trimInlineGalleries } from '../_lib/catalog.js';
 import { apiError, json } from '../_lib/http.js';
 import { requireAdmin } from '../_lib/auth.js';
 
@@ -11,6 +11,8 @@ export async function onRequestGet({ request, env }) {
       if (auth.error) return auth.error;
     } else {
       bundle.products = bundle.products.filter((product) => product.status !== 'draft');
+      // Shoppers get the light payload; the dashboard gets the real galleries.
+      trimInlineGalleries(bundle.products);
     }
     return json(
       { ok: true, ...bundle },
