@@ -657,3 +657,27 @@
   -webkit-touch-callout: default;
   user-select: auto;
 }
+
+
+/* The bot check could not issue a token, so the order cannot leave this page.
+   The shop still takes orders by phone — say so rather than show a dead button. */
+.turnstile-wrap__failed {
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 0.9rem;
+  background: var(--paper-tint);
+}
+.turnstile-wrap__failed .field__error {
+  margin: 0 0 0.35rem;
+}
+.turnstile-wrap__fallback {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: var(--lh-body);
+  color: var(--ink-700);
+}
+.turnstile-wrap__fallback a {
+  color: var(--burgundy-700);
+  font-weight: 600;
+  text-decoration: underline;
+}
