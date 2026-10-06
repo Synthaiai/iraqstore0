@@ -15,3 +15,16 @@ ENVIRONMENT = "production"
 FIREBASE_WEB_API_KEY = "AIzaSyD4z7MljYOwlWc7eW27zBJsRt5pRD2JHfc"
 VITE_TURNSTILE_SITE_KEY = "0x4AAAAAAEpDPqAhZ08Jvekn"
 # TURNSTILE_SECRET and RATE_LIMIT_SALT are encrypted in Cloudflare only.
+
+# Preview deploys need their own bindings: a Pages project does not inherit the
+# production ones, so without this block every preview served a dashboard whose
+# admin auth and inventory answered 503.
+[[env.preview.d1_databases]]
+binding = "DB"
+database_name = "iraqstore0-orders"
+database_id = "49c4fde0-c16f-4bd6-9752-7a585acea829"
+
+[env.preview.vars]
+ENVIRONMENT = "preview"
+FIREBASE_WEB_API_KEY = "AIzaSyD4z7MljYOwlWc7eW27zBJsRt5pRD2JHfc"
+VITE_TURNSTILE_SITE_KEY = "0x4AAAAAAEpDPqAhZ08Jvekn"

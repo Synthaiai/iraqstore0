@@ -1,4 +1,5 @@
 import { img } from '../data/images';
+import { getProduct } from '../data/products';
 import { STORE_CONTACT } from '../data/contact';
 
 function loadImage(source) {
@@ -32,7 +33,13 @@ export async function generateInvoiceImage(order) {
     : order.cart && typeof order.cart === 'object'
     ? Object.values(order.cart)
     : [];
-  const pictures = await Promise.all(lines.map((line) => loadImage(line.product?.images?.[0] || line.product?.image || line.image)));
+  // The live product first: an order only stores a photo link when the photo is
+  // hosted, so a shop using inline images has nothing in the order record.
+  const pictureFor = (line) => {
+    const live = getProduct(line?.productId || line?.product?.id);
+    return live?.images?.[0] || live?.image || line?.product?.images?.[0] || line?.product?.image || line?.image;
+  };
+  const pictures = await Promise.all(lines.map((line) => loadImage(pictureFor(line))));
   const canvas = document.createElement('canvas');
   canvas.width = 900;
   const ctx = canvas.getContext('2d');

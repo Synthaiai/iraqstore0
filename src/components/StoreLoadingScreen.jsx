@@ -6,6 +6,12 @@ import { useLiveData } from '../store/LiveDataContext';
 import { usePrefs } from '../store/PrefsContext';
 import '../styles/loading.css';
 
+/**
+ * How long the splash may cover the shop once the catalogue has loaded.
+ * Long enough to hide a flash of empty cards, short enough that nobody waits.
+ */
+const OPEN_AFTER_MS = 1200;
+
 export default function StoreLoadingScreen() {
   const { loaded, status, version } = useLiveData();
   const { lang } = usePrefs();
@@ -32,27 +38,43 @@ export default function StoreLoadingScreen() {
     return () => clearTimeout(timer);
   }, []);
 
+  /**
+   * Once the catalogue itself has arrived, the store opens — always.
+   *
+   * This used to stay shut until every first-screen photo decoded, and only
+   * reopened on a timeout. One image that 404s is not a timeout, so a single
+   * bad photo left the whole shop behind a splash screen with a retry button,
+   * which is what "the store does not work" looked like to a customer. Photos
+   * are a progressive enhancement: each card already renders a placeholder and
+   * swaps in its picture when it arrives.
+   */
   useEffect(() => {
     if (!loaded || finished) return undefined;
     const controller = new AbortController();
     setResult(null);
     const jobs = collectAssets(PRODUCTS, document.querySelectorAll('main img, header img, footer img'));
     setCount({ success: 0, total: jobs.length });
+
+    const open = () => {
+      if (controller.signal.aborted || completed.current) return;
+      window.dispatchEvent(new Event('store:images-ready'));
+      dismiss();
+    };
+
+    // The splash is never on screen for longer than this, whatever the photos
+    // are doing. It only exists to cover the first paint.
+    const cap = setTimeout(open, OPEN_AFTER_MS);
+
     preloadAssets(jobs, setCount, { signal: controller.signal }).then((outcome) => {
       if (controller.signal.aborted) return;
       setResult(outcome);
       if (!outcome.failed.length) {
         try { localStorage.setItem('iraqstore.assets.decodedAt', String(Date.now())); } catch {}
-        window.dispatchEvent(new Event('store:images-ready'));
-        dismiss();
-      } else if (outcome.timedOut) {
-        // A slow connection is not a broken store. Open it and let the cards
-        // lazy-load the rest rather than holding the customer on a spinner.
-        window.dispatchEvent(new Event('store:images-ready'));
-        dismiss();
       }
+      open();
     });
-    return () => controller.abort();
+
+    return () => { clearTimeout(cap); controller.abort(); };
   }, [loaded, version, attempt, finished]);
 
   useEffect(() => {
@@ -118,7 +140,7 @@ export default function StoreLoadingScreen() {
           <div className="store-loading__meter-head"><span>{loaded ? (en ? 'Preparing photos' : 'تجهيز الصور') : (en ? 'Connecting to the store' : 'الاتصال بالمتجر')}</span><b>{loaded ? `${progress}%` : '—'}</b></div>
           <div className="store-loading__progress" role="progressbar" aria-label={en ? 'Photos ready' : 'الصور الجاهزة'} aria-valuemin={0} aria-valuemax={100} aria-valuenow={loaded ? progress : undefined}><i style={{ transform: `scaleX(${progress / 100})` }} /></div>
           <div className="store-loading__status" role="status" aria-live="polite">{loaded ? (en ? `${count.success} of ${count.total} photos ready` : `${count.success} من ${count.total} صورة جاهزة`) : (en ? 'Fetching the latest collection…' : 'نجلب أحدث تشكيلة…')}</div>
-          {(offline || failed > 0) && <div className="store-loading__actions"><button onClick={retry}>{en ? 'Try again' : 'إعادة المحاولة'}</button><button onClick={dismiss}>{en ? 'Browse available items' : 'تصفّح المتاح'}</button></div>}
+          {offline && <div className="store-loading__actions"><button onClick={retry}>{en ? 'Try again' : 'إعادة المحاولة'}</button><button onClick={dismiss}>{en ? 'Browse available items' : 'تصفّح المتاح'}</button></div>}
           <div className="store-loading__categories">{en ? 'CLOTHING  /  FOOTWEAR  /  ACCESSORIES' : 'ملابس  /  أحذية  /  إكسسوارات'}</div>
         </div>
       </div>

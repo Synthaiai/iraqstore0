@@ -52,7 +52,28 @@ export async function loadCatalog(env) {
     }
   }
 
+  trimInlineGalleries(products);
+
   return { products: await resolveEmbeddedProducts(products), settings: settings || {}, catalog: catalog || null };
+}
+
+/**
+ * Keep inline photo galleries out of the catalogue every visitor downloads.
+ *
+ * A product saved before photos moved to `productImages/{id}` carries its own
+ * base64 images. Three such products were 998KB of a 1.1MB payload — downloaded
+ * in full by every shopper, on every visit, for a grid that shows one small
+ * picture per product. Only the first image is kept here; the product page asks
+ * for the rest by id, and `imageCount` tells the gallery how many to expect.
+ */
+function trimInlineGalleries(products) {
+  for (const product of products) {
+    const images = Array.isArray(product.images) ? product.images : null;
+    if (!images || images.length < 2) continue;
+    if (!images.some((image) => typeof image === 'string' && image.startsWith('data:'))) continue;
+    product.imageCount = product.imageCount || images.length;
+    product.images = [images[0]];
+  }
 }
 
 export function deliveryFees(settings) {

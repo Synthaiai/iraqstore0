@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from '../store/AuthContext';
 import { warmUpRealtimeDatabase } from '../data/remote';
 import Dashboard from './Dashboard';
 import Login from './Login';
+import '../styles/admin.css';
 
 function AdminGate() {
   const { ready, user, isAdmin } = useAuth();

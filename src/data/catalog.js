@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { POOLS } from './images';
 import { getLocalCatalog } from './remote';
 
@@ -176,6 +177,31 @@ if (cached && cached.genders) {
   }
 }
 
+/**
+ * The tree is held in mutable module objects so that `CATEGORIES` and friends
+ * stay stable references for the ~20 call sites that import them directly.
+ * Mutation is invisible to React, so anything rendering the tree subscribes
+ * here and re-renders when the stored tree changes.
+ */
+let catalogVersion = 0;
+const catalogListeners = new Set();
+
+export function getCatalogVersion() {
+  return catalogVersion;
+}
+
+export function subscribeCatalogStore(cb) {
+  catalogListeners.add(cb);
+  return () => catalogListeners.delete(cb);
+}
+
+/** React hook: re-renders the caller whenever the catalogue tree changes. */
+export function useCatalogVersion() {
+  const [version, setVersion] = useState(catalogVersion);
+  useEffect(() => subscribeCatalogStore(setVersion), []);
+  return version;
+}
+
 export function updateCatalogStore(tree) {
   if (!tree) return;
   if (Array.isArray(tree.genders) && tree.genders.length) {
@@ -190,6 +216,8 @@ export function updateCatalogStore(tree) {
     Object.keys(currentSubcategories).forEach((k) => delete currentSubcategories[k]);
     Object.assign(currentSubcategories, tree.subcategories);
   }
+  catalogVersion += 1;
+  catalogListeners.forEach((cb) => cb(catalogVersion));
 }
 
 export function getFullCatalogTree() {

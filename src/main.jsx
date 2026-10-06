@@ -9,7 +9,8 @@ import { StoreProvider } from './store/StoreContext';
 import './styles/global.css';
 import './styles/checkout.css';
 import './styles/theme.css';
-import './styles/admin.css';
+// `admin.css` is imported by the admin entry point, not here: it is ~2000 lines
+// that every shopper used to download for a dashboard they never open.
 
 // Remove obsolete service workers from older deployments without clearing the
 // browser's entire CacheStorage on every page load.

@@ -1006,6 +1006,12 @@ export function setLiveProducts(list) {
   }
 }
 
+/** Normalised form of a navigation slug: trimmed and lower-case, or undefined. */
+export function slug(value) {
+  const text = String(value ?? '').trim().toLowerCase();
+  return text || undefined;
+}
+
 /**
  * Turn a raw record (from the admin form / database) into a full storefront
  * product with memoization to avoid re-normalizing thousands of unchanged objects.
@@ -1021,16 +1027,20 @@ export function normalizeProduct(raw) {
 
   const base = {
     id: String(raw.id),
-    gender: raw.gender,
-    category: raw.category,
-    sub: raw.sub,
+    // Slugs are identifiers, and identifiers are not case-sensitive here: the
+    // shop had ten products filed under `Trainers` and ten under `trainers`,
+    // which split one subcategory in two — the filter listed it twice and the
+    // section link showed half its products.
+    gender: slug(raw.gender),
+    category: slug(raw.category),
+    sub: slug(raw.sub),
     name: raw.name || '',
     nameEn: raw.nameEn || raw.name || '',
     blurb: raw.blurb || '',
     blurbEn: raw.blurbEn || raw.blurb || '',
     price: Number(raw.price) || 0,
     oldPrice: raw.oldPrice ? Number(raw.oldPrice) : null,
-    rating: raw.rating != null ? Number(raw.rating) : 4.8,
+    rating: raw.rating != null ? Number(raw.rating) : DEFAULT_RATING,
     reviews: raw.reviews != null ? Number(raw.reviews) : 12,
     badge: raw.badge || null,
     colors,
@@ -1113,9 +1123,11 @@ export function toRecord(p) {
     sizes: p.sizes || [],
     material: p.material || '',
     materialEn: p.materialEn || '',
-    sortOrder: p.sortOrder,
+    // `undefined` makes the Realtime Database reject the whole write; `null`
+    // means "no explicit order" and simply removes the key.
+    sortOrder: p.sortOrder === undefined || p.sortOrder === '' ? null : p.sortOrder,
     status: p.status || 'active',
-    stockQuantity: p.stockQuantity,
+    stockQuantity: Number.isFinite(Number(p.stockQuantity)) ? Number(p.stockQuantity) : 15,
     gallery: p.gallery || null,
     images: p.images || (p.image ? [p.image] : []),
     type: p.type || 'general',
@@ -1141,6 +1153,61 @@ export const BADGE_LABELS = {
 };
 
 /** Products for a listing page. `sub === 'all'` widens to the whole category. */
+/**
+ * Manual display order as a number that is always safe to subtract.
+ *
+ * Records in the wild carry `''`, `null` and numeric strings in `sortOrder`.
+ * `?? 9999` only catches null and undefined, so an empty string fell through
+ * and `'' - 9999` sorted that product above everything else in the shop.
+ * Anything that is not a finite number is treated as "no explicit order".
+ */
+export const UNORDERED_RANK = 9999;
+
+export function sortRank(product) {
+  const value = Number(product?.sortOrder);
+  return Number.isFinite(value) && product?.sortOrder !== '' && product?.sortOrder !== null
+    ? value
+    : UNORDERED_RANK;
+}
+
+/** Tie-break weights for products that share a manual position. */
+const BADGE_RANK = { best: 0, new: 1, sale: 2 };
+
+/**
+ * The rating a product is treated as having when it carries none.
+ *
+ * `normalizeProduct` fills this in, so a storefront product always has a
+ * rating while the raw database record the dashboard lists may not. Reading
+ * the missing one as 0 would sort the same product differently on each side,
+ * which is the whole thing this comparator exists to prevent.
+ */
+export const DEFAULT_RATING = 4.8;
+
+function ratingOf(product) {
+  const value = Number(product?.rating);
+  return Number.isFinite(value) ? value : DEFAULT_RATING;
+}
+
+/**
+ * THE order of the shop. Every list that shows products to a customer, and
+ * every admin list that claims to mirror them, sorts with this.
+ *
+ * Products that were never reordered all share one rank, so the tie-breakers
+ * decide what the shopper actually sees. The dashboard used to stop at
+ * `sortOrder` alone and fall back to whatever order the records arrived in,
+ * which is why the row numbered "#3" in the dashboard was not the third
+ * product in the shop. Sorting both with this function is what makes the
+ * dashboard's numbering mean something.
+ */
+export function storefrontOrder(a, b) {
+  return (
+    sortRank(a) - sortRank(b) ||
+    (BADGE_RANK[a?.badge] ?? 9) - (BADGE_RANK[b?.badge] ?? 9) ||
+    ratingOf(b) - ratingOf(a) ||
+    String(a?.id).localeCompare(String(b?.id))
+  );
+}
+
 export function queryProducts({ gender, category, sub } = {}) {
   const list = PRODUCTS.filter(
     (p) =>
@@ -1149,7 +1216,7 @@ export function queryProducts({ gender, category, sub } = {}) {
       (!category || p.category === category) &&
       (!sub || sub === 'all' || p.sub === sub)
   );
-  return list.sort((a, b) => (a.sortOrder ?? 9999) - (b.sortOrder ?? 9999));
+  return list.sort(storefrontOrder);
 }
 
 export function countProducts(gender, category, sub) {
@@ -1178,12 +1245,12 @@ export function relatedProducts(product, limit = 4) {
 
 export function featuredProducts(limit = 8) {
   const active = PRODUCTS.filter((p) => p.status !== 'draft');
-  return active.sort((a, b) => (a.sortOrder ?? 9999) - (b.sortOrder ?? 9999)).slice(0, limit);
+  return active.sort(storefrontOrder).slice(0, limit);
 }
 
 export function newArrivals(limit = 8) {
   const active = PRODUCTS.filter((p) => p.status !== 'draft');
-  return active.sort((a, b) => (a.sortOrder ?? 9999) - (b.sortOrder ?? 9999)).slice(0, limit);
+  return active.sort(storefrontOrder).slice(0, limit);
 }
 
 export function searchProducts(term, limit = 8) {

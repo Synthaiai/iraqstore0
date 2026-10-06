@@ -1,6 +1,6 @@
 import { getSubcategoryLabel } from '../data/catalog';
 import { useEffect, useMemo, useState } from 'react';
-import { availableColors, availableSizes, formatPrice, priceBounds } from '../data/products';
+import { availableColors, availableSizes, formatPrice, priceBounds, storefrontOrder } from '../data/products';
 import { usePrefs } from '../store/PrefsContext';
 import FilterPanel from './FilterPanel';
 import ProductCard from './ProductCard';
@@ -14,8 +14,6 @@ const SORTS = [
   { value: 'new', key: 'sortNew' },
 ];
 
-const BADGE_ORDER = { best: 0, new: 1, sale: 2 };
-
 const emptyFilters = (max) => ({ maxPrice: max, colors: [], sizes: [], categories: [], onSale: false, isNew: false });
 
 const STORAGE_PREFIX = 'pb:';
@@ -24,6 +22,22 @@ function saveSession(key, sort, filters) {
 }
 function loadSession(key) {
   try { const raw = sessionStorage.getItem(STORAGE_PREFIX + key); return raw ? JSON.parse(raw) : null; } catch { return null; }
+}
+
+/**
+ * Fit a restored filter set to the pool it is being applied to.
+ *
+ * The first render of a route happens before the catalogue has arrived, so the
+ * price ceiling is seeded from an empty pool — zero — and then saved. Restoring
+ * that put the toolbar into "1 filter active · up to 0 IQD" on a page showing
+ * every product. A ceiling that is missing, zero, or above the pool's real
+ * maximum simply means "no price filter".
+ */
+function reconcileFilters(saved, max) {
+  const base = { ...emptyFilters(max), ...(saved || {}) };
+  const ceiling = Number(base.maxPrice);
+  base.maxPrice = Number.isFinite(ceiling) && ceiling > 0 ? Math.min(ceiling, max) : max;
+  return base;
 }
 
 /**
@@ -50,27 +64,22 @@ export default function ProductBrowser({ pool, resetKey }) {
     return saved?.sort || 'featured';
   });
   const [panelOpen, setPanelOpen] = useState(false);
-  const [filters, setFilters] = useState(() => {
-    const saved = loadSession(resetKey);
-    return saved?.filters || emptyFilters(bounds.max);
-  });
+  const [filters, setFilters] = useState(() => reconcileFilters(loadSession(resetKey)?.filters, bounds.max));
   const [visibleLimit, setVisibleLimit] = useState(24);
 
   useEffect(() => {
     const saved = loadSession(resetKey);
-    if (saved) {
-      setFilters(saved.filters);
-      setSort(saved.sort);
-    } else {
-      setFilters(emptyFilters(bounds.max));
-      setSort('featured');
-    }
+    setFilters(reconcileFilters(saved?.filters, bounds.max));
+    setSort(saved?.sort || 'featured');
     setVisibleLimit(24);
   }, [bounds.max, resetKey]);
 
   useEffect(() => {
+    // Nothing is remembered from a pool that has not loaded yet, or the empty
+    // pool's zero price ceiling is what comes back on the next visit.
+    if (!bounds.max) return;
     saveSession(resetKey, sort, filters);
-  }, [resetKey, sort, filters]);
+  }, [resetKey, sort, filters, bounds.max]);
 
   useEffect(() => {
     setVisibleLimit(24);
@@ -110,12 +119,9 @@ export default function ProductBrowser({ pool, resetKey }) {
       case 'new':
         return sorted.sort((a, b) => (b.badge === 'new') - (a.badge === 'new'));
       default:
-        return sorted.sort(
-          (a, b) =>
-            (a.sortOrder ?? 9999) - (b.sortOrder ?? 9999) ||
-            (BADGE_ORDER[a.badge] ?? 9) - (BADGE_ORDER[b.badge] ?? 9) ||
-            b.rating - a.rating
-        );
+        // The shop's own order, shared with the dashboard so the position the
+        // admin sees is the position the customer sees.
+        return sorted.sort(storefrontOrder);
     }
   }, [pool, filters, sort]);
 

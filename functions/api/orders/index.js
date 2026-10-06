@@ -12,6 +12,9 @@ const GOVERNORATES = new Set([
 const text = (value, max) => String(value || '').trim().slice(0, max);
 const integer = (value) => Number.isInteger(Number(value)) ? Number(value) : NaN;
 
+/** Orders allowed per client address per ten-minute window. */
+const ORDERS_PER_WINDOW = 40;
+
 async function enforceRateLimit(request, env) {
   const windowStart = Math.floor(Date.now() / 600000);
   const clientKey = await sha256(`${requestIp(request)}:${env.RATE_LIMIT_SALT || 'iraqstore'}`);
@@ -22,7 +25,10 @@ async function enforceRateLimit(request, env) {
   const row = await env.DB.prepare(
     'SELECT attempts FROM order_rate_limits WHERE client_key = ? AND window_start = ?'
   ).bind(clientKey, windowStart).first();
-  return Number(row?.attempts || 0) <= 10;
+  // Iraqi mobile networks put very many subscribers behind one address, so a
+  // low per-IP cap turned into real customers being refused. Turnstile already
+  // carries the bot defence; this only stops a flood.
+  return Number(row?.attempts || 0) <= ORDERS_PER_WINDOW;
 }
 
 export async function onRequestPost({ request, env, waitUntil }) {
@@ -40,15 +46,17 @@ export async function onRequestPost({ request, env, waitUntil }) {
 
   if (!body || typeof body !== 'object' || Array.isArray(body)) return apiError(400, 'INVALID_JSON', 'بيانات الطلب غير صالحة.');
 
-  if (!(await enforceRateLimit(request, env))) {
-    return apiError(429, 'TOO_MANY_ORDERS', 'محاولات كثيرة. انتظر عشر دقائق ثم حاول مجددًا.');
-  }
-  waitUntil?.(env.DB.prepare('DELETE FROM order_rate_limits WHERE window_start < ?').bind(Math.floor(Date.now() / 600000) - 144).run());
-
+  // Turnstile first: the rate-limit counter must not be spent by a customer who
+  // simply had to re-do the bot check.
   const turnstile = await verifyTurnstile(request, env, body.turnstileToken);
   if (!turnstile.success) {
     return apiError(403, 'BOT_CHECK_FAILED', 'تعذر التحقق الأمني. أعد تحميل الصفحة وحاول مجددًا.');
   }
+
+  if (!(await enforceRateLimit(request, env))) {
+    return apiError(429, 'TOO_MANY_ORDERS', 'محاولات كثيرة. انتظر عشر دقائق ثم حاول مجددًا.');
+  }
+  waitUntil?.(env.DB.prepare('DELETE FROM order_rate_limits WHERE window_start < ?').bind(Math.floor(Date.now() / 600000) - 144).run());
 
   const name = text(body.name, 80);
   const phone = normalizePhone(body.phone);
@@ -103,7 +111,12 @@ export async function onRequestPost({ request, env, waitUntil }) {
       if (!colors.includes(color)) return apiError(422, 'INVALID_COLOR', 'اللون المختار غير متوفر.');
     }
 
-    const imageUrl = text(product.images?.[0] || product.image || product.gallery?.[0] || '', 1000);
+    // A product photo may be an inline data URL. Truncating one to 1000 chars
+    // stored a corrupt image that rendered broken in the orders list and on
+    // every invoice, so only a real link is kept — the admin UI falls back to
+    // the live product record for anything stored inline.
+    const rawImage = String(product.images?.[0] || product.image || product.gallery?.[0] || '');
+    const imageUrl = rawImage.startsWith('data:') || rawImage.length > 500 ? '' : rawImage;
     const sourceStock = product.stockQuantity === undefined ? 15 : integer(product.stockQuantity);
     items.push({ productId, name: text(product.name, 160), price, quantity, size, color, imageUrl, initialStock: Math.max(0, Number.isFinite(sourceStock) ? sourceStock : 0) });
     subtotal += price * quantity;

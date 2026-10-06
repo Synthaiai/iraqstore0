@@ -21,17 +21,25 @@
  * These values are NOT secret — unsigned presets / public keys are meant to ship
  * in client code.
  */
+/**
+ * Values can come from build variables instead of edits to this file, which is
+ * what a Cloudflare Pages deploy wants:
+ *   VITE_CLOUDINARY_CLOUD_NAME, VITE_CLOUDINARY_UPLOAD_PRESET, VITE_IMGBB_API_KEY
+ * A value written in this file wins, so either way works.
+ */
+const env = (typeof import.meta !== 'undefined' && import.meta.env) || {};
+
 export const IMAGE_UPLOAD = {
   // 'cloudinary' | 'imgbb' | 'base64'
-  provider: 'cloudinary',
+  provider: env.VITE_IMAGE_PROVIDER || 'cloudinary',
 
   cloudinary: {
-    cloudName: '', // e.g. 'dxxxxxx'
-    uploadPreset: '', // e.g. 'iraqstore_unsigned'
+    cloudName: env.VITE_CLOUDINARY_CLOUD_NAME || '', // e.g. 'dxxxxxx'
+    uploadPreset: env.VITE_CLOUDINARY_UPLOAD_PRESET || '', // e.g. 'iraqstore_unsigned'
   },
 
   imgbb: {
-    apiKey: '',
+    apiKey: env.VITE_IMGBB_API_KEY || '',
   },
 };
 

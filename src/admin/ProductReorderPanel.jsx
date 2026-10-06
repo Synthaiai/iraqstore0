@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CATEGORIES } from '../data/catalog';
-import { formatPrice } from '../data/products';
+import { formatPrice, storefrontOrder } from '../data/products';
 import { saveProductsBatch } from '../data/remote';
 
 export default function ProductReorderPanel({ products }) {
@@ -15,9 +15,7 @@ export default function ProductReorderPanel({ products }) {
 
   // Sync internal list when products change
   useEffect(() => {
-    const sorted = [...(products || [])].sort(
-      (a, b) => (a.sortOrder ?? 9999) - (b.sortOrder ?? 9999)
-    );
+    const sorted = [...(products || [])].sort(storefrontOrder);
     setList(sorted);
   }, [products]);
 
