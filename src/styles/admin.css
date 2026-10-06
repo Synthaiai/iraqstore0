@@ -595,6 +595,40 @@
   margin-bottom: 1rem;
   font-size: 0.92rem;
 }
+/* A broken data feed: states the fact, offers the one action that helps. */
+.admin-feed-error {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.admin-feed-error strong {
+  display: block;
+  margin-bottom: 0.3rem;
+}
+.admin-feed-error p {
+  margin: 0 0 0.4rem;
+  max-width: 62ch;
+}
+
+/* A setup problem the shopkeeper has to act on, not a passing message. */
+.admin-card--warn {
+  border-color: rgba(234, 179, 8, 0.45);
+  background: rgba(234, 179, 8, 0.08);
+}
+.admin-card--warn h3 {
+  color: #facc15;
+}
+.admin-card--warn code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85em;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+  padding: 0.1em 0.4em;
+  direction: ltr;
+  display: inline-block;
+}
 .admin-section-cat {
   padding: 0.7rem 0;
   border-top: 1px solid var(--a-line);

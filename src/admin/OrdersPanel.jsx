@@ -1,9 +1,24 @@
 import { img } from '../data/images';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { formatPrice } from '../data/products';
-import { deleteOrder, fetchCloudOrdersSnapshot, hasMoreCloudOrders, loadMoreCloudOrders, updateOrderStatus } from '../data/remote';
+import { formatPrice, getProduct } from '../data/products';
+import { deleteOrder, fetchCloudOrdersSnapshot, hasMoreCloudOrders, loadMoreCloudOrders, retryOrdersNow, subscribeOrdersError, updateOrderStatus } from '../data/remote';
 import { blobToDataUrl, blobToObjectUrl, generateInvoiceImage } from '../utils/invoice';
 import { forgetOldInvoiceImages, rememberInvoiceImage } from '../utils/invoiceSave';
+
+/**
+ * Picture for an order line.
+ *
+ * The order record only stores a photo when it is a real link; a product whose
+ * photos are inline data URLs stores nothing, because a data URL does not fit
+ * in the column. So the live product is consulted first and the stored link is
+ * the fallback — which also means an order shows the product's current photo.
+ */
+function lineImage(item) {
+  const live = getProduct(item?.productId || item?.product?.id);
+  return live?.images?.[0] || live?.image
+    || item?.product?.images?.[0] || item?.product?.image || item?.image
+    || '/logo.jpg';
+}
 
 const STATUS_LABELS = {
   new: { label: 'طلب جديد 🆕', badge: 'admin-status--new' },
@@ -50,6 +65,8 @@ export default function OrdersPanel({ orders = [] }) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [canLoadMore, setCanLoadMore] = useState(true);
   const [msg, setMsg] = useState('');
+  // Why the list is empty, when it is empty for a reason.
+  const [feedError, setFeedError] = useState(null);
   const seenIdsRef = useRef(new Set((orders || []).map((o) => o.id || o.orderNo)));
   const initializedRef = useRef(false);
   const alertTimerRef = useRef(null);
@@ -85,6 +102,22 @@ export default function OrdersPanel({ orders = [] }) {
   useEffect(() => {
     setCanLoadMore(hasMoreCloudOrders());
   }, [orders.length]);
+
+  useEffect(() => subscribeOrdersError(setFeedError), []);
+
+  const retryFeed = async () => {
+    setIsRefreshing(true);
+    setMsg('جارٍ إعادة المحاولة…');
+    try {
+      await retryOrdersNow();
+      setMsg('تم الاتصال بخدمة الطلبات ✅');
+    } catch {
+      setMsg('');
+    } finally {
+      setIsRefreshing(false);
+      setTimeout(() => setMsg(''), 4000);
+    }
+  };
 
   const syncCloudOrders = async () => {
     setIsRefreshing(true);
@@ -186,6 +219,22 @@ export default function OrdersPanel({ orders = [] }) {
 
   return (
     <div className="admin-panel">
+      {feedError && (
+        <div className="admin-note admin-note--warn admin-feed-error" role="alert">
+          <div>
+            <strong>لا يمكن الوصول إلى خدمة الطلبات</strong>
+            <p>
+              {feedError.message} الطلبات الجديدة لا تظهر هنا حتى يعود الاتصال، لكنها
+              <b> لا تضيع</b> — تبقى محفوظة على الخادم وتظهر فور نجاح الاتصال.
+            </p>
+            {feedError.code && <code className="admin-code">{feedError.code}</code>}
+          </div>
+          <button type="button" className="admin-btn admin-btn--sm" onClick={retryFeed} disabled={isRefreshing}>
+            {isRefreshing ? 'جارٍ المحاولة…' : 'إعادة المحاولة'}
+          </button>
+        </div>
+      )}
+
       {newOrderAlert && (
         <div
           className="admin-note admin-note--ok"
@@ -317,7 +366,14 @@ export default function OrdersPanel({ orders = [] }) {
       {/* Orders List */}
       {filtered.length === 0 ? (
         <div className="admin-empty">
-          <p>لا توجد طلبات مسجلة حالياً أو مطابقة للبحث.</p>
+          {/* "No orders" and "could not read orders" are different facts. */}
+          {feedError ? (
+            <p>تعذّر قراءة الطلبات من الخادم، فلا يمكن عرض أي طلب هنا. راجع التنبيه بالأعلى.</p>
+          ) : orders.length === 0 ? (
+            <p>لم يصل أي طلب بعد. سيظهر الطلب هنا تلقائياً خلال ثوانٍ من إرساله، مع تنبيه صوتي.</p>
+          ) : (
+            <p>لا يوجد طلب مطابق للبحث أو الفلتر الحالي.</p>
+          )}
         </div>
       ) : (
         <div className="admin-orders-table">
@@ -351,7 +407,7 @@ export default function OrdersPanel({ orders = [] }) {
                       {items.slice(0, 4).map((item, i) => (
                         <img
                           key={i}
-                          src={item.product?.images?.[0] || item.product?.image || item.image || '/logo.jpg'}
+                          src={lineImage(item)}
                           alt=""
                           className="admin-order-thumb"
                           title={`${item.product?.name || item.name || 'منتج'} (${item.size || ''} / ${item.color || ''}) × ${item.qty}`}
@@ -517,7 +573,7 @@ function OrderDetailsModal({ order, onClose, onStatusChange, onPrint }) {
                     {items.map((item, idx) => (
                       <div className="admin-row" key={idx} style={{ gridTemplateColumns: '48px 1fr auto auto' }}>
                         <img
-                          src={item.product?.images?.[0] || item.product?.image || '/logo.jpg'}
+                          src={lineImage(item)}
                           alt=""
                           className="admin-row__img"
                         />
@@ -688,7 +744,7 @@ function PrintInvoiceModal({ order, onClose }) {
               {items.map((item, idx) => (
                 <tr key={idx}>
                   <td>{idx + 1}</td>
-                  <td><img src={img(item.product?.images?.[0] || item.product?.image || item.image)} alt="" style={{ width: 64, height: 64, objectFit: 'contain', display: 'block' }} />{item.product?.name || item.name}</td>
+                  <td><img src={img(lineImage(item))} alt="" style={{ width: 64, height: 64, objectFit: 'contain', display: 'block' }} />{item.product?.name || item.name}</td>
                   <td>{item.size} / {item.color}</td>
                   <td>{item.qty}</td>
                   <td>{formatPrice(item.product?.price || item.price || 0)}</td>

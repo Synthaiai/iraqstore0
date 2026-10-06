@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../store/AuthContext';
 import { GENDERS, updateCatalogStore } from '../data/catalog';
-import { formatPrice } from '../data/products';
+import { formatPrice, storefrontOrder } from '../data/products';
+import { parseSmartPrice } from '../utils/smartPrice';
 import {
   deleteProduct,
   getConnectionStatus,
@@ -12,13 +13,13 @@ import {
   saveProduct,
   saveProductsBatch,
   saveSetting,
-  seedProducts,
   subscribeConnectionStatus,
   subscribeImageSyncFailures,
   subscribeRealtimeStatus,
   warmUpRealtimeDatabase,
 } from '../data/remote';
 import { uploadImage } from '../data/upload';
+import { uploadConfigured } from '../config';
 import AnalyticsPanel from './AnalyticsPanel';
 import CategoryTree from './CategoryTree';
 import DeliveryFeesPanel from './DeliveryFeesPanel';
@@ -79,7 +80,7 @@ function ProductsPanel({ products }) {
 
       return matchQ && matchGender && matchStock;
     });
-    return list.sort((a, b) => (a.sortOrder ?? 9999) - (b.sortOrder ?? 9999));
+    return list.sort(storefrontOrder);
   }, [products, q, gender, stockFilter]);
 
   const save = async (record, options = {}) => {
@@ -122,34 +123,52 @@ function ProductsPanel({ products }) {
     }
   };
 
-  // Reorder product position handler
+  /**
+   * Renumbering the shop is a change to one field on each product.
+   *
+   * Without `reorderOnly` this rewrote every full product record and then fired
+   * an inventory call per product, so moving one item to the top cost hundreds
+   * of writes and could take minutes. `reorderOnly` writes `products/<id>/sortOrder`
+   * and nothing else.
+   */
+  const persistOrder = async (ordered) => {
+    const updated = ordered.map((p, i) => ({ ...p, sortOrder: i + 1 }));
+    await saveProductsBatch(updated, { reorderOnly: true });
+  };
+
+  /**
+   * Swap one product with its neighbour.
+   *
+   * The whole shop is renumbered from the full catalogue rather than swapping
+   * two numbers: products without a `sortOrder`, and duplicates left behind by
+   * earlier swaps, meant the old arithmetic could place an item in a slot that
+   * another product already held, and nothing moved.
+   */
   const moveProduct = async (product, direction) => {
     const idx = filtered.findIndex((p) => p.id === product.id);
     if (idx < 0) return;
     const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
     if (targetIdx < 0 || targetIdx >= filtered.length) return;
 
-    const otherProduct = filtered[targetIdx];
-    const currentOrder = product.sortOrder ?? idx + 1;
-    const targetOrder = otherProduct.sortOrder ?? targetIdx + 1;
-
-    // Swap order numbers
-    await saveProduct({ ...product, sortOrder: targetOrder === currentOrder ? targetIdx + 1 : targetOrder });
-    await saveProduct({ ...otherProduct, sortOrder: currentOrder });
+    const neighbour = filtered[targetIdx];
+    const ordered = [...products].sort(storefrontOrder);
+    const from = ordered.findIndex((p) => p.id === product.id);
+    const to = ordered.findIndex((p) => p.id === neighbour.id);
+    if (from < 0 || to < 0) return;
+    ordered.splice(to, 0, ordered.splice(from, 1)[0]);
+    await persistOrder(ordered);
   };
 
   const moveToTop = async (product) => {
-    const sorted = [...products].sort((a, b) => (a.sortOrder ?? 9999) - (b.sortOrder ?? 9999));
+    const sorted = [...products].sort(storefrontOrder);
     const without = sorted.filter((p) => p.id !== product.id);
-    const updated = [product, ...without].map((p, i) => ({ ...p, sortOrder: i + 1 }));
-    await saveProductsBatch(updated);
+    await persistOrder([product, ...without]);
   };
 
   const moveToBottom = async (product) => {
-    const sorted = [...products].sort((a, b) => (a.sortOrder ?? 9999) - (b.sortOrder ?? 9999));
+    const sorted = [...products].sort(storefrontOrder);
     const without = sorted.filter((p) => p.id !== product.id);
-    const updated = [...without, product].map((p, i) => ({ ...p, sortOrder: i + 1 }));
-    await saveProductsBatch(updated);
+    await persistOrder([...without, product]);
   };
 
   return (
@@ -396,8 +415,8 @@ function parseCsvProducts(text) {
       nameEn: raw.nameEn || '',
       blurb: raw.blurb || raw.description || raw['الوصف'] || '',
       blurbEn: raw.blurbEn || '',
-      price: Number(raw.price || raw['السعر']) || 0,
-      oldPrice: raw.oldPrice ? Number(raw.oldPrice) : null,
+      price: parseSmartPrice(raw.price || raw['السعر']),
+      oldPrice: raw.oldPrice ? parseSmartPrice(raw.oldPrice) : null,
       gender: raw.gender || 'men',
       category: raw.category || 'shoes',
       sub: raw.sub || '',
@@ -423,8 +442,8 @@ function normalizeImportProducts(list, existingCount = 0) {
   return list.map((product, idx) => ({
     ...product,
     id: String(product.id || `bulk-${Date.now().toString(36)}-${idx + 1}`),
-    price: Number(product.price) || 0,
-    oldPrice: product.oldPrice ? Number(product.oldPrice) : null,
+    price: parseSmartPrice(product.price),
+    oldPrice: product.oldPrice ? parseSmartPrice(product.oldPrice) : null,
     stockQuantity: Number.isFinite(Number(product.stockQuantity)) ? Number(product.stockQuantity) : 15,
     status: product.status || 'active',
     type: product.type || 'general',
@@ -438,7 +457,9 @@ async function attachImportImages(products, files, onProgress) {
   const fileMap = new Map(Array.from(files || []).map((file) => [file.name.toLowerCase(), file]));
   let uploaded = 0;
   const total = products.reduce((sum, product) => sum + (product.imageFiles || []).filter((name) => fileMap.has(String(name).toLowerCase())).length, 0);
-  if (!total) return products;
+  // `imageFiles` is a spreadsheet column naming local files. It is stripped on
+  // every path, including this one, so it is never written to the database.
+  if (!total) return products.map(({ imageFiles, ...product }) => product);
 
   const result = [];
   for (const product of products) {
@@ -448,18 +469,17 @@ async function attachImportImages(products, files, onProgress) {
       if (!file) continue;
       uploaded += 1;
       if (onProgress) onProgress(uploaded, total, file.name);
-      localImages.push(await uploadImage(file, 'products'));
+      localImages.push(await uploadImage(file));
     }
     result.push({
       ...product,
       images: [...(product.images || []), ...localImages.filter(Boolean)].slice(0, 4),
     });
   }
-  return result;
+  return result.map(({ imageFiles, ...product }) => product);
 }
 
 function SettingsPanel({ productCount, products }) {
-  const [seeding, setSeeding] = useState(false);
   const [msg, setMsg] = useState('');
   const [logoBusy, setLogoBusy] = useState(false);
   const [importImageFiles, setImportImageFiles] = useState([]);
@@ -471,27 +491,13 @@ function SettingsPanel({ productCount, products }) {
     [products]
   );
 
-  const doSeed = async () => {
-    if (!window.confirm('سيتم كتابة الكتالوج المدمج إلى قاعدة البيانات والتخزين المحلي. متابعة؟')) return;
-    setSeeding(true);
-    setMsg('');
-    try {
-      await seedProducts();
-      setMsg('تمت تعبئة الكتالوج المدمج بنجاح.');
-    } catch (error) {
-      setMsg(`تعذرت تعبئة الكتالوج: ${error?.message || 'تحقق من الاتصال.'}`);
-    } finally {
-      setSeeding(false);
-    }
-  };
-
   const onLogo = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     setLogoBusy(true);
     setMsg('');
     try {
-      const url = await uploadImage(file, 'branding');
+      const url = await uploadImage(file);
       await saveSetting('logoUrl', url);
       setMsg('تم تحديث شعار المتجر بنجاح.');
     } catch (error) {
@@ -508,8 +514,12 @@ function SettingsPanel({ productCount, products }) {
     const a = document.createElement('a');
     a.href = url;
     a.download = `iraqstore-backup-${Date.now()}.json`;
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
+    a.remove();
+    // Safari cancels an in-flight download when its blob URL is revoked in the
+    // same tick, so the backup silently produced nothing.
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
   };
 
   const handleImportFile = (e) => {
@@ -592,6 +602,24 @@ function SettingsPanel({ productCount, products }) {
 
   return (
     <div className="admin-panel admin-panel--narrow">
+      {!uploadConfigured() && (
+        <div className="admin-card admin-card--warn">
+          <h3>⚠️ استضافة الصور غير مُفعّلة</h3>
+          <p>
+            الصور الآن تُخزَّن <b>داخل قاعدة البيانات نفسها</b> كنص. هذا يجعل كل صورة تكلّف
+            حوالي ٤ أضعاف حجمها، ويُبطئ حفظ المنتج على الموبايل، ويُجبر كل زبون على تنزيل
+            صور أكبر مما يحتاج.
+          </p>
+          <p>
+            الحل يستغرق دقيقتين: افتح حساباً مجانياً على <b>Cloudinary</b>، ثم
+            Settings ← Upload ← أضف upload preset بوضع <b>Unsigned</b>، وضع الاسمين في
+            متغيّرات البناء <code>VITE_CLOUDINARY_CLOUD_NAME</code> و
+            <code> VITE_CLOUDINARY_UPLOAD_PRESET</code> (أو مباشرة في <code>src/config.js</code>).
+            بعدها يُخزَّن رابط قصير بدل الصورة كاملة.
+          </p>
+        </div>
+      )}
+
       <div className="admin-card">
         <h3>شعار المتجر</h3>
         <p>ارفع شعارًا جديدًا من جهازك ليظهر في رأس الهيدر وتذييل المتجر.</p>
@@ -642,13 +670,10 @@ function SettingsPanel({ productCount, products }) {
       </div>
 
       <div className="admin-card">
-        <h3>تعبئة الكتالوج الافتراضي</h3>
+        <h3>حالة الكتالوج</h3>
         <p>
-          يحتوي الكتالوج حالياً على <b>{productCount}</b> منتج.
+          يحتوي المتجر حالياً على <b>{productCount}</b> منتج.
         </p>
-        <button className="admin-btn admin-btn--ghost" onClick={doSeed} disabled={seeding}>
-          {seeding ? 'جارٍ التعبئة…' : 'تعبئة الكتالوج المدمج'}
-        </button>
       </div>
 
       {msg && <p className="admin-note admin-note--ok">{msg}</p>}

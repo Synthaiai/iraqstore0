@@ -1,10 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
+import { STORE_CONTACT } from '../data/contact';
 
 const SCRIPT_ID = 'cf-turnstile-script';
 const SCRIPT_URL = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
 
 /** A script tag that never fires load or error would leave checkout disabled forever. */
 const SCRIPT_TIMEOUT_MS = 15000;
+
+/**
+ * How long to wait for a token once the widget itself has rendered.
+ *
+ * A site key that does not list this hostname renders its container and then
+ * does nothing at all: no iframe, no token, and no error callback. Checkout
+ * stays disabled behind a button that never becomes clickable, which is a shop
+ * silently refusing every order. Nothing here can fix the key — but the
+ * customer must be told, and given a way to order anyway.
+ */
+const TOKEN_TIMEOUT_MS = 20000;
 
 function loadTurnstile() {
   if (window.turnstile) return Promise.resolve(window.turnstile);
@@ -43,6 +55,12 @@ export default function TurnstileWidget({ onToken, resetKey = 0, lang = 'ar' }) 
   useEffect(() => {
     if (!sitekey || !container.current) return undefined;
     let alive = true;
+    let settled = false;
+    // A silent widget is indistinguishable from a slow one until this fires.
+    const stall = setTimeout(() => {
+      if (alive && !settled) { onToken(''); setFailed(true); }
+    }, TOKEN_TIMEOUT_MS);
+
     loadTurnstile()
       .then((turnstile) => {
         if (!alive || !turnstile || widgetId.current !== null) return;
@@ -51,14 +69,16 @@ export default function TurnstileWidget({ onToken, resetKey = 0, lang = 'ar' }) 
           theme: 'auto',
           size: 'flexible',
           appearance: 'interaction-only',
-          callback: (token) => onToken(token),
-          'expired-callback': () => onToken(''),
-          'error-callback': () => { onToken(''); setFailed(true); },
+          callback: (token) => { settled = true; clearTimeout(stall); setFailed(false); onToken(token); },
+          'expired-callback': () => { settled = false; onToken(''); },
+          'error-callback': () => { settled = true; clearTimeout(stall); onToken(''); setFailed(true); },
         });
       })
-      .catch(() => { if (alive) { onToken(''); setFailed(true); } });
+      .catch(() => { if (alive) { settled = true; clearTimeout(stall); onToken(''); setFailed(true); } });
+
     return () => {
       alive = false;
+      clearTimeout(stall);
       if (widgetId.current !== null && window.turnstile) window.turnstile.remove(widgetId.current);
       widgetId.current = null;
     };
@@ -79,7 +99,25 @@ export default function TurnstileWidget({ onToken, resetKey = 0, lang = 'ar' }) 
   return (
     <div className="turnstile-wrap">
       <div ref={container} />
-      {failed && <p className="field__error">تعذر تحميل التحقق الأمني. {lang === 'en' ? 'Reload and try again.' : 'أعد تحميل الصفحة وحاول مجددًا.'}</p>}
+      {failed && (
+        <div className="turnstile-wrap__failed" role="alert">
+          <p className="field__error">
+            {lang === 'en'
+              ? 'The security check could not load, so the order cannot be sent from here.'
+              : 'تعذّر تحميل التحقق الأمني، فلا يمكن إرسال الطلب من هنا.'}
+          </p>
+          {/* Never lose the sale to a broken bot check: the shop still answers. */}
+          <p className="turnstile-wrap__fallback">
+            {lang === 'en' ? 'Order directly instead — we reply right away:' : 'اطلب مباشرة بدلاً من ذلك — نرد فوراً:'}
+            {' '}
+            <a href={`tel:${STORE_CONTACT.phone}`} dir="ltr">{STORE_CONTACT.phone}</a>
+            {' · '}
+            <a href={STORE_CONTACT.whatsappUrl} target="_blank" rel="noopener noreferrer">
+              {lang === 'en' ? 'WhatsApp' : 'واتساب'}
+            </a>
+          </p>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CATEGORIES, INITIAL_CATEGORIES, getFullCatalogTree, getSubcategories } from '../data/catalog';
+import { CATEGORIES, INITIAL_CATEGORIES, getFullCatalogTree, getSubcategories, useCatalogVersion } from '../data/catalog';
 import { formatPrice } from '../data/products';
 import { uploadImage } from '../data/upload';
 import { loadProductImages } from '../data/remote';
-import { compressImageToLimit, formatBytes } from '../utils/imageCompressor';
+import { formatBytes } from '../utils/imageCompressor';
 import { parseSmartPrice } from '../utils/smartPrice';
 import { autoTranslateProduct, translateArabicAsync, translateText } from '../utils/translator';
 
@@ -101,6 +101,9 @@ const COLOR_QUICK_PRESETS = [
     ],
   },
 ];
+
+/** Hard cap on product photos, enforced in the picker and again before saving. */
+const MAX_IMAGES = 4;
 
 const range = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => String(a + i));
 
@@ -298,10 +301,17 @@ export default function ProductForm({ initial, onSave, onCancel }) {
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
   const activeTypeCfg = TYPE_CONFIG[form.type] || TYPE_CONFIG.general;
+  // The catalogue tree lives in mutable module state, so the stored tree landing
+  // while this form is open is invisible to React. Subscribing re-renders the
+  // dropdowns instead of leaving the admin picking from stale sections.
+  const catalogVersion = useCatalogVersion();
   const currentTree = getFullCatalogTree();
   const treeCats = (currentTree.categories && currentTree.categories[form.gender]) || CATEGORIES[form.gender] || [];
   const cats = Array.isArray(treeCats) && treeCats.length ? treeCats : (INITIAL_CATEGORIES[form.gender] || []);
-  const subs = useMemo(() => (getSubcategories(form.gender, form.category) || []).filter((s) => s.slug !== 'all'), [form.gender, form.category]);
+  const subs = useMemo(
+    () => (getSubcategories(form.gender, form.category) || []).filter((s) => s.slug !== 'all'),
+    [form.gender, form.category, catalogVersion]
+  );
 
   useEffect(() => {
     if (!subs.length) return;
@@ -438,35 +448,24 @@ export default function ProductForm({ initial, onSave, onCancel }) {
   };
 
   // Image Upload & Compression Handler — max 4 images per product.
-  const MAX_IMAGES = 4;
   const handleFileSelection = async (selectedFiles) => {
-    if (!selectedFiles || !selectedFiles.length) return;
-    const existing = (form.images || []).length;
-    const slots = Math.max(0, MAX_IMAGES - existing);
+    const picked = Array.from(selectedFiles || []);
+    if (!picked.length) return;
+
+    // Slots must account for files already waiting to upload, not just the ones
+    // already saved — otherwise picking twice silently discarded the first batch
+    // and could still exceed the limit.
+    const slots = Math.max(0, MAX_IMAGES - (form.images || []).length - files.length);
     if (slots === 0) {
-      setErr(`الحد الأقصى ${MAX_IMAGES} صور للمنتج`);
+      setErr(`الحد الأقصى ${MAX_IMAGES} صور للمنتج. احذف صورة أولاً.`);
       return;
     }
-    const fileList = Array.from(selectedFiles).slice(0, slots);
-    if (Array.from(selectedFiles).length > slots) {
-      setErr(`تم اختيار أول ${slots} صور فقط (الحد الأقصى ${MAX_IMAGES})`);
-    }
-    setFiles(fileList);
+    const accepted = picked.slice(0, slots);
+    setErr(picked.length > slots ? `تم إضافة ${slots} صورة فقط (الحد الأقصى ${MAX_IMAGES} صور للمنتج).` : '');
 
-    // Run preview compression statistics
-    let orig = 0;
-    let comp = 0;
-    for (const f of fileList) {
-      orig += f.size;
-      const res = await compressImageToLimit(f, { maxBytes: 700 * 1024 });
-      comp += res.compressedSize;
-    }
-
-    setCompressionStats({
-      original: formatBytes(orig),
-      compressed: formatBytes(comp),
-      savings: Math.round((1 - comp / orig) * 100),
-    });
+    // Added to the queue, never replacing it: an admin picking one image at a
+    // time used to end up with only the last one.
+    setFiles((prev) => [...prev, ...accepted]);
   };
 
   const toggleColor = (c) =>
@@ -589,7 +588,11 @@ export default function ProductForm({ initial, onSave, onCancel }) {
     }));
   };
 
+  // Object URLs pin the full file in memory until they are revoked. Without the
+  // cleanup every image an admin previewed stayed resident for the whole session,
+  // which on a phone eventually took the tab down mid-save.
   const previews = useMemo(() => files.map((f) => URL.createObjectURL(f)), [files]);
+  useEffect(() => () => previews.forEach((url) => URL.revokeObjectURL(url)), [previews]);
 
   const currentPrice = parseSmartPrice(form.price);
   const currentOldPrice = parseSmartPrice(form.oldPrice);
@@ -612,12 +615,15 @@ export default function ProductForm({ initial, onSave, onCancel }) {
       sub: f.sub,
       colors: f.colors,
       sizes: f.sizes,
-      sortOrder: '',
+      // No `sortOrder` key at all. An empty string used to be stored here, and
+      // every list sorts with `(a.sortOrder ?? 9999) - (...)`, where `'' - 9999`
+      // is -9999 — so each product added this way jumped to the top of the shop.
     }));
     setFiles([]);
     setCompressionStats(null);
     setCustomColorName('');
     setCustomSize('');
+    setErr('');
   };
 
   // A split product arrives carrying only its thumbnail. Swap in the real
@@ -639,7 +645,11 @@ export default function ProductForm({ initial, onSave, onCancel }) {
     e.preventDefault();
     const action = e.nativeEvent?.submitter?.value;
     const keepOpen = action === 'save-and-add';
-    if (!form.name || !form.price) return setErr('اسم المنتج والسعر مطلوبة');
+    if (!form.name.trim()) return setErr('اسم المنتج مطلوب');
+    // A price that does not parse used to be stored as 0, so the product went
+    // live priced at nothing. Reject it here instead.
+    if (!parseSmartPrice(form.price)) return setErr('أدخل سعراً صحيحاً للمنتج (مثال: 25 أو 25000)');
+    if (form.oldPrice && !parseSmartPrice(form.oldPrice)) return setErr('السعر القديم غير صحيح. اتركه فارغاً أو أدخل رقماً.');
     if (galleryLoading) return setErr('جارٍ تحميل صور المنتج… انتظر لحظة ثم احفظ.');
     setBusy(true);
     setErr('');
@@ -649,14 +659,28 @@ export default function ProductForm({ initial, onSave, onCancel }) {
       let images = form.images || [];
       if (files.length) {
         const uploaded = [];
+        let originalBytes = 0;
+        let storedBytes = 0;
         for (let i = 0; i < files.length; i += 1) {
           setStatusText(`جارٍ ضغط ورفع الصورة ${i + 1} من ${files.length}…`);
-          uploaded.push(await uploadImage(files[i], 'products'));
+          // One compression pass per image. The picker used to compress every
+          // file a second time just to show a savings badge, which doubled the
+          // work on exactly the phones that could least afford it.
+          const stored = await uploadImage(files[i]);
+          originalBytes += files[i].size;
+          if (typeof stored === 'string' && stored.startsWith('data:')) storedBytes += Math.round(stored.length * 0.75);
+          uploaded.push(stored);
         }
         images = [...images, ...uploaded.filter(Boolean)];
+        if (originalBytes > 0 && storedBytes > 0) {
+          setCompressionStats({
+            original: formatBytes(originalBytes),
+            compressed: formatBytes(storedBytes),
+            savings: Math.max(0, Math.round((1 - storedBytes / originalBytes) * 100)),
+          });
+        }
       }
-      // Never persist more than 4 images.
-      images = images.slice(0, 4);
+      images = images.slice(0, MAX_IMAGES);
 
       if (!images.length) {
         setBusy(false);
@@ -1350,7 +1374,7 @@ export default function ProductForm({ initial, onSave, onCancel }) {
           {/* STEP 9: Client Image Compressor & Upload */}
           <div className="admin-field admin-field--highlight">
             <div className="admin-flex-between">
-              <span>صور المنتج — حتى ٤ صور (تُضغط تلقائياً 🗜️)</span>
+              <span>صور المنتج — حتى {MAX_IMAGES} صور (تُضغط تلقائياً 🗜️)</span>
               {compressionStats && (
                 <span className="admin-compress-badge">
                   تم الضغط: {compressionStats.original} ➔ {compressionStats.compressed} (وفّر {compressionStats.savings}%)
@@ -1362,7 +1386,7 @@ export default function ProductForm({ initial, onSave, onCancel }) {
               type="file"
               accept="image/*"
               multiple
-              disabled={(form.images || []).length + files.length >= 4}
+              disabled={(form.images || []).length + files.length >= MAX_IMAGES}
               onChange={(e) => handleFileSelection(e.target.files)}
             />
 

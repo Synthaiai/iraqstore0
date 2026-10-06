@@ -209,7 +209,8 @@ export function StoreProvider({ children }) {
       openCart: () => setCartOpen(true),
       closeCart: () => setCartOpen(false),
       favorites,
-      isFavorite: (id) => favorites.includes(id),
+      // Favourites are always stored as strings; a numeric id used to miss.
+      isFavorite: (id) => favorites.includes(String(id)),
       toggleFavorite,
       toasts,
       toast,

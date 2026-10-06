@@ -38,14 +38,73 @@ function reportImageSyncFailure(record, error) {
 }
 
 /**
+ * Make a record safe for the Realtime Database.
+ *
+ * The SDK rejects the ENTIRE write — with a message naming one property — as
+ * soon as any value anywhere in the tree is `undefined`. The admin form builds
+ * its record by spreading state, so one untouched optional field was enough to
+ * fail a save with an error no shopkeeper could act on. Empty strings are kept
+ * (they are valid values); `undefined` is dropped, which is exactly what "this
+ * field was never filled in" should mean.
+ */
+function stripUndefined(value) {
+  if (Array.isArray(value)) return value.filter((item) => item !== undefined).map(stripUndefined);
+  if (value && typeof value === 'object' && !(value instanceof Date)) {
+    const out = {};
+    for (const [key, item] of Object.entries(value)) {
+      if (item === undefined) continue;
+      out[key] = stripUndefined(item);
+    }
+    return out;
+  }
+  return value;
+}
+
+/** Fields the storefront sorts and filters on must never be stored as text. */
+function coerceNumericFields(record) {
+  const out = { ...record };
+  const stock = Number(out.stockQuantity);
+  out.stockQuantity = Number.isFinite(stock) ? Math.max(0, Math.round(stock)) : 15;
+  const order = Number(out.sortOrder);
+  if (Number.isFinite(order) && out.sortOrder !== '' && out.sortOrder !== null) out.sortOrder = order;
+  else delete out.sortOrder;
+  const price = Number(out.price);
+  out.price = Number.isFinite(price) ? Math.max(0, Math.round(price)) : 0;
+  const oldPrice = Number(out.oldPrice);
+  out.oldPrice = Number.isFinite(oldPrice) && oldPrice > 0 ? Math.round(oldPrice) : null;
+  return out;
+}
+
+function prepareForFirebase(record) {
+  const normalized = coerceNumericFields(record);
+  // Saving also heals the slug casing, so a product edited once stops being
+  // filed under its own private variant of a section.
+  for (const key of ['gender', 'category', 'sub']) {
+    if (typeof normalized[key] === 'string') normalized[key] = normalized[key].trim().toLowerCase();
+  }
+  return stripUndefined(normalized);
+}
+
+/**
  * Split a product into the lean record that ships to every visitor and the
  * heavy gallery that only a product page needs.
  */
 async function splitProductImages(record) {
-  const images = (Array.isArray(record.images) ? record.images : []).filter(Boolean);
-  const lean = { ...record };
+  let images = (Array.isArray(record.images) ? record.images : []).filter(Boolean);
+  const lean = prepareForFirebase(record);
   delete lean.images;
   delete lean.imagesArePlaceholder;
+
+  // The admin added photos to a product whose real gallery never loaded, so
+  // `images[0]` is still the thumbnail stand-in. Writing this list as-is would
+  // replace the originals with a 260px thumbnail, so swap the stand-in for the
+  // gallery it stands for before anything is written.
+  if (record.imagesArePlaceholder && images.length > 1 && record.id) {
+    const stored = await loadProductImages(record.id, null);
+    if (Array.isArray(stored) && stored.length) {
+      images = [...stored, ...images.slice(1)].filter(Boolean).slice(0, 4);
+    }
+  }
 
   // Editing a split product hands back the thumbnail stand-in, not the real
   // gallery. Writing that back would destroy the original photos, so leave the
@@ -94,19 +153,33 @@ export async function loadProductImages(productId, fallback = []) {
   if (!id) return fallback;
   if (galleryCache.has(id)) return galleryCache.get(id);
 
+  const readJsonPath = async (path) => {
+    const response = await fetch(`${FIREBASE_REST_BASE}/${path}`, { signal: timeoutSignal(20000) });
+    if (!response.ok) throw new Error(`IMAGES_${response.status}`);
+    return response.json();
+  };
+
   const request = (async () => {
     try {
-      const response = await fetch(`${FIREBASE_REST_BASE}/${PRODUCT_IMAGES_PATH}/${encodeURIComponent(id)}.json`, {
-        signal: timeoutSignal(20000),
-      });
-      if (!response.ok) throw new Error(`IMAGES_${response.status}`);
-      const body = await response.json();
+      const body = await readJsonPath(`${PRODUCT_IMAGES_PATH}/${encodeURIComponent(id)}.json`);
       const images = (Array.isArray(body?.images) ? body.images : []).filter(Boolean);
-      return images.length ? images : fallback;
+      if (images.length) return images;
     } catch {
-      galleryCache.delete(id);
-      return fallback;
+      /* fall through to the product's own record */
     }
+    try {
+      // A product saved before the split keeps its gallery inside its own
+      // record. The catalogue only ships the first of those images, so the
+      // rest are read from here — without this a legacy product page showed
+      // one photo where the shop has four.
+      const own = await readJsonPath(`products/${encodeURIComponent(id)}/images.json`);
+      const images = (Array.isArray(own) ? own : []).filter(Boolean);
+      if (images.length) return images;
+    } catch {
+      /* nothing stored anywhere */
+    }
+    galleryCache.delete(id);
+    return fallback;
   })();
 
   galleryCache.set(id, request);
@@ -237,6 +310,19 @@ async function authHeaders(required = false) {
   return headers;
 }
 
+/**
+ * A sentence for a customer, for a response that carried no message of its own.
+ * Status codes are for the console; the person waiting on a checkout button
+ * needs to know whether to retry, wait, or phone the shop.
+ */
+function describeHttpFailure(status) {
+  if (status === 401 || status === 403) return 'انتهت صلاحية الجلسة أو لا تملك صلاحية لهذا الإجراء. أعد تحميل الصفحة.';
+  if (status === 404) return 'خدمة الطلبات غير متاحة حاليًا. سلّتك محفوظة — حاول بعد قليل أو اتصل بالمتجر.';
+  if (status === 429) return 'محاولات كثيرة خلال وقت قصير. انتظر قليلاً ثم حاول مجددًا.';
+  if (status >= 500) return 'الخادم لا يستجيب حاليًا. سلّتك محفوظة — حاول مرة أخرى بعد قليل.';
+  return 'تعذّر إكمال الطلب. تحقق من الاتصال وحاول مجددًا.';
+}
+
 async function apiJson(url, options = {}) {
   const { admin = false, ...fetchOptions } = options;
   const headers = { ...(await authHeaders(admin)), ...(fetchOptions.headers || {}) };
@@ -246,8 +332,11 @@ async function apiJson(url, options = {}) {
   let body = null;
   try { body = await response.json(); } catch {}
   if (!response.ok || body?.ok === false) {
-    const error = new Error(body?.error?.message || `HTTP_${response.status}`);
-    error.code = body?.error?.code || `HTTP_${response.status}`;
+    // The server's own Arabic message when it sent one. Otherwise a sentence a
+    // shopper can act on — a checkout that failed used to read "HTTP_404".
+    const code = body?.error?.code || `HTTP_${response.status}`;
+    const error = new Error(body?.error?.message || describeHttpFailure(response.status));
+    error.code = code;
     error.status = response.status;
     throw error;
   }
@@ -313,8 +402,19 @@ async function fetchFirebaseFallback(includeDrafts = false) {
   if (!productsRes.ok) throw new Error('CATALOG_UNAVAILABLE');
   const rawProducts = await productsRes.json();
   const products = rawProducts && typeof rawProducts === 'object' ? Object.entries(rawProducts).filter(([, p]) => p && typeof p === 'object').map(([id, p]) => ({ ...p, id: p.id || id })) : [];
+  const visible = includeDrafts ? products : products.filter((product) => product?.status !== 'draft');
+  // Mirrors `trimInlineGalleries` in the Worker: when the API is unreachable the
+  // browser reads Firebase directly, and it must not pull megabytes of inline
+  // photos into a product grid either.
+  for (const product of visible) {
+    const images = Array.isArray(product.images) ? product.images : null;
+    if (!images || images.length < 2) continue;
+    if (!images.some((image) => typeof image === 'string' && image.startsWith('data:'))) continue;
+    product.imageCount = product.imageCount || images.length;
+    product.images = [images[0]];
+  }
   return {
-    products: await resolveEmbeddedProducts(includeDrafts ? products : products.filter((product) => product?.status !== 'draft')),
+    products: await resolveEmbeddedProducts(visible),
     settings: settingsRes.ok ? (await settingsRes.json()) || {} : {},
     catalog: catalogRes.ok ? await catalogRes.json() : null,
   };
@@ -394,6 +494,17 @@ export function listenProducts(cb, { includeDrafts = false } = {}) {
  * local dev and may not be configured in every deployment, so a failure here
  * must never undo or block a product save that already succeeded.
  */
+
+/**
+ * Codes that mean "there is no inventory mirror here", not "the mirror rejected
+ * the write". When the Worker or its database is absent the catalogue is served
+ * straight from Firebase, so the stock the admin just saved is the stock the
+ * store shows — there is nothing to warn about.
+ */
+const INVENTORY_ABSENT_CODES = new Set([
+  'API_UNAVAILABLE', 'DATABASE_NOT_CONFIGURED', 'AUTH_NOT_CONFIGURED', 'HTTP_404', 'HTTP_405',
+]);
+
 async function syncInventory(record) {
   const stock = record.stockQuantity === undefined ? 15 : Number(record.stockQuantity);
   try {
@@ -403,8 +514,12 @@ async function syncInventory(record) {
   } catch (err) {
     console.warn('Inventory sync skipped (product was saved to Firebase):', err);
     // D1 overrides the Firebase value when the catalogue is served, so a failed
-    // sync makes an edited stock count silently revert. Say so.
-    reportImageSyncFailure(record, new Error('تعذر تحديث كمية المخزون على الخادم. قد تظهر الكمية القديمة حتى تعيد المحاولة.'));
+    // sync makes an edited stock count silently revert. Say so — but only when
+    // there is a mirror to revert to, or every save on a deployment without one
+    // reports a failure that did not happen.
+    if (!INVENTORY_ABSENT_CODES.has(err?.code)) {
+      reportImageSyncFailure(record, new Error('تعذر تحديث كمية المخزون على الخادم. قد تظهر الكمية القديمة حتى تعيد المحاولة.'));
+    }
   }
 }
 
@@ -442,12 +557,42 @@ async function saveProductGallery(record, images) {
   galleryCache.set(String(record.id), Promise.resolve(images));
 }
 
+/**
+ * Where a brand-new product lands in the shop.
+ *
+ * Once the catalogue has been put in order, every position from 1..N is taken,
+ * so a product saved without one sorted below all of them — the shopkeeper
+ * added an item and it was buried at the bottom of a 41-product shop. A new
+ * product goes to the front, which is also what the dashboard's own local
+ * cache has always assumed by prepending it.
+ *
+ * Only brand-new records are given a position; editing an existing product
+ * never moves it.
+ */
+function positionForNewProduct(current) {
+  let min = Infinity;
+  for (const product of current) {
+    const value = Number(product?.sortOrder);
+    if (Number.isFinite(value) && product.sortOrder !== '' && product.sortOrder !== null) {
+      min = Math.min(min, value);
+    }
+  }
+  return Number.isFinite(min) ? min - 1 : 1;
+}
+
 export async function saveProduct(record) {
   const { ref, set, db } = await firebaseAdminContext();
   // Opening the socket early is what makes the save fast; it is never a gate.
   warmUpRealtimeDatabase();
   const current = memoryProductsCache || (await getIDBProducts()) || [];
   const idx = current.findIndex((p) => String(p.id) === String(record.id));
+
+  const isNew = idx < 0;
+  const hasPosition = record.sortOrder !== undefined && record.sortOrder !== '' && record.sortOrder !== null
+    && Number.isFinite(Number(record.sortOrder));
+  if (isNew && !hasPosition) {
+    record = { ...record, sortOrder: positionForNewProduct(current) };
+  }
 
   const { lean, images } = await splitProductImages(record);
   const cached = hydrateProduct({ ...lean, images: [] });
@@ -463,7 +608,12 @@ export async function saveProduct(record) {
     ));
   }
 
-  if (idx < 0 || Number(current[idx].stockQuantity ?? 15) !== Number(record.stockQuantity ?? 15)) await syncInventory(record);
+  // The product is saved; the stock mirror is a side effect. Awaiting it here
+  // added up to 15s to every single save for a call the Worker may not even
+  // serve, so it runs in the background and reports itself if it fails.
+  if (idx < 0 || Number(current[idx].stockQuantity ?? 15) !== Number(record.stockQuantity ?? 15)) {
+    syncInventory(record).catch(() => {});
+  }
   setLocalProducts(updated);
   setIDBProduct(cached);
   notifyStatus('online');
@@ -643,6 +793,38 @@ function publishOrders(orders) {
 
 export function getLocalOrders() { return ordersCache; }
 
+/**
+ * Why the orders list is empty.
+ *
+ * A failed fetch used to be swallowed into a connection badge, so a dashboard
+ * that could not reach the orders service was indistinguishable from a shop
+ * that had taken no orders: "الطلبات (0)", no error, nothing to act on. The
+ * panel subscribes here and says which of the two it is.
+ */
+const ordersErrorListeners = new Set();
+let ordersError = null;
+
+export function subscribeOrdersError(cb) {
+  ordersErrorListeners.add(cb);
+  cb(ordersError);
+  return () => ordersErrorListeners.delete(cb);
+}
+
+export function getOrdersError() {
+  return ordersError;
+}
+
+function setOrdersError(error) {
+  const next = error
+    ? { message: error.message || 'تعذر جلب الطلبات.', code: error.code || null, at: Date.now() }
+    : null;
+  ordersError = next;
+  ordersErrorListeners.forEach((cb) => cb(next));
+}
+
+/** Consecutive failures, used to stop hammering a service that is down. */
+let ordersFailureStreak = 0;
+
 export async function fetchCloudOrdersSnapshot(cb) {
   if (ordersFetchRequest) return ordersFetchRequest;
   ordersFetchRequest = apiJson('/api/orders?limit=100', { admin: true })
@@ -650,8 +832,15 @@ export async function fetchCloudOrdersSnapshot(cb) {
       ordersNextCursor = body.nextCursor || null;
       publishOrders(body.orders || []);
       notifyStatus('online');
+      ordersFailureStreak = 0;
+      setOrdersError(null);
       if (cb) cb(ordersCache);
       return ordersCache;
+    })
+    .catch((error) => {
+      ordersFailureStreak += 1;
+      setOrdersError(error);
+      throw error;
     })
     .finally(() => {
       ordersFetchRequest = null;
@@ -671,16 +860,49 @@ export async function loadMoreCloudOrders() {
   return ordersCache;
 }
 
+/**
+ * Poll, but not into a wall. Eight seconds is right for a shop taking orders;
+ * against a service that is down it was 450 failed requests an hour, every
+ * one of them re-reporting the same error. The interval still fires on its
+ * own schedule — this skips the ticks while a failure streak backs off.
+ */
+let ordersNextAttemptAt = 0;
+let ordersLastHiddenPoll = 0;
+
+/** How often to keep checking while the dashboard is in a background tab. */
+const ORDERS_BACKGROUND_REFRESH_MS = 30_000;
+
 function refreshOrdersWhenActive() {
-  if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
   if (typeof navigator !== 'undefined' && !navigator.onLine) return;
-  fetchCloudOrdersSnapshot().catch(() => notifyStatus('degraded'));
+  // A dashboard left open in a background tab is the normal state in a shop.
+  // Stopping entirely while hidden meant a new order raised no alert and no
+  // sound until somebody happened to click the tab — which reads, from behind
+  // the counter, as orders simply not arriving. Keep checking, just slower.
+  const hidden = typeof document !== 'undefined' && document.visibilityState !== 'visible';
+  if (hidden) {
+    if (Date.now() - ordersLastHiddenPoll < ORDERS_BACKGROUND_REFRESH_MS) return;
+    ordersLastHiddenPoll = Date.now();
+  }
+  if (ordersFailureStreak && Date.now() < ordersNextAttemptAt) return;
+  fetchCloudOrdersSnapshot().catch(() => {
+    notifyStatus('degraded');
+    // 16s, 32s, 64s … capped at five minutes.
+    ordersNextAttemptAt = Date.now() + Math.min(300_000, ORDERS_REFRESH_MS * 2 ** ordersFailureStreak);
+  });
+}
+
+/** Let the admin retry immediately after a failure, ignoring the backoff. */
+export function retryOrdersNow() {
+  ordersFailureStreak = 0;
+  ordersNextAttemptAt = 0;
+  return fetchCloudOrdersSnapshot();
 }
 
 export function listenOrders(cb) {
   ordersListeners.add(cb);
   cb(ordersCache);
   fetchCloudOrdersSnapshot().catch(() => notifyStatus('degraded'));
+  // (the error itself reaches the panel through `subscribeOrdersError`)
   if (!ordersTimer) {
     ordersTimer = setInterval(refreshOrdersWhenActive, ORDERS_REFRESH_MS);
     window.addEventListener('focus', refreshOrdersWhenActive);
