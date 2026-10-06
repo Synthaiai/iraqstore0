@@ -412,6 +412,7 @@ async function fetchFirebaseFallback(includeDrafts = false) {
     if (!images.some((image) => typeof image === 'string' && image.startsWith('data:'))) continue;
     product.imageCount = product.imageCount || images.length;
     product.images = [images[0]];
+    product.imagesArePlaceholder = true;
   }
   return {
     products: await resolveEmbeddedProducts(visible),

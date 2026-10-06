@@ -74,6 +74,21 @@ test('a newly added product is visible, not buried at the end of the shop', asyn
   assert.match(remote, /if \(isNew && !hasPosition\)/);
 });
 
+test('every stand-in gallery is flagged, on every path that creates one', async () => {
+  const worker = await read('functions/_lib/catalog.js');
+  const remote = await read('src/data/remote.js');
+
+  // The editor saves whatever `images` it was handed. A one-image stand-in that
+  // is not flagged therefore REPLACES the real four-photo gallery on save.
+  // The Worker serves all real traffic, and it substitutes in two places.
+  assert.match(worker, /product\.images = \[product\.thumb\];[\s\S]{0,80}?product\.imagesArePlaceholder = true;/);
+  assert.match(worker, /product\.images = \[images\[0\]\];[\s\S]{0,300}?product\.imagesArePlaceholder = true;/);
+  // The browser's direct-from-Firebase fallback trims the same way.
+  assert.match(remote, /product\.images = \[images\[0\]\];[\s\S]{0,80}?product\.imagesArePlaceholder = true;/);
+  // And the save path still refuses to write a flagged stand-in over a gallery.
+  assert.match(remote, /const placeholderOnly = record\.imagesArePlaceholder && images\.length <= 1/);
+});
+
 test('the migration counter counts only products that still need migrating', async () => {
   const dashboard = await read('src/admin/Dashboard.jsx');
   // A migrated product is shown as `images: [thumb]`, and the thumb is itself a

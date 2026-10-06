@@ -45,10 +45,13 @@ export async function loadCatalog(env) {
 
   // Full-size photos live under `productImages/{id}` and are fetched by the
   // product page on demand; a product record carries only its `thumb`. Expose
-  // that as `images` so every listing view keeps working unchanged.
+  // that as `images` so every listing view keeps working unchanged — and flag
+  // it, because a stand-in that is not flagged is indistinguishable from a real
+  // gallery, and the admin editor saves what it is given.
   for (const product of products) {
     if ((!Array.isArray(product.images) || !product.images.length) && product.thumb) {
       product.images = [product.thumb];
+      product.imagesArePlaceholder = true;
     }
   }
 
@@ -73,6 +76,10 @@ function trimInlineGalleries(products) {
     if (!images.some((image) => typeof image === 'string' && image.startsWith('data:'))) continue;
     product.imageCount = product.imageCount || images.length;
     product.images = [images[0]];
+    // The other photos were dropped from THIS payload only; they still exist in
+    // the record. Without the flag, editing this product would save the one
+    // image that survived the trim and delete the rest.
+    product.imagesArePlaceholder = true;
   }
 }
 
