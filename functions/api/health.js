@@ -7,7 +7,14 @@ export async function onRequestGet({ env }) {
   }
   try {
     await env.DB.prepare('SELECT 1 AS healthy').first();
-    return json({ ok: true, service: 'iraqstore-api', database: 'ready', security: 'ready' });
+    // The dashboard asks here whether it can store images outside the database.
+    return json({
+      ok: true,
+      service: 'iraqstore-api',
+      database: 'ready',
+      security: 'ready',
+      storage: env.IMAGES ? 'ready' : 'unconfigured',
+    });
   } catch {
     return apiError(503, 'DATABASE_UNAVAILABLE', 'قاعدة الطلبات غير متاحة حاليًا.');
   }

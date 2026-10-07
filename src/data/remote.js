@@ -735,6 +735,80 @@ export async function saveProductsBatch(recordsList, { reorderOnly = false, onPr
   return true;
 }
 
+/**
+ * Move every base64 photo this shop still stores into object storage.
+ *
+ * Photos live in two places for historical reasons: inside the product record
+ * for anything saved before the split, and under `productImages/{id}` for
+ * everything after. Both forms are base64, which inflates the bytes by a third
+ * and spends the database's egress allowance on every product page view. This
+ * walks both, uploads each image once, and rewrites the record to hold paths.
+ *
+ * Safe to re-run: an image that is already a path is returned untouched, and a
+ * product is only rewritten once all of its images have uploaded successfully,
+ * so an interrupted run leaves every product either fully migrated or exactly
+ * as it was.
+ */
+export async function migrateImagesToObjectStorage({ onProgress } = {}) {
+  const { ref, set, update, db } = await firebaseAdminContext();
+  const { relocateStoredImage } = await import('./upload');
+
+  const current = memoryProductsCache || (await getIDBProducts()) || [];
+  const report = { scanned: 0, migrated: 0, images: 0, skipped: 0, failures: [] };
+  const say = (stage, done, total, name) => onProgress?.({ stage, done, total, name });
+
+  const ids = current.map((p) => String(p?.id)).filter(Boolean);
+  for (let i = 0; i < ids.length; i += 1) {
+    const id = ids[i];
+    const product = current.find((p) => String(p.id) === id) || {};
+    say('scan', i + 1, ids.length, product.name);
+    report.scanned += 1;
+
+    // The record is the source of truth, not the list view's stand-in.
+    let stored = null;
+    try {
+      const response = await fetch(`${FIREBASE_REST_BASE}/${PRODUCT_IMAGES_PATH}/${encodeURIComponent(id)}.json`, { signal: timeoutSignal(30000) });
+      const body = response.ok ? await response.json() : null;
+      if (Array.isArray(body?.images) && body.images.length) stored = body.images;
+    } catch { /* fall through to the record's own images */ }
+
+    if (!stored) {
+      const own = Array.isArray(product.images) && !product.imagesArePlaceholder ? product.images : null;
+      if (own?.length) stored = own;
+    }
+
+    const inline = (stored || []).filter((image) => typeof image === 'string' && image.startsWith('data:image/'));
+    if (!inline.length) { report.skipped += 1; continue; }
+
+    try {
+      const relocated = [];
+      for (let n = 0; n < stored.length; n += 1) {
+        say('upload', n + 1, stored.length, product.name);
+        relocated.push(await relocateStoredImage(stored[n]));
+        report.images += 1;
+      }
+
+      // Gallery first, then the record. The reverse order would leave a product
+      // pointing at photos that had not been written yet.
+      await withTimeout(set(ref(db, `${PRODUCT_IMAGES_PATH}/${id}`), { images: relocated, updatedAt: Date.now() }), 60000, 'انتهت مهلة حفظ صور المنتج.');
+      await withTimeout(update(ref(db, `products/${id}`), {
+        thumb: relocated[0],
+        imageCount: relocated.length,
+        images: null, // the record stops carrying photos of its own
+      }), 30000, 'انتهت مهلة تحديث سجل المنتج.');
+
+      galleryCache.set(id, Promise.resolve(relocated));
+      report.migrated += 1;
+    } catch (error) {
+      console.error('Image migration failed for', id, error);
+      report.failures.push({ id, name: product.name, message: error?.message || 'سبب غير معروف' });
+    }
+  }
+
+  await fetchFreshSnapshot({ includeDrafts: true });
+  return report;
+}
+
 export async function seedProducts() {
   if (!SEED_PRODUCTS.length) return [];
   const records = SEED_PRODUCTS.map(toRecord);

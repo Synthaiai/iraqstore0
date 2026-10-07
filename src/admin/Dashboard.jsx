@@ -11,6 +11,7 @@ import {
   listenOrders,
   listenProducts,
   saveProduct,
+  migrateImagesToObjectStorage,
   saveProductsBatch,
   saveSetting,
   subscribeConnectionStatus,
@@ -18,8 +19,7 @@ import {
   subscribeRealtimeStatus,
   warmUpRealtimeDatabase,
 } from '../data/remote';
-import { uploadImage } from '../data/upload';
-import { uploadConfigured } from '../config';
+import { objectStorageAvailable, uploadImage } from '../data/upload';
 import AnalyticsPanel from './AnalyticsPanel';
 import CategoryTree from './CategoryTree';
 import DeliveryFeesPanel from './DeliveryFeesPanel';
@@ -500,6 +500,40 @@ function SettingsPanel({ productCount, products }) {
   const [logoBusy, setLogoBusy] = useState(false);
   const [importImageFiles, setImportImageFiles] = useState([]);
   const [migrating, setMigrating] = useState(false);
+  const [storageReady, setStorageReady] = useState(null);
+  const [relocating, setRelocating] = useState(false);
+  const [relocateReport, setRelocateReport] = useState(null);
+
+  useEffect(() => { objectStorageAvailable().then(setStorageReady); }, []);
+
+  /** Products whose photos are still base64 somewhere. */
+  const base64Count = useMemo(
+    () => products.filter((p) => needsImageMigration(p) || (typeof p.thumb === 'string' && p.thumb.startsWith('data:'))).length,
+    [products]
+  );
+
+  const relocateToStorage = async () => {
+    if (!window.confirm(`سيتم نقل صور ${base64Count} منتج إلى التخزين الدائم.
+
+العملية آمنة ويمكن إعادتها، لكنها قد تستغرق عدة دقائق — لا تغلق الصفحة.`)) return;
+    setRelocating(true);
+    setRelocateReport(null);
+    setMsg('');
+    try {
+      const report = await migrateImagesToObjectStorage({
+        onProgress({ stage, done, total, name }) {
+          const label = stage === 'upload' ? 'رفع الصور' : 'فحص المنتجات';
+          setMsg(`${label}: ${done} من ${total}${name ? ` — ${name}` : ''}`);
+        },
+      });
+      setRelocateReport(report);
+      setMsg('');
+    } catch (error) {
+      setMsg(`تعذّر إكمال النقل: ${error?.message || 'حاول مجددًا.'}`);
+    } finally {
+      setRelocating(false);
+    }
+  };
 
   /** Products still carrying base64 photos inside their own record. */
   const legacyImageCount = useMemo(() => products.filter(needsImageMigration).length, [products]);
@@ -615,24 +649,45 @@ function SettingsPanel({ productCount, products }) {
 
   return (
     <div className="admin-panel admin-panel--narrow">
-      {!uploadConfigured() && (
+      {storageReady === false && (
         <div className="admin-card admin-card--warn">
-          <h3>⚠️ استضافة الصور غير مُفعّلة</h3>
+          <h3>⚠️ تخزين الصور غير مهيأ</h3>
           <p>
-            الصور الآن تُخزَّن <b>داخل قاعدة البيانات نفسها</b> كنص. هذا يجعل كل صورة تكلّف
-            حوالي ٤ أضعاف حجمها، ويُبطئ حفظ المنتج على الموبايل، ويُجبر كل زبون على تنزيل
-            صور أكبر مما يحتاج.
+            الصور تُخزَّن الآن داخل قاعدة البيانات كنص، فتكلّف نحو ٤ أضعاف حجمها وتستهلك
+            حصة التنزيل الشهرية. تأكّد أن دلو <code>iraqstore-images</code> مربوط باسم
+            <code> IMAGES</code> في إعدادات Pages، ثم أعد النشر.
           </p>
+        </div>
+      )}
+
+      {storageReady && base64Count > 0 && (
+        <div className="admin-card admin-card--warn">
+          <h3>🚚 نقل الصور إلى التخزين الدائم</h3>
           <p>
-            الحل يستغرق دقيقتين: افتح حساباً مجانياً على <b>ImgBB</b> (
-            <code>imgbb.com</code>)، خذ مفتاح الـAPI من <code>api.imgbb.com</code>، وأضف
-            متغيّري البناء <code>VITE_IMAGE_PROVIDER=imgbb</code> و
-            <code> VITE_IMGBB_API_KEY</code>. بعدها يُخزَّن رابط قصير بدل الصورة كاملة.
+            صور <b>{base64Count}</b> منتج ما زالت مخزّنة كنص داخل قاعدة البيانات. نقلها
+            يجعل كل زائر ينزّل صوراً أخف، ويُزيل سقف التنزيل الشهري الذي يوقف المتجر عند
+            تجاوزه. العملية آمنة ويمكن إعادتها، والصور تبقى كما هي.
           </p>
+          <button className="admin-btn admin-btn--primary" onClick={relocateToStorage} disabled={relocating}>
+            {relocating ? 'جارٍ النقل…' : `نقل صور ${base64Count} منتج`}
+          </button>
+        </div>
+      )}
+
+      {relocateReport && (
+        <div className={`admin-card ${relocateReport.failures.length ? 'admin-card--warn' : ''}`}>
+          <h3>{relocateReport.failures.length ? '⚠️ اكتمل النقل مع ملاحظات' : '✅ اكتمل النقل'}</h3>
           <p>
-            <b>ملاحظة:</b> Cloudinary محجوب على العراق ولا يقبل التسجيل من هنا، فلا تضيّع
-            وقتك معه. البديل الآخر هو <b>Cloudflare R2</b> على حسابك نفسه.
+            تم نقل <b>{relocateReport.migrated}</b> منتج و<b>{relocateReport.images}</b> صورة.
+            {relocateReport.skipped > 0 && <> {relocateReport.skipped} منتج لم يكن يحتاج نقلاً.</>}
           </p>
+          {relocateReport.failures.length > 0 && (
+            <ul className="admin-help">
+              {relocateReport.failures.map((f) => (
+                <li key={f.id}>{f.name || f.id}: {f.message} — المنتج تُرك كما هو.</li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
 

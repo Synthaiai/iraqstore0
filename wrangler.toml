@@ -10,6 +10,12 @@ binding = "DB"
 database_name = "iraqstore0-orders"
 database_id = "49c4fde0-c16f-4bd6-9752-7a585acea829"
 
+# Product photos. The bucket is private; functions/img/[[path]].js is the only
+# read path, and functions/api/upload.js the only write path.
+[[env.production.r2_buckets]]
+binding = "IMAGES"
+bucket_name = "iraqstore-images"
+
 [env.production.vars]
 ENVIRONMENT = "production"
 FIREBASE_WEB_API_KEY = "AIzaSyD4z7MljYOwlWc7eW27zBJsRt5pRD2JHfc"
@@ -23,6 +29,10 @@ VITE_TURNSTILE_SITE_KEY = "0x4AAAAAAEpDPqAhZ08Jvekn"
 binding = "DB"
 database_name = "iraqstore0-orders"
 database_id = "49c4fde0-c16f-4bd6-9752-7a585acea829"
+
+[[env.preview.r2_buckets]]
+binding = "IMAGES"
+bucket_name = "iraqstore-images"
 
 [env.preview.vars]
 ENVIRONMENT = "preview"

@@ -52,12 +52,38 @@ async function uploadToImgbb(file) {
 }
 
 /**
+ * Send the image to this site's own object storage and return its path.
+ *
+ * Needs no third-party account, which matters: Cloudinary refuses sign-ups from
+ * Iraq outright, and ImgBB answers "you have been forbidden to use this
+ * website" to uploads from here. The bucket belongs to the same Cloudflare
+ * account that already serves the shop.
+ */
+async function uploadToOwnStorage(file) {
+  const form = new FormData();
+  form.append('file', file, file.name || 'product.webp');
+  const { auth } = await import('../firebase');
+  if (!auth.currentUser) throw new Error('يجب تسجيل الدخول كمدير.');
+  const response = await fetch('/api/upload', {
+    method: 'POST',
+    headers: { authorization: `Bearer ${await auth.currentUser.getIdToken(false)}` },
+    body: form,
+    signal: timeoutSignal(CDN_UPLOAD_TIMEOUT_MS),
+  });
+  const body = await response.json().catch(() => null);
+  if (!response.ok || !body?.url) {
+    throw new Error(body?.error?.message || `تعذّر رفع الصورة (HTTP ${response.status}).`);
+  }
+  return body.url;
+}
+
+/**
  * Upload a File and return something storable in the Realtime Database.
  *
- * When a free image CDN is configured in `src/config.js` the image is uploaded
- * there and only a short URL is stored. Otherwise the image is compressed hard
- * and inlined as a WebP data URL — no external account needed, and small enough
- * that saving a product never hits the database write timeout.
+ * Object storage first: the record keeps a short path and the bytes never
+ * travel over the database socket. A deployment without the bucket bound falls
+ * back to the old behaviour — the image is compressed hard and inlined as a
+ * WebP data URL — so the dashboard keeps working rather than refusing saves.
  *
  * Firebase Storage is deliberately not used: this project runs on the Realtime
  * Database alone, and attempting a Storage upload against a disabled bucket was
@@ -66,6 +92,16 @@ async function uploadToImgbb(file) {
 export async function uploadImage(file) {
   if (!file) return null;
   assertImage(file);
+
+  // Resized and re-encoded here, not on the server: the phone doing the upload
+  // is also the slowest link, so fewer bytes leave the device.
+  try {
+    const { file: compressed } = await compressImageToLimit(file, { maxBytes: CDN_IMAGE_LIMIT });
+    return await uploadToOwnStorage(compressed || file);
+  } catch (error) {
+    if (error?.message === 'يجب تسجيل الدخول كمدير.') throw error;
+    console.warn('Object storage unavailable; storing this image inline instead:', error);
+  }
 
   if (uploadConfigured()) {
     const { file: cdnFile } = await compressImageToLimit(file, { maxBytes: CDN_IMAGE_LIMIT });
@@ -88,4 +124,37 @@ export async function uploadImage(file) {
     throw new Error(`الصورة بعد الضغط ما زالت كبيرة (${formatBytes(best.compressedSize || file.size)}). اقتصّ الصورة أو اختر صورة أصغر.`);
   }
   return dataUrl;
+}
+
+/** True when this deployment can store images outside the database. */
+export async function objectStorageAvailable() {
+  try {
+    const response = await fetch('/api/health', { signal: timeoutSignal(8000) });
+    const body = await response.json().catch(() => null);
+    return body?.storage === 'ready';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Move an already-stored image into object storage.
+ *
+ * Takes what a product record holds today — a base64 data URL — and returns the
+ * short path that replaces it. Anything that is already a path or an external
+ * URL is returned untouched, so running the migration twice is harmless.
+ */
+export async function relocateStoredImage(stored) {
+  if (typeof stored !== 'string' || !stored.startsWith('data:image/')) return stored;
+
+  const comma = stored.indexOf(',');
+  const header = stored.slice(5, comma);
+  const type = header.split(';')[0] || 'image/webp';
+  const binary = atob(stored.slice(comma + 1));
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+
+  const extension = type === 'image/jpeg' ? 'jpg' : type.split('/')[1] || 'webp';
+  const file = new File([bytes], `migrated.${extension}`, { type });
+  return uploadToOwnStorage(file);
 }

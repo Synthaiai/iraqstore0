@@ -89,6 +89,51 @@ test('every stand-in gallery is flagged, on every path that creates one', async 
   assert.match(remote, /const placeholderOnly = record\.imagesArePlaceholder && images\.length <= 1/);
 });
 
+test('product photos go to object storage, and the bucket is not public', async () => {
+  const upload = await read('functions/api/upload.js');
+  const serve = await read('functions/img/[[path]].js');
+  const client = await read('src/data/upload.js');
+  const config = await read('wrangler.toml');
+
+  // Writing is admin-only and bounded; the shop must not become an open host.
+  assert.match(upload, /const auth = await requireAdmin\(request, env\);/);
+  assert.match(upload, /if \(auth\.error\) return auth\.error;/);
+  assert.match(upload, /bytes\.byteLength > MAX_BYTES/);
+  assert.match(upload, /EXTENSIONS\.get\(type\)/);
+
+  // Content-addressed keys: no collisions, nothing guessable from a product id.
+  assert.match(upload, /crypto\.subtle\.digest\('SHA-256', bytes\)/);
+  assert.match(upload, /`products\/\$\{hash\}\.\$\{extension\}`/);
+
+  // Reading is the only way out of a private bucket, and it validates the key.
+  assert.match(serve, /const KEY_PATTERN = .+products.+\[0-9a-f\]\{64\}/);
+  assert.match(serve, /if \(!KEY_PATTERN\.test\(key\)\) return new Response\('Not found', \{ status: 404 \}\)/);
+  // Immutable objects, cached at the edge, so R2 reads stay near zero.
+  assert.match(serve, /caches\.default/);
+  assert.match(serve, /max-age=31536000, immutable/);
+
+  // Bound in both environments, or a preview deploy silently inlines base64.
+  assert.match(config, /\[\[env\.production\.r2_buckets\]\][\s\S]{0,120}?binding = "IMAGES"/);
+  assert.match(config, /\[\[env\.preview\.r2_buckets\]\][\s\S]{0,120}?binding = "IMAGES"/);
+
+  // The client prefers storage but still saves when the bucket is missing.
+  assert.match(client, /return await uploadToOwnStorage\(compressed \|\| file\);/);
+  assert.match(client, /console\.warn\('Object storage unavailable; storing this image inline instead:'/);
+  // Re-running the migration must not re-upload what is already a path.
+  assert.match(client, /if \(typeof stored !== 'string' \|\| !stored\.startsWith\('data:image\/'\)\) return stored;/);
+});
+
+test('the image migration writes the gallery before the record points at it', async () => {
+  const remote = await read('src/data/remote.js');
+  assert.match(remote, /export async function migrateImagesToObjectStorage/);
+  // Every image must upload before anything is rewritten, so an interrupted run
+  // leaves a product either fully migrated or exactly as it was.
+  assert.match(remote, /relocated\.push\(await relocateStoredImage\(stored\[n\]\)\)/);
+  assert.match(remote, /PRODUCT_IMAGES_PATH\}\/\$\{id\}`\), \{ images: relocated[\s\S]{0,200}?update\(ref\(db, `products\/\$\{id\}`\)/);
+  // A failure is recorded per product, never thrown away and never partial.
+  assert.match(remote, /report\.failures\.push\(\{ id, name: product\.name/);
+});
+
 test('the dashboard is never served a trimmed gallery, and refuses lossy writes', async () => {
   const lib = await read('functions/_lib/catalog.js');
   const route = await read('functions/api/catalog.js');
