@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { getSubcategoryLabel } from '../data/catalog';
 import { useEffect, useMemo, useState } from 'react';
 import { availableColors, availableSizes, formatPrice, priceBounds, storefrontOrder } from '../data/products';
@@ -230,11 +231,24 @@ export default function ProductBrowser({ pool, resetKey }) {
             <span className="empty__icon">
               <Search />
             </span>
-            <h2 className="empty__title">{t('noResults')}</h2>
-            <p className="empty__text">{t('noResultsSub')}</p>
-            <button type="button" className="btn btn--burgundy btn--sm" onClick={reset}>
-              {t('clearFilters')}
-            </button>
+            {/* A section with nothing in it is not a search that found nothing.
+                Telling a shopper to widen their filters when they set none
+                sends them to a button that cannot change anything. */}
+            {pool.length === 0 ? (
+              <>
+                <h2 className="empty__title">{t('sectionEmpty')}</h2>
+                <p className="empty__text">{t('sectionEmptySub')}</p>
+                <Link to="/" className="btn btn--burgundy btn--sm">{t('browseStore')}</Link>
+              </>
+            ) : (
+              <>
+                <h2 className="empty__title">{t('noResults')}</h2>
+                <p className="empty__text">{t('noResultsSub')}</p>
+                <button type="button" className="btn btn--burgundy btn--sm" onClick={reset}>
+                  {t('clearFilters')}
+                </button>
+              </>
+            )}
           </div>
         ) : (
           <>

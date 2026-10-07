@@ -137,6 +137,34 @@ test('the image migration writes the gallery before the record points at it', as
   assert.match(remote, /report\.failures\.push\(\{ id, name: product\.name/);
 });
 
+test('a customer never gets a half-translated page', async () => {
+  const confirmed = await read('src/pages/OrderConfirmedPage.jsx');
+  const strings = await read('src/i18n/strings.js');
+
+  // English mode falls back to a word-level dictionary for any Arabic left in
+  // the DOM, which turns "عرض صورة الفاتورة" into "Offer صورة الفاتورة" and
+  // "رسوم التوصيل" into "Fees Delivery". The fix is for the page not to hand
+  // it any Arabic in the first place.
+  const markup = confirmed.slice(confirmed.indexOf('return ('));
+  assert.ok(!/>\s*[؀-ۿ]/.test(markup), 'the confirmation page still hard-codes Arabic');
+
+  for (const key of ['confirmLead', 'confirmOrderNo', 'confirmTotal', 'confirmInvoiceToggle', 'confirmKeepInvoice']) {
+    assert.ok(confirmed.includes(`t('${key}')`), `${key} is not used`);
+    // Present in both tables, or one language silently falls through.
+    assert.ok(strings.split(`${key}:`).length === 3, `${key} is missing a translation`);
+  }
+});
+
+test('an empty section does not blame the filters a shopper never set', async () => {
+  const browser = await read('src/components/ProductBrowser.jsx');
+  const strings = await read('src/i18n/strings.js');
+  // "Try widening the price range" sends someone who set no filters to a button
+  // that cannot change anything.
+  assert.match(browser, /\{pool\.length === 0 \? \(/);
+  assert.match(browser, /t\('sectionEmpty'\)/);
+  assert.ok(strings.split('sectionEmpty:').length === 3);
+});
+
 test('the dashboard speaks to a shopkeeper, and keeps bulk tools out of reach', async () => {
   const dashboard = await read('src/admin/Dashboard.jsx');
   const css = await read('src/styles/admin.css');

@@ -47,26 +47,26 @@ export default function OrderConfirmedPage() {
 
       <h1 className="confirm__title">{t('orderReceived')}</h1>
       <p className="confirm__lead">
-        {t('thanks')} <b>{state.name}</b>. تم استلام طلبك وتسجيله بنجاح في نظام المتجر، وسيتم التواصل معك هاتفياً لتأكيد الطلب والشحن.
+        {t('thanks')} <b>{state.name}</b>. {t('confirmLead')}
       </p>
 
       <div className="confirm__card">
         <div className="confirm__row">
-          <span>رقم الطلب</span>
+          <span>{t('confirmOrderNo')}</span>
           <strong style={{ fontVariantNumeric: 'tabular-nums', letterSpacing: '0.05em' }}>
             #{state.orderNo}
           </strong>
         </div>
         <div className="confirm__row">
-          <span>اسم الزبون</span>
+          <span>{t('confirmCustomer')}</span>
           <strong>{state.name}</strong>
         </div>
         <div className="confirm__row">
-          <span>رقم الهاتف</span>
+          <span>{t('confirmPhone')}</span>
           <strong dir="ltr">{state.phone}</strong>
         </div>
         <div className="confirm__row">
-          <span>المحافظة والمدينة</span>
+          <span>{t('confirmPlace')}</span>
           <strong>{state.governorate} — {state.city}</strong>
         </div>
         <div className="confirm__row">
@@ -78,7 +78,7 @@ export default function OrderConfirmedPage() {
         {state.cart && state.cart.length > 0 && (
           <div style={{ marginBlock: '0.75rem', borderTop: '1px dashed var(--line)', paddingTop: '0.75rem' }}>
             <div style={{ fontSize: '0.88rem', color: 'var(--mute)', marginBottom: '0.5rem' }}>
-              المنتجات المطلوبة ({state.cart.length}):
+              {t('confirmItems')} ({state.cart.length}):
             </div>
             {state.cart.map((line, idx) => (
               <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.6rem', padding: '0.35rem 0' }}>
@@ -104,31 +104,31 @@ export default function OrderConfirmedPage() {
         )}
 
         <div className="confirm__row" style={{ borderTop: '1px solid var(--line)', paddingTop: '0.6rem' }}>
-          <span>مجموع المنتجات</span>
+          <span>{t('confirmSubtotal')}</span>
           <strong>{formatPrice(state.subtotal, lang)}</strong>
         </div>
         <div className="confirm__row">
-          <span>أجور التوصيل</span>
+          <span>{t('confirmDelivery')}</span>
           <strong>{formatPrice(state.fee, lang)}</strong>
         </div>
         <div className="confirm__row confirm__row--total">
-          <span>المبلغ الإجمالي</span>
+          <span>{t('confirmTotal')}</span>
           <strong>{formatPrice(state.total, lang)}</strong>
         </div>
       </div>
 
       {invoiceError && <p role="alert">{invoiceError}</p>}
       {invoiceUrl && <details className="confirm__card confirm__invoice-card">
-        <summary>عرض صورة الفاتورة وحفظها</summary>
+        <summary>{t('confirmInvoiceToggle')}</summary>
         <p>
-          <span className="confirm__important-note">ملاحظة مهمة</span>: على الآيفون اضغط مطولاً على صورة الفاتورة ثم اختر “<span className="confirm__important-note">Save to Photos</span>” أو “<span className="confirm__important-note">حفظ إلى الصور</span>”.
+          <span className="confirm__important-note">{t('confirmInvoiceNote')}</span>: {t('confirmInvoiceIphone')}
         </p>
         <div className="confirm__invoice-links">
-          <a href={invoiceUrl || invoicePreviewUrl} download={invoiceName || `invoice_${state.orderNo}.png`}>تنزيل الصورة للاندرويد فقط</a>
+          <a href={invoiceUrl || invoicePreviewUrl} download={invoiceName || `invoice_${state.orderNo}.png`}>{t('confirmInvoiceDownload')}</a>
         </div>
-        <img src={invoicePreviewUrl || invoiceUrl} alt="فاتورة الطلب كاملة" style={{ width: '100%', height: 'auto', marginTop: 12 }} />
+        <img src={invoicePreviewUrl || invoiceUrl} alt={t('confirmInvoiceAlt')} style={{ width: '100%', height: 'auto', marginTop: 12 }} />
       </details>}
-      <p className="confirm__note">تم تسجيل طلبك. احفظ الفاتورة في الصور أو الملفات لضمان متابعة الطلب.</p>
+      <p className="confirm__note">{t('confirmKeepInvoice')}</p>
       <div className="confirm__note">
         <Truck />
         <span>{state.payment === 'card' ? 'سيتم التواصل معك هاتفياً لتأكيد شحن طلبك.' : 'الدفع عند الاستلام. سيتم التواصل معك هاتفياً لتأكيد موعد التوصيل.'}</span>
@@ -136,7 +136,7 @@ export default function OrderConfirmedPage() {
 
       <div className="confirm__actions" style={{ flexDirection: 'column', gap: '0.75rem', alignItems: 'center' }}>
         <Link to="/" className="btn btn--ghost" style={{ width: '100%', maxWidth: '360px', textAlign: 'center' }}>
-          العودة لتصفح المتجر 🛍️
+          {t('confirmKeepShopping')} 🛍️
         </Link>
       </div>
     </section>

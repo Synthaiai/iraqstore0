@@ -182,11 +182,16 @@ test('invoices save as images without using browser share sheets', async () => {
   const ordersPanel = await read('src/admin/OrdersPanel.jsx');
   const confirmedPage = await read('src/pages/OrderConfirmedPage.jsx');
   const invoice = await read('src/utils/invoice.js');
+  const strings = await read('src/i18n/strings.js');
   assert.match(ordersPanel, /generateInvoiceImage/);
   assert.doesNotMatch(ordersPanel, /navigator\.share|canShare/);
   assert.doesNotMatch(confirmedPage, /navigator\.share|canShare|openWhatsAppInvoice|حفظ أو مشاركة|إرسال نسخة عبر الواتساب/);
   assert.match(ordersPanel, /فتح للحفظ بالاستديو/);
-  assert.match(confirmedPage, /تنزيل الصورة للاندرويد فقط/);
+  // The copy itself lives in the translation table so an English-speaking
+  // customer does not get a half-Arabic receipt; what matters here is that the
+  // link still downloads rather than opening a share sheet.
+  assert.match(confirmedPage, /\{t\('confirmInvoiceDownload'\)\}/);
+  assert.match(strings, /confirmInvoiceDownload: 'تنزيل الصورة للاندرويد فقط'/);
   assert.match(confirmedPage, /download=\{invoiceName/);
   assert.doesNotMatch(confirmedPage, /rememberInvoiceImage|تنزيل للملفات/);
   assert.match(invoice, /Object\.values\(order\.cart\)/);
