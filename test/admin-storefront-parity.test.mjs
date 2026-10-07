@@ -128,10 +128,35 @@ test('the image migration writes the gallery before the record points at it', as
   assert.match(remote, /export async function migrateImagesToObjectStorage/);
   // Every image must upload before anything is rewritten, so an interrupted run
   // leaves a product either fully migrated or exactly as it was.
-  assert.match(remote, /relocated\.push\(await relocateStoredImage\(stored\[n\]\)\)/);
+  // All of a product's photos upload together and must all succeed; a single
+  // failure abandons the product before anything has been rewritten.
+  assert.match(remote, /await Promise\.all\(stored\.map\(async \(image\) => \{/);
+  assert.match(remote, /const path = await relocateStoredImage\(image\);/);
   assert.match(remote, /PRODUCT_IMAGES_PATH\}\/\$\{id\}`\), \{ images: relocated[\s\S]{0,200}?update\(ref\(db, `products\/\$\{id\}`\)/);
   // A failure is recorded per product, never thrown away and never partial.
   assert.match(remote, /report\.failures\.push\(\{ id, name: product\.name/);
+});
+
+test('the dashboard speaks to a shopkeeper, and keeps bulk tools out of reach', async () => {
+  const dashboard = await read('src/admin/Dashboard.jsx');
+  const css = await read('src/styles/admin.css');
+
+  // Nothing in the settings a shopkeeper reads should name the plumbing.
+  const settings = dashboard.slice(dashboard.indexOf('admin-panel--narrow'));
+  for (const jargon of ['base64', 'قاعدة البيانات', 'VITE_', 'Cloudinary', 'JSON / CSV', 'imageFile2', 'Pages']) {
+    assert.ok(!settings.includes(jargon), `settings still mention "${jargon}"`);
+  }
+
+  // Bulk import and the legacy repair rewrite many products at once, so they
+  // sit behind a collapsed section rather than beside "change the logo".
+  assert.match(dashboard, /const \[showAdvanced, setShowAdvanced\] = useState\(false\);/);
+  assert.match(dashboard, /admin-danger-zone__toggle/);
+  assert.match(dashboard, /\{showAdvanced && \(/);
+  assert.match(css, /\.admin-danger-zone \{/);
+
+  // A deletion prompt names what is being deleted and that it is permanent.
+  assert.match(dashboard, /حذف «\$\{p\.name\}» نهائياً من المتجر؟/);
+  assert.match(dashboard, /لا يمكن التراجع عن هذا/);
 });
 
 test('the dashboard is never served a trimmed gallery, and refuses lossy writes', async () => {

@@ -89,7 +89,11 @@ function ProductsPanel({ products }) {
   };
 
   const del = async (p) => {
-    if (window.confirm(`هل أنت متأكد من حذف المنتج «${p.name}»؟`)) {
+    // Name the product and say the deletion is permanent: "are you sure?" on
+    // its own is a reflex click.
+    if (window.confirm(`حذف «${p.name}» نهائياً من المتجر؟
+
+لا يمكن التراجع عن هذا.`)) {
       await deleteProduct(p.id);
     }
   };
@@ -115,7 +119,9 @@ function ProductsPanel({ products }) {
 
   const handleBulkDelete = async () => {
     if (!selectedIds.length) return;
-    if (window.confirm(`هل أنت متأكد من حذف ${selectedIds.length} منتج محدد نهائياً؟`)) {
+    if (window.confirm(`حذف ${selectedIds.length} منتج نهائياً من المتجر؟
+
+لا يمكن التراجع عن هذا. احفظ نسخة احتياطية أولاً إذا لم تكن متأكداً.`)) {
       for (const id of selectedIds) {
         await deleteProduct(id);
       }
@@ -503,33 +509,35 @@ function SettingsPanel({ productCount, products }) {
   const [storageReady, setStorageReady] = useState(null);
   const [relocating, setRelocating] = useState(false);
   const [relocateReport, setRelocateReport] = useState(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   useEffect(() => { objectStorageAvailable().then(setStorageReady); }, []);
 
-  /** Products whose photos are still base64 somewhere. */
-  const base64Count = useMemo(
+  /** Products whose photos are still stored as text rather than as files. */
+  const heavyImageCount = useMemo(
     () => products.filter((p) => needsImageMigration(p) || (typeof p.thumb === 'string' && p.thumb.startsWith('data:'))).length,
     [products]
   );
 
   const relocateToStorage = async () => {
-    if (!window.confirm(`سيتم نقل صور ${base64Count} منتج إلى التخزين الدائم.
+    if (!window.confirm(`تخفيف صور ${heavyImageCount} منتج؟
 
-العملية آمنة ويمكن إعادتها، لكنها قد تستغرق عدة دقائق — لا تغلق الصفحة.`)) return;
+الصور تبقى بنفس الجودة، والعملية آمنة ويمكن إعادتها.
+قد تستغرق عدة دقائق — لا تغلق الصفحة.`)) return;
     setRelocating(true);
     setRelocateReport(null);
     setMsg('');
     try {
       const report = await migrateImagesToObjectStorage({
         onProgress({ stage, done, total, name }) {
-          const label = stage === 'upload' ? 'رفع الصور' : 'فحص المنتجات';
+          const label = stage === 'upload' ? 'جارٍ رفع الصور' : 'جارٍ الفحص';
           setMsg(`${label}: ${done} من ${total}${name ? ` — ${name}` : ''}`);
         },
       });
       setRelocateReport(report);
       setMsg('');
     } catch (error) {
-      setMsg(`تعذّر إكمال النقل: ${error?.message || 'حاول مجددًا.'}`);
+      setMsg(`ما قدرنا نكمل: ${error?.message || 'حاول مرة ثانية.'}`);
     } finally {
       setRelocating(false);
     }
@@ -546,9 +554,9 @@ function SettingsPanel({ productCount, products }) {
     try {
       const url = await uploadImage(file);
       await saveSetting('logoUrl', url);
-      setMsg('تم تحديث شعار المتجر بنجاح.');
+      setMsg('تم تغيير الشعار ✅');
     } catch (error) {
-      setMsg(`تعذّر رفع الشعار: ${error?.message || 'تحقق من الاتصال.'}`);
+      setMsg(`ما قدرنا نرفع الشعار: ${error?.message || 'تحقق من الإنترنت.'}`);
     } finally {
       setLogoBusy(false);
     }
@@ -584,29 +592,30 @@ function SettingsPanel({ productCount, products }) {
           list = Array.isArray(parsed) ? parsed : parsed.products;
         }
         if (!Array.isArray(list) || !list.length) {
-          alert('الملف غير صالح أو لا يحتوي على منتجات مكتملة. تأكد من وجود الاسم والسعر.');
+          alert('الملف ما فيه منتجات. تأكد أن فيه عمود للاسم وعمود للسعر.');
           return;
         }
         let normalized = normalizeImportProducts(list, products.length);
         if (!normalized.length) {
-          alert('لم يتم العثور على منتجات صالحة. الاسم والسعر مطلوبان لكل منتج.');
+          alert('ما لقينا منتجات صالحة. كل منتج يحتاج اسم وسعر.');
           return;
         }
-        if (window.confirm(`هل تريد استيراد ${normalized.length} منتج إلى قاعدة البيانات؟`)) {
+        if (window.confirm(`إضافة ${normalized.length} منتج إلى المتجر؟
+
+المنتج الذي يحمل نفس الرقم سيُستبدل بالكامل.`)) {
           normalized = await attachImportImages(normalized, importImageFiles, (done, total, fileName) => {
-            setMsg(`جارٍ ضغط ورفع صور المنتجات: ${done} من ${total} (${fileName})`);
+            setMsg(`جارٍ رفع الصور: ${done} من ${total}`);
           });
-          setMsg(`جارٍ حفظ ${normalized.length} منتج…`);
+          setMsg(`جارٍ إضافة ${normalized.length} منتج…`);
           await saveProductsBatch(normalized, {
             onProgress(done, total, stage) {
-              const label = stage === 'inventory' ? 'تحديث المخزون' : 'حفظ المنتجات';
-              setMsg(`${label}: ${done} من ${total}`);
+              setMsg(`جارٍ الحفظ: ${done} من ${total}`);
             },
           });
-          setMsg(`تم استيراد ${normalized.length} منتج بنجاح!`);
+          setMsg(`تمت إضافة ${normalized.length} منتج ✅`);
         }
       } catch (err) {
-        alert('خطأ في قراءة ملف الاستيراد: ' + err.message);
+        alert('ما قدرنا نقرأ الملف. تأكد أنه ملف إكسل أو JSON سليم.');
       } finally {
         e.target.value = '';
       }
@@ -624,24 +633,23 @@ function SettingsPanel({ productCount, products }) {
   const migrateImages = async () => {
     const legacy = products.filter(needsImageMigration);
     if (!legacy.length) {
-      setMsg('كل المنتجات مُرحّلة بالفعل ✅');
+      setMsg('كل الصور سليمة — ما في شي يحتاج إصلاح ✅');
       return;
     }
-    if (!window.confirm(`سيتم ترحيل صور ${legacy.length} منتج إلى تخزين منفصل.
+    if (!window.confirm(`إصلاح صور ${legacy.length} منتج؟
 
-هذا يقلل حجم المتجر بشكل كبير ويحل مشكلة انتهاء المهلة. قد يستغرق عدة دقائق — لا تغلق الصفحة.`)) return;
+قد يستغرق عدة دقائق — لا تغلق الصفحة.`)) return;
     setMigrating(true);
     try {
       await saveProductsBatch(legacy, {
         onProgress(done, total, stage) {
-          const label = stage === 'images' ? 'ترحيل الصور' : stage === 'inventory' ? 'تحديث المخزون' : 'حفظ المنتجات';
-          setMsg(`${label}: ${done} من ${total}`);
+          setMsg(`جارٍ العمل: ${done} من ${total}`);
         },
       });
-      setMsg(`تم ترحيل ${legacy.length} منتج بنجاح! المتجر الآن أخف بكثير 🚀`);
+      setMsg(`تم إصلاح ${legacy.length} منتج ✅`);
     } catch (err) {
       setMsg('');
-      alert('تعذر إكمال الترحيل: ' + (err?.message || 'حاول مجددًا.'));
+      alert('ما قدرنا نكمل: ' + (err?.message || 'حاول مرة ثانية.'));
     } finally {
       setMigrating(false);
     }
@@ -651,100 +659,137 @@ function SettingsPanel({ productCount, products }) {
     <div className="admin-panel admin-panel--narrow">
       {storageReady === false && (
         <div className="admin-card admin-card--warn">
-          <h3>⚠️ تخزين الصور غير مهيأ</h3>
+          <h3>⚠️ صور المتجر تحتاج انتباه</h3>
           <p>
-            الصور تُخزَّن الآن داخل قاعدة البيانات كنص، فتكلّف نحو ٤ أضعاف حجمها وتستهلك
-            حصة التنزيل الشهرية. تأكّد أن دلو <code>iraqstore-images</code> مربوط باسم
-            <code> IMAGES</code> في إعدادات Pages، ثم أعد النشر.
+            صور منتجاتك محفوظة بطريقة تستهلك مساحة كبيرة، وقد تجعل المتجر يتوقف مؤقتاً
+            إذا زاد عدد الزوّار. تواصل مع من جهّز لك الموقع ليُكمل الإعداد.
           </p>
         </div>
       )}
 
-      {storageReady && base64Count > 0 && (
+      {storageReady && heavyImageCount > 0 && (
         <div className="admin-card admin-card--warn">
-          <h3>🚚 نقل الصور إلى التخزين الدائم</h3>
+          <h3>🚚 تخفيف صور المتجر</h3>
           <p>
-            صور <b>{base64Count}</b> منتج ما زالت مخزّنة كنص داخل قاعدة البيانات. نقلها
-            يجعل كل زائر ينزّل صوراً أخف، ويُزيل سقف التنزيل الشهري الذي يوقف المتجر عند
-            تجاوزه. العملية آمنة ويمكن إعادتها، والصور تبقى كما هي.
+            صور <b>{heavyImageCount}</b> منتج محفوظة بطريقة قديمة تثقّل المتجر على الزبائن.
+            اضغط الزر لتخفيفها — المتجر يصير أسرع، والصور تبقى كما هي بنفس الجودة.
+          </p>
+          <p className="admin-help">
+            قد تستغرق عدة دقائق حسب سرعة الإنترنت. اترك الصفحة مفتوحة حتى تنتهي.
           </p>
           <button className="admin-btn admin-btn--primary" onClick={relocateToStorage} disabled={relocating}>
-            {relocating ? 'جارٍ النقل…' : `نقل صور ${base64Count} منتج`}
+            {relocating ? 'جارٍ العمل…' : `تخفيف صور ${heavyImageCount} منتج`}
           </button>
         </div>
       )}
 
       {relocateReport && (
         <div className={`admin-card ${relocateReport.failures.length ? 'admin-card--warn' : ''}`}>
-          <h3>{relocateReport.failures.length ? '⚠️ اكتمل النقل مع ملاحظات' : '✅ اكتمل النقل'}</h3>
+          <h3>{relocateReport.failures.length ? '⚠️ انتهى العمل مع ملاحظات' : '✅ تم بنجاح'}</h3>
           <p>
-            تم نقل <b>{relocateReport.migrated}</b> منتج و<b>{relocateReport.images}</b> صورة.
-            {relocateReport.skipped > 0 && <> {relocateReport.skipped} منتج لم يكن يحتاج نقلاً.</>}
+            تم تخفيف <b>{relocateReport.migrated}</b> منتج.
+            {relocateReport.skipped > 0 && <> و{relocateReport.skipped} منتج كان جاهزاً أصلاً.</>}
           </p>
           {relocateReport.failures.length > 0 && (
-            <ul className="admin-help">
-              {relocateReport.failures.map((f) => (
-                <li key={f.id}>{f.name || f.id}: {f.message} — المنتج تُرك كما هو.</li>
-              ))}
-            </ul>
+            <>
+              <p>هذه المنتجات لم تتغيّر، وصورها سليمة كما هي. تقدر تعيد المحاولة:</p>
+              <ul className="admin-help">
+                {relocateReport.failures.map((f) => <li key={f.id}>{f.name || f.id}</li>)}
+              </ul>
+            </>
           )}
         </div>
       )}
 
       <div className="admin-card">
         <h3>شعار المتجر</h3>
-        <p>ارفع شعارًا جديدًا من جهازك ليظهر في رأس الهيدر وتذييل المتجر.</p>
+        <p>اختر صورة من جهازك لتظهر في أعلى المتجر وأسفله.</p>
         <label className="admin-btn admin-btn--primary admin-file">
-          {logoBusy ? 'جارٍ رفع وضغط الشعار…' : 'رفع شعار جديد'}
+          {logoBusy ? 'جارٍ الرفع…' : 'تغيير الشعار'}
           <input type="file" accept="image/*" hidden onChange={onLogo} disabled={logoBusy} />
         </label>
       </div>
 
       <div className="admin-card">
-        <h3>استيراد وتصدير المنتجات بالجملة (+1000 منتج) 🚀</h3>
-        <p>استورد 200 منتج أو أكثر عبر JSON أو CSV من إكسل. للصور من جهازك، اختر الصور هنا واكتب اسم ملف الصورة في عمود imageFile.</p>
-        <div style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap', marginTop: '0.8rem' }}>
-          <button className="admin-btn admin-btn--ghost" onClick={exportDataJSON}>
-            ⬇️ تصدير النسخة الاحتياطية (JSON)
-          </button>
-          <label className="admin-btn admin-btn--ghost admin-file">
-            🖼️ اختيار صور المنتجات من الجهاز ({importImageFiles.length})
-            <input
-              type="file"
-              accept="image/*"
-              multiple
-              hidden
-              onChange={(e) => setImportImageFiles(Array.from(e.target.files || []))}
-            />
-          </label>
-          <label className="admin-btn admin-btn--primary admin-file">
-            ⬆️ استيراد جماعي (JSON / CSV)
-            <input type="file" accept=".json,.csv,text/csv,application/json" hidden onChange={handleImportFile} />
-          </label>
-        </div>
-        <small className="admin-help">مثال CSV: imageFile = shoe1.jpg، ولأكثر من صورة استخدم imageFile2 و imageFile3 و imageFile4.</small>
-      </div>
-
-      <div className="admin-card">
-        <h3>ترحيل الصور إلى التخزين المنفصل 🚀</h3>
+        <h3>نسخة احتياطية</h3>
         <p>
-          المنتجات القديمة تخزّن صورها داخل سجل المنتج نفسه، فينزّلها كل زائر بالكامل.
-          الترحيل ينقلها إلى تخزين منفصل ويُبقي صورة مصغّرة فقط — يقلل حجم المتجر بأكثر من 95%
-          ويحل مشكلة «انتهت المهلة» عند الإضافة.
+          احفظ نسخة من منتجاتك على جهازك. ينزل ملف واحد تقدر ترجع له لو صار شي.
+          ما يغيّر أي شيء في المتجر.
         </p>
-        <p>
-          منتجات تحتاج ترحيلاً: <b>{legacyImageCount}</b> من {productCount}
-        </p>
-        <button className="admin-btn admin-btn--primary" onClick={migrateImages} disabled={migrating || !legacyImageCount}>
-          {migrating ? 'جارٍ الترحيل…' : legacyImageCount ? `ترحيل ${legacyImageCount} منتج` : 'لا حاجة للترحيل ✅'}
+        <button className="admin-btn admin-btn--primary" onClick={exportDataJSON}>
+          ⬇️ حفظ نسخة احتياطية
         </button>
       </div>
 
       <div className="admin-card">
-        <h3>حالة الكتالوج</h3>
+        <h3>معلومات المتجر</h3>
         <p>
-          يحتوي المتجر حالياً على <b>{productCount}</b> منتج.
+          عدد المنتجات المعروضة: <b>{productCount}</b>
         </p>
+      </div>
+
+      {/* Everything below can change or replace many products at once. It is
+          kept shut by default so it cannot be clicked while looking for the
+          everyday settings above. */}
+      <div className="admin-card admin-danger-zone">
+        <button
+          type="button"
+          className="admin-danger-zone__toggle"
+          onClick={() => setShowAdvanced((v) => !v)}
+          aria-expanded={showAdvanced}
+        >
+          <span>⚠️ أدوات متقدّمة — للخبراء فقط</span>
+          <span aria-hidden="true">{showAdvanced ? '▲' : '▼'}</span>
+        </button>
+
+        {showAdvanced && (
+          <div className="admin-danger-zone__body">
+            <p className="admin-danger-zone__lead">
+              هذه الأدوات تعدّل منتجات كثيرة دفعة واحدة، ويصعب التراجع عنها.
+              <b> احفظ نسخة احتياطية قبل استخدامها.</b>
+            </p>
+
+            <div className="admin-danger-zone__item">
+              <h4>إضافة منتجات كثيرة من ملف</h4>
+              <p>
+                لإضافة عشرات المنتجات مرة واحدة من ملف إكسل. المنتج الذي يحمل نفس الرقم
+                يُستبدل بالكامل.
+              </p>
+              <div className="admin-danger-zone__actions">
+                <label className="admin-btn admin-btn--ghost admin-file">
+                  🖼️ اختيار الصور من الجهاز ({importImageFiles.length})
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    hidden
+                    onChange={(e) => setImportImageFiles(Array.from(e.target.files || []))}
+                  />
+                </label>
+                <label className="admin-btn admin-btn--danger admin-file">
+                  ⬆️ إضافة من ملف
+                  <input type="file" accept=".json,.csv,text/csv,application/json" hidden onChange={handleImportFile} />
+                </label>
+              </div>
+              <small className="admin-help">
+                في ملف إكسل: عمود <b>name</b> للاسم و<b>price</b> للسعر و<b>imageFile</b> لاسم ملف الصورة.
+              </small>
+            </div>
+
+            {legacyImageCount > 0 && (
+              <div className="admin-danger-zone__item">
+                <h4>إصلاح صور قديمة</h4>
+                <p>
+                  <b>{legacyImageCount}</b> منتج محفوظ بطريقة قديمة جداً. استخدم «تخفيف صور
+                  المتجر» بالأعلى أولاً — هذا الزر للحالات التي لا ينفع معها.
+                </p>
+                <button className="admin-btn admin-btn--danger" onClick={migrateImages} disabled={migrating}>
+                  {migrating ? 'جارٍ العمل…' : `إصلاح ${legacyImageCount} منتج`}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {msg && <p className="admin-note admin-note--ok">{msg}</p>}
@@ -870,7 +915,7 @@ export default function Dashboard() {
       <main className="admin-main">
         {slowLink && (
           <div className="admin-note admin-note--warn" role="status">
-            📶 الاتصال بقاعدة البيانات بطيء. تكدر تحفظ عادي، بس الحفظ ممكن ياخذ وقت أطول.
+            📶 الإنترنت بطيء الآن. تكدر تحفظ عادي، بس الحفظ ممكن ياخذ وقت أطول.
           </div>
         )}
         {syncWarnings.map((warning) => (

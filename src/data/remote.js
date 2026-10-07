@@ -304,7 +304,7 @@ function describeWriteFailure(fallback) {
     return 'لا يوجد اتصال بالإنترنت. تحقق من الشبكة ثم احفظ مجددًا.';
   }
   if (!realtimeConnected) {
-    return 'الشبكة بطيئة أو تحجب الاتصال بقاعدة البيانات. جرّب شبكة أخرى ثم احفظ مجددًا.';
+    return 'الإنترنت بطيء أو محجوب. جرّب شبكة ثانية ثم احفظ مرة أخرى.';
   }
   return fallback;
 }
@@ -527,7 +527,7 @@ async function syncInventory(record) {
     // there is a mirror to revert to, or every save on a deployment without one
     // reports a failure that did not happen.
     if (!INVENTORY_ABSENT_CODES.has(err?.code)) {
-      reportImageSyncFailure(record, new Error('تعذر تحديث كمية المخزون على الخادم. قد تظهر الكمية القديمة حتى تعيد المحاولة.'));
+      reportImageSyncFailure(record, new Error('ما قدرنا نحدّث الكمية. قد تظهر الكمية القديمة للزبائن حتى تعيد المحاولة.'));
     }
   }
 }
@@ -651,7 +651,7 @@ export async function saveProduct(record) {
 
 export async function deleteProduct(id) {
   const { ref, remove, db } = await firebaseAdminContext();
-  await withTimeout(remove(ref(db, `products/${id}`)), 20000, 'انتهت مهلة حذف المنتج من Firebase.');
+  await withTimeout(remove(ref(db, `products/${id}`)), 20000, 'استغرق الحذف وقتاً أطول من المتوقع. حدّث الصفحة وتأكد.');
   galleryCache.delete(String(id));
   remove(ref(db, `${PRODUCT_IMAGES_PATH}/${id}`)).catch((error) => console.warn('Gallery cleanup failed:', error));
   try {
@@ -781,12 +781,20 @@ export async function migrateImagesToObjectStorage({ onProgress } = {}) {
     if (!inline.length) { report.skipped += 1; continue; }
 
     try {
-      const relocated = [];
-      for (let n = 0; n < stored.length; n += 1) {
-        say('upload', n + 1, stored.length, product.name);
-        relocated.push(await relocateStoredImage(stored[n]));
+      // A product's photos upload together rather than one after another. Four
+      // sequential uploads over a phone connection is most of the wait, and
+      // they do not depend on each other. `Promise.all` also means a single
+      // failure abandons the whole product before anything has been rewritten,
+      // which is exactly the behaviour the ordering below relies on.
+      let done = 0;
+      say('upload', 0, stored.length, product.name);
+      const relocated = await Promise.all(stored.map(async (image) => {
+        const path = await relocateStoredImage(image);
+        done += 1;
         report.images += 1;
-      }
+        say('upload', done, stored.length, product.name);
+        return path;
+      }));
 
       // Gallery first, then the record. The reverse order would leave a product
       // pointing at photos that had not been written yet.
@@ -829,7 +837,7 @@ export function listenSettings(cb) {
 
 export async function saveSetting(key, value) {
   const { ref, update, db } = await firebaseAdminContext();
-  await withTimeout(update(ref(db, 'settings'), { [key]: value }), 20000, 'انتهت مهلة حفظ إعدادات المتجر.');
+  await withTimeout(update(ref(db, 'settings'), { [key]: value }), 20000, 'استغرق حفظ الإعدادات وقتاً أطول من المتوقع. حاول مرة ثانية.');
   latestSettings = { ...latestSettings, [key]: value };
   try { localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(latestSettings)); } catch {}
   settingsListeners.forEach((cb) => cb(latestSettings));
@@ -861,7 +869,7 @@ function encodeTreeForFirebase(tree) {
 
 export async function saveCatalog(tree) {
   const { ref, set, db } = await firebaseAdminContext();
-  await withTimeout(set(ref(db, 'catalog'), encodeTreeForFirebase(tree)), 20000, 'انتهت مهلة حفظ أقسام المتجر.');
+  await withTimeout(set(ref(db, 'catalog'), encodeTreeForFirebase(tree)), 20000, 'استغرق حفظ الأقسام وقتاً أطول من المتوقع. حاول مرة ثانية.');
   latestCatalog = tree;
   try { localStorage.setItem(STORAGE_KEY_CATALOG, JSON.stringify(tree)); } catch {}
   catalogListeners.forEach((cb) => cb(tree));
