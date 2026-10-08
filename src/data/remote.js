@@ -11,7 +11,14 @@ const STORAGE_KEY_CATALOG = 'iraqstore_catalog_v1';
 const STORAGE_KEY_SETTINGS = 'iraqstore_settings_v1';
 const CATALOG_REFRESH_MS = 5 * 60_000;
 const ORDERS_REFRESH_MS = 8_000;
-const BULK_FIREBASE_CHUNK_SIZE = 80;
+/**
+ * Products per write when importing in bulk.
+ *
+ * Smaller chunks are not slower in any way that matters, and they bound what a
+ * dropped connection costs: an import of 150 that dies halfway has written the
+ * chunks it finished, and re-running the same file simply overwrites them.
+ */
+const BULK_FIREBASE_CHUNK_SIZE = 25;
 const BULK_INVENTORY_CONCURRENCY = 8;
 
 /**

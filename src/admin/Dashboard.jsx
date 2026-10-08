@@ -19,7 +19,7 @@ import {
   subscribeRealtimeStatus,
   warmUpRealtimeDatabase,
 } from '../data/remote';
-import { objectStorageAvailable, uploadImage } from '../data/upload';
+import { objectStorageAvailable, prepareImageForUpload, uploadImage } from '../data/upload';
 import { nudgeImageQueue, subscribeUploadStatus, watchImageQueue } from '../data/imageQueueRunner';
 import AnalyticsPanel from './AnalyticsPanel';
 import CategoryTree from './CategoryTree';
@@ -462,28 +462,37 @@ function normalizeImportProducts(list, existingCount = 0) {
 
 async function attachImportImages(products, files, onProgress) {
   const fileMap = new Map(Array.from(files || []).map((file) => [file.name.toLowerCase(), file]));
-  let uploaded = 0;
+  let prepared = 0;
   const total = products.reduce((sum, product) => sum + (product.imageFiles || []).filter((name) => fileMap.has(String(name).toLowerCase())).length, 0);
   // `imageFiles` is a spreadsheet column naming local files. It is stripped on
   // every path, including this one, so it is never written to the database.
-  if (!total) return products.map(({ imageFiles, ...product }) => product);
+  const strip = (list) => list.map(({ imageFiles, ...product }) => product);
+  if (!total) return { products: strip(products), queued: [] };
 
-  const result = [];
+  // Compressed here, uploaded later. An import of 150 products carries 600
+  // photos — a quarter of a gigabyte — and uploading them before writing a
+  // single record meant one dropped connection threw all of it away. The
+  // records go in first; these go to the outbox and drain in the background.
+  const queued = [];
   for (const product of products) {
-    const localImages = [];
     for (const name of product.imageFiles || []) {
       const file = fileMap.get(String(name).toLowerCase());
       if (!file) continue;
-      uploaded += 1;
-      if (onProgress) onProgress(uploaded, total, file.name);
-      localImages.push(await uploadImage(file));
+      prepared += 1;
+      if (onProgress) onProgress(prepared, total, file.name);
+      try {
+        queued.push({
+          productId: String(product.id),
+          productName: product.name,
+          blob: await prepareImageForUpload(file),
+          index: queued.filter((q) => q.productId === String(product.id)).length,
+        });
+      } catch (error) {
+        console.warn('Skipped an unreadable image during import:', name, error);
+      }
     }
-    result.push({
-      ...product,
-      images: [...(product.images || []), ...localImages.filter(Boolean)].slice(0, 4),
-    });
   }
-  return result.map(({ imageFiles, ...product }) => product);
+  return { products: strip(products), queued };
 }
 
 /**
@@ -604,16 +613,33 @@ function SettingsPanel({ productCount, products }) {
         if (window.confirm(`إضافة ${normalized.length} منتج إلى المتجر؟
 
 المنتج الذي يحمل نفس الرقم سيُستبدل بالكامل.`)) {
-          normalized = await attachImportImages(normalized, importImageFiles, (done, total, fileName) => {
-            setMsg(`جارٍ رفع الصور: ${done} من ${total}`);
+          const prep = await attachImportImages(normalized, importImageFiles, (done, total) => {
+            setMsg(`جارٍ تجهيز الصور: ${done} من ${total}`);
           });
+          normalized = prep.products;
+
+          // Records first: small, quick, and the part that must not be lost.
           setMsg(`جارٍ إضافة ${normalized.length} منتج…`);
           await saveProductsBatch(normalized, {
-            onProgress(done, total, stage) {
+            onProgress(done, total) {
               setMsg(`جارٍ الحفظ: ${done} من ${total}`);
             },
           });
-          setMsg(`تمت إضافة ${normalized.length} منتج ✅`);
+
+          // Photos after, through the outbox, so the import survives a closed
+          // tab or a connection that gives out halfway through.
+          if (prep.queued.length) {
+            const { enqueueImage } = await import('../data/imageQueue');
+            for (let i = 0; i < prep.queued.length; i += 1) {
+              await enqueueImage(prep.queued[i]);
+              setMsg(`جارٍ جدولة الصور: ${i + 1} من ${prep.queued.length}`);
+            }
+            nudgeImageQueue();
+          }
+
+          setMsg(prep.queued.length
+            ? `تمت إضافة ${normalized.length} منتج ✅ — و${prep.queued.length} صورة تُرفع بالخلفية.`
+            : `تمت إضافة ${normalized.length} منتج ✅`);
         }
       } catch (err) {
         alert('ما قدرنا نقرأ الملف. تأكد أنه ملف إكسل أو JSON سليم.');

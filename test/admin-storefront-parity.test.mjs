@@ -154,6 +154,24 @@ test('a slow connection is given time, not a dead end', async () => {
   assert.match(remote, /بياناتك ما زالت مكتوبة في الصفحة/);
 });
 
+test('a bulk import of 150 products cannot be lost by one dropped connection', async () => {
+  const dashboard = await read('src/admin/Dashboard.jsx');
+  const remote = await read('src/data/remote.js');
+
+  // 150 products carry 600 photos — about a quarter of a gigabyte. Uploading
+  // all of them before writing a single record meant any interruption threw
+  // the whole import away.
+  assert.match(dashboard, /blob: await prepareImageForUpload\(file\)/);
+  assert.doesNotMatch(dashboard, /localImages\.push\(await uploadImage\(file\)\)/);
+  // Records are written first, photos queued after.
+  assert.match(dashboard, /await saveProductsBatch\(normalized[\s\S]{0,600}?await enqueueImage\(prep\.queued\[i\]\)/);
+  // And the shopkeeper is told the photos are still coming.
+  assert.match(dashboard, /صورة تُرفع بالخلفية/);
+
+  // Smaller chunks bound what a dropped connection costs mid-import.
+  assert.match(remote, /const BULK_FIREBASE_CHUNK_SIZE = 25;/);
+});
+
 test('admin writes go through this site, not straight to Firebase', async () => {
   const route = await read('functions/api/store/[[path]].js');
   const remote = await read('src/data/remote.js');
