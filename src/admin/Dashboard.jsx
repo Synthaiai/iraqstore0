@@ -839,7 +839,7 @@ export default function Dashboard() {
   const [slowLink, setSlowLink] = useState(false);
   // Photos still on their way to storage. A product is saved long before its
   // pictures arrive on a bad connection, and silence there looks like failure.
-  const [uploads, setUploads] = useState({ pending: 0, running: false, current: null, lastError: null });
+  const [uploads, setUploads] = useState({ pending: 0, running: false, current: null, lastError: null, stuck: [] });
 
   useEffect(() => {
     watchImageQueue();
@@ -959,6 +959,9 @@ export default function Dashboard() {
               {uploads.lastError
                 ? <> · الاتصال ضعيف، نعيد المحاولة تلقائياً. <b>منتجاتك محفوظة</b> والصور تُكمل لوحدها.</>
                 : <> · تقدر تكمل شغلك عادي، وحتى تسكّر الصفحة — يكمل الرفع لما تفتحها مرة ثانية.</>}
+              {uploads.stuck?.length > 0 && (
+                <> <br />⏳ متعثّرة ومستمرّة بالمحاولة: {uploads.stuck.map((x) => x.name || 'منتج').join('، ')}</>
+              )}
             </span>
             <button type="button" className="admin-btn admin-btn--sm admin-btn--ghost" onClick={nudgeImageQueue}>
               إعادة المحاولة الآن

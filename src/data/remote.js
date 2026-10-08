@@ -817,8 +817,14 @@ export async function attachProductImage(productId, url, index) {
   } catch { /* treat an unreadable gallery as empty and rebuild from here */ }
 
   const images = [...stored];
-  const slot = Number.isInteger(index) ? index : images.length;
-  images[slot] = url;
+  // Clamp to the append position rather than trusting the queued index.
+  // Writing past the end leaves a hole, and the compaction below closes it by
+  // shifting everything down — so a photo arriving out of order would land on
+  // top of one already stored and delete it. The runner is serial and ordered
+  // today, which is the only reason this has not bitten; one failed-and-retried
+  // image is all it would take.
+  const slot = Math.min(Number.isInteger(index) ? index : images.length, images.length);
+  if (!images.includes(url)) images[slot] = url;
   const compact = images.filter(Boolean).slice(0, 4);
 
   const gallery = { images: compact, updatedAt: Date.now() };

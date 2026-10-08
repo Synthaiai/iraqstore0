@@ -306,7 +306,14 @@ test('a product saves on a bad connection, and its photos follow', async () => {
   // Attaching merges into the gallery rather than replacing it, so photos
   // landing one at a time build the product up.
   assert.match(remote, /export async function attachProductImage/);
-  assert.match(remote, /images\[slot\] = url;/);
+  // Clamped to the append position: writing past the end leaves a hole that
+  // compaction closes by shifting, so an out-of-order photo would land on one
+  // already stored and delete it.
+  assert.match(remote, /const slot = Math\.min\(Number\.isInteger\(index\) \? index : images\.length, images\.length\);/);
+  assert.match(remote, /if \(!images\.includes\(url\)\) images\[slot\] = url;/);
+  // A photo retrying for a while is visible rather than silently pending.
+  assert.match(runner, /stuck: queued\.filter\(\(q\) => \(q\.attempts \|\| 0\) >= 3\)/);
+  assert.match(dashboard, /uploads\.stuck\?\.length > 0/);
   // Deleting a product drops anything still queued for it.
   assert.match(remote, /discardQueuedFor\(id\)/);
 

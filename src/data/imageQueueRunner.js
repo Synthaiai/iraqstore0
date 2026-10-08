@@ -14,7 +14,7 @@ import { keepQueueOnDisk, listQueued, markAttempt, removeQueued, subscribeQueue 
  */
 
 const statusListeners = new Set();
-let status = { running: false, pending: 0, current: null, lastError: null };
+let status = { running: false, pending: 0, current: null, lastError: null, stuck: [] };
 let loopPromise = null;
 let wakeUp = null;
 
@@ -48,7 +48,7 @@ async function drain() {
     const queued = await listQueued();
     publish({ pending: queued.length });
     if (!queued.length) {
-      publish({ running: false, current: null, lastError: null });
+      publish({ running: false, current: null, lastError: null, stuck: [] });
       loopPromise = null;
       return;
     }
