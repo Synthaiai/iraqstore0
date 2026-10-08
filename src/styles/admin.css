@@ -2249,3 +2249,34 @@
 .admin-upload-note span {
   line-height: var(--lh-body, 1.8);
 }
+
+/* Connection self-check: one row per thing a save depends on. */
+.admin-diag {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0.9rem 0 1.1rem;
+}
+.admin-diag__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+}
+.admin-diag__state {
+  font-size: 1.05rem;
+  line-height: 1.5;
+  flex: none;
+}
+.admin-diag__label b {
+  display: block;
+  font-size: 0.95rem;
+}
+.admin-diag__label small {
+  color: var(--a-dim);
+  font-size: 0.84rem;
+}
+.admin-diag__actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.6rem;
+}

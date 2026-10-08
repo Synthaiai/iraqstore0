@@ -22,6 +22,7 @@ import {
 import { objectStorageAvailable, prepareImageForUpload, uploadImage } from '../data/upload';
 import { nudgeImageQueue, subscribeUploadStatus, watchImageQueue } from '../data/imageQueueRunner';
 import AnalyticsPanel from './AnalyticsPanel';
+import Diagnostics from './Diagnostics';
 import CategoryTree from './CategoryTree';
 import DeliveryFeesPanel from './DeliveryFeesPanel';
 import OrdersPanel from './OrdersPanel';
@@ -747,6 +748,8 @@ function SettingsPanel({ productCount, products }) {
           ⬇️ حفظ نسخة احتياطية
         </button>
       </div>
+
+      <Diagnostics />
 
       <div className="admin-card">
         <h3>معلومات المتجر</h3>

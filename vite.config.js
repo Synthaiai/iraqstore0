@@ -3,6 +3,12 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
+  // Stamped into the bundle so a support report can say which build it came
+  // from. Two people reporting "the same problem" on different builds was a
+  // day of guessing.
+  define: {
+    __BUILD_STAMP__: JSON.stringify(new Date().toISOString().slice(0, 16).replace('T', ' ')),
+  },
   server: { port: 5173 },
   build: {
     // Real device baselines, not an abstract ES year: esbuild lowers whatever

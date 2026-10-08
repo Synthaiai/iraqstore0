@@ -293,7 +293,11 @@ test('migrating a product can never leave its photos nowhere', async () => {
   // A product whose gallery failed is left untouched rather than half-migrated.
   assert.match(remote, /batchMap\[gallery\.record\.id\] = gallery\.record;/);
   // A single save that loses its gallery upload puts the photos back.
-  assert.match(remote, /set\(ref\(db, `products\/\$\{record\.id\}\/images`\), images\)/);
+  // Restoring photos onto the record now goes through the site route first,
+  // with the SDK only as the fallback — the save path must not load the
+  // database client on a network where it cannot connect.
+  assert.match(remote, /writeThroughSite\(`products\/\$\{record\.id\}\/images`, 'PUT', images\)/);
+  assert.match(remote, /sdk\.set\(sdk\.ref\(sdk\.db, `products\/\$\{record\.id\}\/images`\), images\)/);
 });
 
 test('a save never pays for a cold database handshake', async () => {

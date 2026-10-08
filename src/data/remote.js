@@ -268,6 +268,25 @@ async function writeThroughSite(path, method, value) {
   }
 }
 
+/**
+ * The Firebase SDK, loaded only when it is actually going to be used.
+ *
+ * Importing `firebase/database` constructs the Realtime Database client, which
+ * begins reaching for firebaseio.com. On a network where that host is blocked
+ * this is where a save stalled — before it ever got as far as the route that
+ * would have worked. Nothing on the normal save path imports it any more.
+ */
+async function firebaseSdk() {
+  return firebaseAdminContext();
+}
+
+/** The admin session alone — Firebase Auth, which is a different host. */
+async function requireAdminSession() {
+  const { auth } = await import('../firebase');
+  if (!auth.currentUser) throw new Error('يجب تسجيل الدخول كمدير.');
+  return auth;
+}
+
 async function firebaseAdminContext() {
   const [{ ref, remove, set, update }, { auth, db }] = await Promise.all([
     import('firebase/database'),
@@ -638,9 +657,10 @@ function positionForNewProduct(current) {
 }
 
 export async function saveProduct(record, { queueImages = [] } = {}) {
-  const { ref, set, db } = await firebaseAdminContext();
-  // Opening the socket early is what makes the save fast; it is never a gate.
-  warmUpRealtimeDatabase();
+  // Only the admin session, which Firebase Auth serves from a different host
+  // than the database. The database SDK is not loaded unless the fallback
+  // below actually needs it.
+  await requireAdminSession();
   const current = memoryProductsCache || (await getIDBProducts()) || [];
   const idx = current.findIndex((p) => String(p.id) === String(record.id));
 
@@ -661,6 +681,8 @@ export async function saveProduct(record, { queueImages = [] } = {}) {
   // A few KB, through this site first — the route that works on the networks
   // where a direct Firebase connection does not.
   if ((await writeThroughSite(`products/${record.id}`, 'PUT', lean)) === null) {
+    const { ref, set, db } = await firebaseSdk();
+    warmUpRealtimeDatabase();
     try {
       await withTimeout(set(ref(db, `products/${record.id}`), lean), 45000, 'WRITE_TIMEOUT');
     } catch (error) {
@@ -708,7 +730,10 @@ export async function saveProduct(record, { queueImages = [] } = {}) {
     // Put the photos back into the product record rather than losing them.
     // That is the pre-split shape, which the storefront still reads natively.
     try {
-      await set(ref(db, `products/${record.id}/images`), images);
+      if ((await writeThroughSite(`products/${record.id}/images`, 'PUT', images)) === null) {
+        const sdk = await firebaseSdk();
+        await sdk.set(sdk.ref(sdk.db, `products/${record.id}/images`), images);
+      }
     } catch (restoreError) {
       console.error('Could not restore images onto the product record:', restoreError);
     }
@@ -728,7 +753,10 @@ export async function saveProduct(record, { queueImages = [] } = {}) {
  * after another therefore build the gallery up instead of overwriting it.
  */
 export async function attachProductImage(productId, url, index) {
-  const { ref, set, update, db } = await firebaseAdminContext();
+  // The outbox calls this, possibly days later and possibly on the network
+  // that could not reach the database in the first place. Only the session is
+  // needed; the SDK is loaded below only if the site route is unavailable.
+  await requireAdminSession();
   const id = String(productId);
 
   const current = memoryProductsCache || (await getIDBProducts()) || [];
@@ -754,10 +782,12 @@ export async function attachProductImage(productId, url, index) {
   const gallery = { images: compact, updatedAt: Date.now() };
   const stamp = { thumb: compact[0], imageCount: compact.length };
   if ((await writeThroughSite(`${PRODUCT_IMAGES_PATH}/${id}`, 'PUT', gallery)) === null) {
-    await withTimeout(set(ref(db, `${PRODUCT_IMAGES_PATH}/${id}`), gallery), 60000, 'انتهت مهلة حفظ صور المنتج.');
+    const sdk = await firebaseSdk();
+    await withTimeout(sdk.set(sdk.ref(sdk.db, `${PRODUCT_IMAGES_PATH}/${id}`), gallery), 60000, 'انتهت مهلة حفظ صور المنتج.');
   }
   if ((await writeThroughSite(`products/${id}`, 'PATCH', stamp)) === null) {
-    await withTimeout(update(ref(db, `products/${id}`), stamp), 30000, 'انتهت مهلة تحديث سجل المنتج.');
+    const sdk = await firebaseSdk();
+    await withTimeout(sdk.update(sdk.ref(sdk.db, `products/${id}`), stamp), 30000, 'انتهت مهلة تحديث سجل المنتج.');
   }
 
   galleryCache.set(id, Promise.resolve(compact));

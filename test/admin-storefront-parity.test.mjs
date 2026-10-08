@@ -180,6 +180,42 @@ test('entering many products one at a time does not mean retyping everything', a
   assert.match(runner, /keepQueueOnDisk\(\);/);
 });
 
+test('saving does not touch the database SDK unless it has to', async () => {
+  const remote = await read('src/data/remote.js');
+
+  // Importing `firebase/database` constructs the Realtime Database client,
+  // which starts reaching for firebaseio.com. On a network where that host is
+  // blocked, a save stalled there — before it ever reached the site route that
+  // would have worked. Only the auth session is needed to get a token, and
+  // Firebase Auth is a different host that those networks do serve.
+  const save = remote.slice(remote.indexOf('export async function saveProduct'), remote.indexOf('export async function deleteProduct'));
+  assert.match(save, /await requireAdminSession\(\);/);
+  assert.ok(!save.includes('await firebaseAdminContext()'), 'saveProduct must not load the database SDK up front');
+  // The SDK appears only inside the fallback branch.
+  assert.match(save, /const \{ ref, set, db \} = await firebaseSdk\(\);/);
+  assert.match(remote, /async function requireAdminSession\(\)/);
+});
+
+test('the dashboard can say what is failing on the device it is failing on', async () => {
+  const diag = await read('src/admin/Diagnostics.jsx');
+  const dashboard = await read('src/admin/Dashboard.jsx');
+  const vite = await read('vite.config.js');
+
+  // Each thing a save depends on is checked separately, so a report names the
+  // broken part instead of describing the symptom.
+  for (const key of ['site', 'write', 'auth', 'firebase']) {
+    assert.ok(diag.includes(`key: '${key}'`), `the ${key} check is missing`);
+  }
+  // The direct database connection is informational: saving no longer needs it.
+  assert.match(diag, /optional: true/);
+  // A build stamp, because "the same problem" on two different builds is not
+  // the same problem.
+  assert.match(vite, /__BUILD_STAMP__/);
+  assert.match(diag, /const BUILD_STAMP = __BUILD_STAMP__;/);
+  assert.match(diag, /navigator\.clipboard\?\.writeText\(summary\(\)\)/);
+  assert.match(dashboard, /<Diagnostics \/>/);
+});
+
 test('a bulk import of 150 products cannot be lost by one dropped connection', async () => {
   const dashboard = await read('src/admin/Dashboard.jsx');
   const remote = await read('src/data/remote.js');
