@@ -55,7 +55,14 @@ async function drain() {
 
     // Oldest first, so a product's photos arrive in the order they were picked.
     const item = queued.sort((a, b) => (a.queuedAt - b.queuedAt) || (a.index - b.index))[0];
-    publish({ running: true, current: { productId: item.productId, name: item.productName, attempts: item.attempts } });
+    publish({
+      running: true,
+      current: { productId: item.productId, name: item.productName, attempts: item.attempts },
+      // A photo that has failed several times is still being retried, but the
+      // shopkeeper should be able to see that rather than wonder. Every bug in
+      // this path has been an invisible one.
+      stuck: queued.filter((q) => (q.attempts || 0) >= 3).map((q) => ({ name: q.productName, attempts: q.attempts })),
+    });
 
     try {
       if (typeof navigator !== 'undefined' && navigator.onLine === false) throw new Error('OFFLINE');
