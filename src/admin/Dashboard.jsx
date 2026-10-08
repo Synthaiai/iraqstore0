@@ -936,9 +936,14 @@ export default function Dashboard() {
             </button>
           </div>
         )}
+        {/* `.info/connected` says whether the browser reached Firebase directly.
+            Saving no longer depends on that — it goes through this site — so a
+            failed direct connection is not news the shopkeeper can act on, and
+            telling them their internet is slow while their 4G works fine was
+            worse than saying nothing. */}
         {slowLink && (
-          <div className="admin-note admin-note--warn" role="status">
-            📶 الإنترنت بطيء الآن. تكدر تحفظ عادي، بس الحفظ ممكن ياخذ وقت أطول.
+          <div className="admin-note" role="status">
+            ℹ️ الحفظ يمرّ عبر خادم المتجر. كل شي يشتغل عادي.
           </div>
         )}
         {syncWarnings.map((warning) => (

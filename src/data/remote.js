@@ -232,6 +232,35 @@ function withTimeout(promise, ms = 18000, message = 'انتهت مهلة الا�
   ]);
 }
 
+/**
+ * Write to the database through this site rather than straight to Firebase.
+ *
+ * Everything the shop does that works on a difficult connection — loading the
+ * catalogue, uploading a photo, placing an order — is an HTTPS request to this
+ * origin. Only the dashboard's writes went somewhere else, and on networks
+ * where that host is unreachable they were the one thing that failed, while
+ * reporting a slow connection on a phone with working 4G.
+ *
+ * `null` means this deployment has no such route (local dev), and the caller
+ * falls back to the Firebase SDK.
+ */
+async function writeThroughSite(path, method, value) {
+  try {
+    await apiJson(`/api/store/${path}`, {
+      admin: true,
+      method,
+      headers: { 'content-type': 'application/json' },
+      body: method === 'DELETE' ? undefined : JSON.stringify(value === undefined ? null : value),
+      signal: timeoutSignal(45000),
+    });
+    return true;
+  } catch (error) {
+    // No route here at all: fall back to the SDK rather than refuse the save.
+    if (error?.code === 'API_UNAVAILABLE' || error?.status === 404 || error?.status === 405) return null;
+    throw error;
+  }
+}
+
 async function firebaseAdminContext() {
   const [{ ref, remove, set, update }, { auth, db }] = await Promise.all([
     import('firebase/database'),
@@ -307,8 +336,8 @@ function describeWriteFailure(fallback) {
     // The old wording named the problem and stopped there. The product record
     // itself is a few KB, so a save that times out here is worth retrying as
     // it is; nothing has been lost and nothing needs re-entering.
-    return 'الاتصال بطيء ولم يكتمل الحفظ. بياناتك ما زالت مكتوبة في الصفحة — اضغط «حفظ المنتج» مرة ثانية، '
-      + 'ولو تكررت جرّب شبكة أخرى أو مكاناً أقوى إشارة.';
+    // Only reached when this site's own write route is unavailable too.
+    return 'لم يكتمل الحفظ. بياناتك ما زالت مكتوبة في الصفحة — اضغط «حفظ المنتج» مرة ثانية.';
   }
   return fallback;
 }
@@ -559,7 +588,13 @@ async function saveProductGallery(record, images) {
   const { ref, set, remove, db } = await firebaseAdminContext();
   const path = `${PRODUCT_IMAGES_PATH}/${record.id}`;
   if (!images.length) {
-    await withTimeout(remove(ref(db, path)), 30000, 'انتهت مهلة تحديث صور المنتج.');
+    if ((await writeThroughSite(path, 'DELETE')) === null) {
+      await withTimeout(remove(ref(db, path)), 30000, 'انتهت مهلة تحديث صور المنتج.');
+    }
+    return;
+  }
+  if ((await writeThroughSite(path, 'PUT', { images, updatedAt: Date.now() })) !== null) {
+    galleryCache.set(String(record.id), Promise.resolve(images));
     return;
   }
   await withTimeout(
@@ -616,14 +651,17 @@ export async function saveProduct(record, { queueImages = [] } = {}) {
   const cached = hydrateProduct({ ...lean, images: [] });
   const updated = idx >= 0 ? current.map((p, i) => (i === idx ? cached : p)) : [cached, ...current];
 
-  // A few KB, usually over a socket the dashboard opened minutes ago.
-  try {
-    await withTimeout(set(ref(db, `products/${record.id}`), lean), 45000, 'WRITE_TIMEOUT');
-  } catch (error) {
-    if (error?.message !== 'WRITE_TIMEOUT') throw error;
-    throw new Error(describeWriteFailure(
-      'استغرق حفظ المنتج وقتًا أطول من المتوقع. قد يكون حُفظ فعلاً — حدّث الصفحة وتأكد قبل إعادة المحاولة.'
-    ));
+  // A few KB, through this site first — the route that works on the networks
+  // where a direct Firebase connection does not.
+  if ((await writeThroughSite(`products/${record.id}`, 'PUT', lean)) === null) {
+    try {
+      await withTimeout(set(ref(db, `products/${record.id}`), lean), 45000, 'WRITE_TIMEOUT');
+    } catch (error) {
+      if (error?.message !== 'WRITE_TIMEOUT') throw error;
+      throw new Error(describeWriteFailure(
+        'استغرق حفظ المنتج وقتًا أطول من المتوقع. قد يكون حُفظ فعلاً — حدّث الصفحة وتأكد قبل إعادة المحاولة.'
+      ));
+    }
   }
 
   // The product is saved; the stock mirror is a side effect. Awaiting it here
@@ -706,16 +744,14 @@ export async function attachProductImage(productId, url, index) {
   images[slot] = url;
   const compact = images.filter(Boolean).slice(0, 4);
 
-  await withTimeout(
-    set(ref(db, `${PRODUCT_IMAGES_PATH}/${id}`), { images: compact, updatedAt: Date.now() }),
-    60000,
-    'انتهت مهلة حفظ صور المنتج.'
-  );
-  await withTimeout(
-    update(ref(db, `products/${id}`), { thumb: compact[0], imageCount: compact.length }),
-    30000,
-    'انتهت مهلة تحديث سجل المنتج.'
-  );
+  const gallery = { images: compact, updatedAt: Date.now() };
+  const stamp = { thumb: compact[0], imageCount: compact.length };
+  if ((await writeThroughSite(`${PRODUCT_IMAGES_PATH}/${id}`, 'PUT', gallery)) === null) {
+    await withTimeout(set(ref(db, `${PRODUCT_IMAGES_PATH}/${id}`), gallery), 60000, 'انتهت مهلة حفظ صور المنتج.');
+  }
+  if ((await writeThroughSite(`products/${id}`, 'PATCH', stamp)) === null) {
+    await withTimeout(update(ref(db, `products/${id}`), stamp), 30000, 'انتهت مهلة تحديث سجل المنتج.');
+  }
 
   galleryCache.set(id, Promise.resolve(compact));
   const updated = current.map((p) => (String(p.id) === id
@@ -728,7 +764,9 @@ export async function attachProductImage(productId, url, index) {
 
 export async function deleteProduct(id) {
   const { ref, remove, db } = await firebaseAdminContext();
-  await withTimeout(remove(ref(db, `products/${id}`)), 20000, 'استغرق الحذف وقتاً أطول من المتوقع. حدّث الصفحة وتأكد.');
+  if ((await writeThroughSite(`products/${id}`, 'DELETE')) === null) {
+    await withTimeout(remove(ref(db, `products/${id}`)), 20000, 'استغرق الحذف وقتاً أطول من المتوقع. حدّث الصفحة وتأكد.');
+  }
   galleryCache.delete(String(id));
   import('./imageQueue').then((m) => m.discardQueuedFor(id)).catch(() => {});
   remove(ref(db, `${PRODUCT_IMAGES_PATH}/${id}`)).catch((error) => console.warn('Gallery cleanup failed:', error));
@@ -789,7 +827,9 @@ export async function saveProductsBatch(recordsList, { reorderOnly = false, onPr
 
     if (Object.keys(batchMap).length) {
       // eslint-disable-next-line no-await-in-loop
-      await withTimeout(update(ref(db, 'products'), batchMap), 30000, 'انتهت مهلة حفظ دفعة من المنتجات.');
+      if ((await writeThroughSite('products', 'PATCH', batchMap)) === null) {
+        await withTimeout(update(ref(db, 'products'), batchMap), 30000, 'انتهت مهلة حفظ دفعة من المنتجات.');
+      }
     }
     if (onProgress) onProgress(Math.min(offset + chunk.length, validRecords.length), validRecords.length, 'products');
   }
@@ -915,7 +955,9 @@ export function listenSettings(cb) {
 
 export async function saveSetting(key, value) {
   const { ref, update, db } = await firebaseAdminContext();
-  await withTimeout(update(ref(db, 'settings'), { [key]: value }), 20000, 'استغرق حفظ الإعدادات وقتاً أطول من المتوقع. حاول مرة ثانية.');
+  if ((await writeThroughSite('settings', 'PATCH', { [key]: value })) === null) {
+    await withTimeout(update(ref(db, 'settings'), { [key]: value }), 20000, 'استغرق حفظ الإعدادات وقتاً أطول من المتوقع. حاول مرة ثانية.');
+  }
   latestSettings = { ...latestSettings, [key]: value };
   try { localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(latestSettings)); } catch {}
   settingsListeners.forEach((cb) => cb(latestSettings));
@@ -947,7 +989,10 @@ function encodeTreeForFirebase(tree) {
 
 export async function saveCatalog(tree) {
   const { ref, set, db } = await firebaseAdminContext();
-  await withTimeout(set(ref(db, 'catalog'), encodeTreeForFirebase(tree)), 20000, 'استغرق حفظ الأقسام وقتاً أطول من المتوقع. حاول مرة ثانية.');
+  const encoded = encodeTreeForFirebase(tree);
+  if ((await writeThroughSite('catalog', 'PUT', encoded)) === null) {
+    await withTimeout(set(ref(db, 'catalog'), encoded), 20000, 'استغرق حفظ الأقسام وقتاً أطول من المتوقع. حاول مرة ثانية.');
+  }
   latestCatalog = tree;
   try { localStorage.setItem(STORAGE_KEY_CATALOG, JSON.stringify(tree)); } catch {}
   catalogListeners.forEach((cb) => cb(tree));

@@ -149,9 +149,36 @@ test('a slow connection is given time, not a dead end', async () => {
   assert.match(form, /toQueue\.push\(prepared\)/);
   assert.doesNotMatch(form, /await uploadImage\(/);
 
-  // And a save that times out says what to do next, not just what went wrong.
+  // And a save that fails says what to do next, not just what went wrong.
   assert.match(remote, /اضغط «حفظ المنتج» مرة ثانية/);
   assert.match(remote, /بياناتك ما زالت مكتوبة في الصفحة/);
+});
+
+test('admin writes go through this site, not straight to Firebase', async () => {
+  const route = await read('functions/api/store/[[path]].js');
+  const remote = await read('src/data/remote.js');
+
+  // On some networks the browser cannot reach firebaseio.com at all, while
+  // everything served from this origin works. Saving must not be the one thing
+  // that depends on the unreachable host.
+  assert.match(remote, /async function writeThroughSite\(path, method, value\)/);
+  for (const call of [
+    /writeThroughSite\(`products\/\$\{record\.id\}`, 'PUT', lean\)/,
+    /writeThroughSite\(`products\/\$\{id\}`, 'DELETE'\)/,
+    /writeThroughSite\('products', 'PATCH', batchMap\)/,
+    /writeThroughSite\('settings', 'PATCH'/,
+    /writeThroughSite\('catalog', 'PUT', encoded\)/,
+  ]) assert.match(remote, call);
+  // A deployment without the route still saves through the SDK.
+  assert.match(remote, /=== null\) \{/);
+  assert.match(remote, /error\?\.code === 'API_UNAVAILABLE'/);
+
+  // The proxy is admin-only, scoped, and carries the admin's own token so the
+  // database rules still decide what may be written.
+  assert.match(route, /const auth = await requireAdmin\(request, env\);/);
+  assert.match(route, /const WRITABLE = \[/);
+  assert.match(route, /if \(!WRITABLE\.some\(\(pattern\) => pattern\.test\(path\)\)\)/);
+  assert.match(route, /\?auth=\$\{encodeURIComponent\(bearer\(request\)\)\}/);
 });
 
 test('a product saves on a bad connection, and its photos follow', async () => {
