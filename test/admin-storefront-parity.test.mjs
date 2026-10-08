@@ -180,6 +180,20 @@ test('entering many products one at a time does not mean retyping everything', a
   assert.match(runner, /keepQueueOnDisk\(\);/);
 });
 
+test('a cached catalogue cannot un-save a product that was just added', async () => {
+  const remote = await read('src/data/remote.js');
+  // /api/catalog is edge-cached for up to thirty seconds, so the next refresh
+  // after a save legitimately predates it. Letting that answer replace the
+  // local list made the new product disappear and reappear — and while it was
+  // missing, anything looking it up concluded it had been deleted.
+  assert.match(remote, /const recentlySaved = new Map\(\);/);
+  assert.match(remote, /function withRecentlySaved\(products\)/);
+  assert.match(remote, /const products = withRecentlySaved\(hydrateProducts\(bundle\?\.products\)\);/);
+  assert.match(remote, /rememberSaved\(cached\);/);
+  // Deleting forgets it, or a deleted product would keep coming back.
+  assert.match(remote, /forgetSaved\(id\);/);
+});
+
 test('saving does not touch the database SDK unless it has to', async () => {
   const remote = await read('src/data/remote.js');
 
@@ -278,9 +292,11 @@ test('a product saves on a bad connection, and its photos follow', async () => {
   assert.match(remote, /export async function saveProduct\(record, \{ queueImages = \[\] \} = \{\}\)/);
   assert.match(remote, /const \{ enqueueImage \} = await import\('\.\/imageQueue'\);/);
 
-  // Serial, and it never abandons an image: the only exit is a stored photo or
-  // a product that no longer exists.
-  assert.match(runner, /if \(error\?\.code === 'PRODUCT_GONE'\)/);
+  // Serial, and it never abandons an image. A photo leaves the queue only by
+  // being stored, or because its product was deleted and the queue was
+  // cleared explicitly — never because some cache made it look unwanted.
+  assert.ok(!runner.includes('PRODUCT_GONE'), 'the runner must not drop photos on a guess');
+  assert.ok(!remote.includes("code: 'PRODUCT_GONE'"), 'attaching must not guess that a product is gone');
   assert.match(runner, /await waitFor\(item\.attempts \|\| 0\);/);
   assert.match(runner, /Math\.min\(60_000, 2_000 \* 2 \*\* Math\.min\(attempts, 5\)\)/);
   // It resumes by itself when the link or the tab comes back.

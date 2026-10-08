@@ -68,12 +68,10 @@ async function drain() {
       await removeQueued(item.key);
       publish({ lastError: null });
     } catch (error) {
-      // A product deleted while its photos were still queued has nothing left
-      // to attach them to; drop them rather than retrying forever.
-      if (error?.code === 'PRODUCT_GONE') {
-        await removeQueued(item.key);
-        continue;
-      }
+      // Nothing is ever dropped here. A photo leaves this queue by being
+      // stored, or because its product was deleted and `discardQueuedFor`
+      // removed it. Anything else waits and comes round again: guessing that
+      // a photo is no longer wanted is how photos get lost.
       await markAttempt(item.key, error?.message || 'تعذّر الرفع');
       publish({ lastError: error?.message || 'تعذّر الرفع' });
       await waitFor(item.attempts || 0);

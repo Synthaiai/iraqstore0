@@ -445,8 +445,39 @@ function decodeTreeFromFirebase(tree) {
   return copy;
 }
 
+/**
+ * Products saved in the last few minutes, by id.
+ *
+ * `/api/catalog` is cached at the edge for up to thirty seconds, so a refresh
+ * that lands just after a save legitimately does not contain the new product.
+ * Letting that answer replace the local list made a product the shopkeeper had
+ * just added vanish from the dashboard and reappear a moment later — and while
+ * it was missing, anything looking it up concluded it had been deleted.
+ */
+const recentlySaved = new Map();
+const RECENTLY_SAVED_MS = 120_000;
+
+function rememberSaved(product) {
+  if (!product?.id) return;
+  recentlySaved.set(String(product.id), { product, at: Date.now() });
+}
+
+function forgetSaved(id) {
+  recentlySaved.delete(String(id));
+}
+
+/** Add back anything saved so recently that a cached answer could predate it. */
+function withRecentlySaved(products) {
+  const now = Date.now();
+  for (const [id, entry] of recentlySaved) {
+    if (now - entry.at > RECENTLY_SAVED_MS) { recentlySaved.delete(id); continue; }
+    if (!products.some((p) => String(p.id) === id)) products = [entry.product, ...products];
+  }
+  return products;
+}
+
 function publishBundle(bundle) {
-  const products = hydrateProducts(bundle?.products);
+  const products = withRecentlySaved(hydrateProducts(bundle?.products));
   if (Array.isArray(bundle?.products)) {
     setLocalProducts(products);
     productListeners.forEach((cb) => cb(products));
@@ -699,6 +730,7 @@ export async function saveProduct(record, { queueImages = [] } = {}) {
   if (idx < 0 || Number(current[idx].stockQuantity ?? 15) !== Number(record.stockQuantity ?? 15)) {
     syncInventory(record).catch(() => {});
   }
+  rememberSaved(cached);
   setLocalProducts(updated);
   setIDBProduct(cached);
   notifyStatus('online');
@@ -759,11 +791,21 @@ export async function attachProductImage(productId, url, index) {
   await requireAdminSession();
   const id = String(productId);
 
+  // There is deliberately no "does this product still exist?" check here.
+  //
+  // There was one, against the local product list, and it threw away photos.
+  // `/api/catalog` is cached at the edge for up to thirty seconds, so a
+  // product saved a moment ago is legitimately absent from the next refresh —
+  // and on a slow connection the upload is still running when that refresh
+  // lands. The photo was then judged to belong to a deleted product and
+  // dropped from the queue for good. A product appeared in the shop and its
+  // picture never did.
+  //
+  // Deletion already clears the queue through `discardQueuedFor`, so this
+  // check only ever added a way to lose work. The worst a write can now leave
+  // behind is a small orphaned gallery node for a product deleted while
+  // offline, which costs nothing.
   const current = memoryProductsCache || (await getIDBProducts()) || [];
-  if (current.length && !current.some((p) => String(p.id) === id)) {
-    // The product was deleted while this photo was still queued.
-    throw Object.assign(new Error('المنتج لم يعد موجوداً.'), { code: 'PRODUCT_GONE' });
-  }
 
   let stored = [];
   try {
@@ -805,6 +847,7 @@ export async function deleteProduct(id) {
     await withTimeout(remove(ref(db, `products/${id}`)), 20000, 'استغرق الحذف وقتاً أطول من المتوقع. حدّث الصفحة وتأكد.');
   }
   galleryCache.delete(String(id));
+  forgetSaved(id);
   import('./imageQueue').then((m) => m.discardQueuedFor(id)).catch(() => {});
   remove(ref(db, `${PRODUCT_IMAGES_PATH}/${id}`)).catch((error) => console.warn('Gallery cleanup failed:', error));
   try {
