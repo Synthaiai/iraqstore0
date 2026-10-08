@@ -301,10 +301,14 @@ export function warmUpRealtimeDatabase() {
  */
 function describeWriteFailure(fallback) {
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-    return 'لا يوجد اتصال بالإنترنت. تحقق من الشبكة ثم احفظ مجددًا.';
+    return 'لا يوجد اتصال بالإنترنت. تحقق من الشبكة ثم احفظ مجددًا — بياناتك ما زالت مكتوبة في الصفحة.';
   }
   if (!realtimeConnected) {
-    return 'الإنترنت بطيء أو محجوب. جرّب شبكة ثانية ثم احفظ مرة أخرى.';
+    // The old wording named the problem and stopped there. The product record
+    // itself is a few KB, so a save that times out here is worth retrying as
+    // it is; nothing has been lost and nothing needs re-entering.
+    return 'الاتصال بطيء ولم يكتمل الحفظ. بياناتك ما زالت مكتوبة في الصفحة — اضغط «حفظ المنتج» مرة ثانية، '
+      + 'ولو تكررت جرّب شبكة أخرى أو مكاناً أقوى إشارة.';
   }
   return fallback;
 }
@@ -560,7 +564,9 @@ async function saveProductGallery(record, images) {
   }
   await withTimeout(
     set(ref(db, path), { images, updatedAt: Date.now() }),
-    90000,
+    // Only reached when images were inlined rather than uploaded, which means
+    // megabytes over the socket on a link already known to be slow.
+    180000,
     'انتهت مهلة رفع صور المنتج. المنتج محفوظ، لكن صور المعرض لم تُحدَّث.'
   );
   galleryCache.set(String(record.id), Promise.resolve(images));
@@ -616,7 +622,7 @@ export async function saveProduct(record) {
   } catch (error) {
     if (error?.message !== 'WRITE_TIMEOUT') throw error;
     throw new Error(describeWriteFailure(
-      'استغرق حفظ المنتج وقتًا أطول من المتوقع. قد يكون حُفظ — حدّث الصفحة قبل إعادة المحاولة.'
+      'استغرق حفظ المنتج وقتًا أطول من المتوقع. قد يكون حُفظ فعلاً — حدّث الصفحة وتأكد قبل إعادة المحاولة.'
     ));
   }
 

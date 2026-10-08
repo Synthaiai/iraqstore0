@@ -666,7 +666,15 @@ export default function ProductForm({ initial, onSave, onCancel }) {
           // One compression pass per image. The picker used to compress every
           // file a second time just to show a savings badge, which doubled the
           // work on exactly the phones that could least afford it.
-          const stored = await uploadImage(files[i]);
+          const stored = await uploadImage(files[i], {
+            // A retry on a weak connection can take two minutes. Saying so is
+            // the difference between "it is still working" and "it is stuck".
+            onAttempt(attempt, total) {
+              setStatusText(attempt === 1
+                ? `جارٍ رفع الصورة ${i + 1} من ${files.length}…`
+                : `الاتصال بطيء — إعادة المحاولة ${attempt} من ${total} للصورة ${i + 1}…`);
+            },
+          });
           originalBytes += files[i].size;
           if (typeof stored === 'string' && stored.startsWith('data:')) storedBytes += Math.round(stored.length * 0.75);
           uploaded.push(stored);

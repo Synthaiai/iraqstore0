@@ -116,11 +116,40 @@ test('product photos go to object storage, and the bucket is not public', async 
   assert.match(config, /\[\[env\.production\.r2_buckets\]\][\s\S]{0,120}?binding = "IMAGES"/);
   assert.match(config, /\[\[env\.preview\.r2_buckets\]\][\s\S]{0,120}?binding = "IMAGES"/);
 
-  // The client prefers storage but still saves when the bucket is missing.
-  assert.match(client, /return await uploadToOwnStorage\(compressed \|\| file\);/);
-  assert.match(client, /console\.warn\('Object storage unavailable; storing this image inline instead:'/);
+  // A slow link gets more time rather than being abandoned after one try.
+  assert.match(client, /const UPLOAD_ATTEMPT_DEADLINES = \[30_000, 60_000, 120_000\];/);
+  assert.match(client, /return await uploadToOwnStorage\(compressed \|\| file, onAttempt\);/);
+  // Falling back means inlining megabytes over the connection that was just too
+  // slow for a 420KB upload, so it is reserved for storage being absent.
+  assert.match(client, /if \(!STORAGE_ABSENT_CODES\.has\(error\?\.code\)\) \{/);
+  assert.match(client, /const STORAGE_ABSENT_CODES = new Set/);
   // Re-running the migration must not re-upload what is already a path.
   assert.match(client, /if \(typeof stored !== 'string' \|\| !stored\.startsWith\('data:image\/'\)\) return stored;/);
+});
+
+test('a slow connection is given time, not a dead end', async () => {
+  const client = await read('src/data/upload.js');
+  const form = await read('src/admin/ProductForm.jsx');
+  const remote = await read('src/data/remote.js');
+
+  // 25s for a 700KB upload over a weak mobile uplink is not enough time, and
+  // abandoning the attempt fell back to inlining the image in the database —
+  // the slow path storage replaced. Each retry now gets more room.
+  assert.match(client, /const UPLOAD_ATTEMPT_DEADLINES = \[30_000, 60_000, 120_000\];/);
+  assert.match(client, /for \(let i = 0; i < UPLOAD_ATTEMPT_DEADLINES\.length; i \+= 1\)/);
+  // Fewer bytes leave the phone in the first place.
+  assert.match(client, /const CDN_IMAGE_LIMIT = 420 \* 1024;/);
+  // Things a retry cannot fix must still fail fast.
+  assert.match(client, /if \(error\?\.message === 'يجب تسجيل الدخول كمدير\.'\) throw error;/);
+  assert.match(client, /navigator\.onLine === false\) throw error;/);
+
+  // The admin sees the retry instead of a frozen button.
+  assert.match(form, /onAttempt\(attempt, total\)/);
+  assert.match(form, /إعادة المحاولة \$\{attempt\} من \$\{total\}/);
+
+  // And a save that times out says what to do next, not just what went wrong.
+  assert.match(remote, /اضغط «حفظ المنتج» مرة ثانية/);
+  assert.match(remote, /بياناتك ما زالت مكتوبة في الصفحة/);
 });
 
 test('the image migration writes the gallery before the record points at it', async () => {

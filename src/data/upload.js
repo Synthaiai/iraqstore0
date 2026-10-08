@@ -5,8 +5,15 @@ import { timeoutSignal } from '../utils/timeoutSignal';
 const ACCEPTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/avif']);
 const ORIGINAL_IMAGE_LIMIT = 12 * 1024 * 1024;
 
-/** Target blob size when the image is uploaded to a CDN (a URL is stored, so we can afford quality). */
-const CDN_IMAGE_LIMIT = 700 * 1024;
+/**
+ * Target blob size for an upload to object storage.
+ *
+ * Only a path is stored, so quality is cheap to keep — but the bytes still have
+ * to leave the shopkeeper's phone, and that uplink is the slowest part of the
+ * whole system. 420KB at 1400px is visually indistinguishable from 700KB on a
+ * product page and takes a little over half as long to send.
+ */
+const CDN_IMAGE_LIMIT = 420 * 1024;
 /**
  * Target blob size when the image is inlined into the Realtime Database.
  * Base64 inflates by ~33%, so 190KB of bytes ≈ 260KB of stored text. Four of
@@ -17,7 +24,21 @@ const INLINE_IMAGE_LIMIT = 190 * 1024;
 /** Hard ceiling on the stored data URL string. */
 const INLINE_DATAURL_LIMIT = 300 * 1024;
 
-const CDN_UPLOAD_TIMEOUT_MS = 25_000;
+/**
+ * Deadlines per upload attempt, in order.
+ *
+ * A single 25s deadline was the bug: 700KB over a weak mobile uplink needs
+ * longer than that, the attempt was abandoned, and the code quietly fell back
+ * to inlining the image in the database — the slow path object storage exists
+ * to replace. The save then timed out too, and the shopkeeper was told the
+ * internet was weak when the upload had simply been given 25 seconds to do a
+ * 50-second job. Each retry gets more room.
+ */
+const UPLOAD_ATTEMPT_DEADLINES = [30_000, 60_000, 120_000];
+const CDN_UPLOAD_TIMEOUT_MS = UPLOAD_ATTEMPT_DEADLINES[0];
+
+/** Storage is missing, not slow — falling back to the database is correct. */
+const STORAGE_ABSENT_CODES = new Set(['STORAGE_NOT_CONFIGURED', 'HTTP_404', 'HTTP_503']);
 
 function assertImage(file) {
   if (!file) return;
@@ -59,7 +80,7 @@ async function uploadToImgbb(file) {
  * website" to uploads from here. The bucket belongs to the same Cloudflare
  * account that already serves the shop.
  */
-async function uploadToOwnStorage(file) {
+async function postToStorage(file, deadlineMs) {
   const form = new FormData();
   form.append('file', file, file.name || 'product.webp');
   const { auth } = await import('../firebase');
@@ -68,13 +89,41 @@ async function uploadToOwnStorage(file) {
     method: 'POST',
     headers: { authorization: `Bearer ${await auth.currentUser.getIdToken(false)}` },
     body: form,
-    signal: timeoutSignal(CDN_UPLOAD_TIMEOUT_MS),
+    signal: timeoutSignal(deadlineMs),
   });
   const body = await response.json().catch(() => null);
   if (!response.ok || !body?.url) {
-    throw new Error(body?.error?.message || `تعذّر رفع الصورة (HTTP ${response.status}).`);
+    const error = new Error(body?.error?.message || `تعذّر رفع الصورة (HTTP ${response.status}).`);
+    error.code = body?.error?.code || `HTTP_${response.status}`;
+    throw error;
   }
   return body.url;
+}
+
+/**
+ * Upload to object storage, giving a slow connection room to finish.
+ *
+ * A slow link is not a broken one. Each attempt gets a longer deadline than the
+ * last, and `onAttempt` lets the form say so instead of looking frozen. Only a
+ * refusal that cannot improve with time — no admin session, a rejected file, no
+ * bucket — gives up immediately.
+ */
+async function uploadToOwnStorage(file, onAttempt) {
+  let lastError;
+  for (let i = 0; i < UPLOAD_ATTEMPT_DEADLINES.length; i += 1) {
+    try {
+      onAttempt?.(i + 1, UPLOAD_ATTEMPT_DEADLINES.length);
+      return await postToStorage(file, UPLOAD_ATTEMPT_DEADLINES[i]);
+    } catch (error) {
+      lastError = error;
+      // Retrying will not fix any of these.
+      if (error?.message === 'يجب تسجيل الدخول كمدير.') throw error;
+      if (STORAGE_ABSENT_CODES.has(error?.code)) throw error;
+      if (/^HTTP_4/.test(error?.code || '') && error.code !== 'HTTP_408') throw error;
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) throw error;
+    }
+  }
+  throw lastError;
 }
 
 /**
@@ -89,18 +138,31 @@ async function uploadToOwnStorage(file) {
  * Database alone, and attempting a Storage upload against a disabled bucket was
  * stalling every product save.
  */
-export async function uploadImage(file) {
+export async function uploadImage(file, { onAttempt } = {}) {
   if (!file) return null;
   assertImage(file);
 
   // Resized and re-encoded here, not on the server: the phone doing the upload
   // is also the slowest link, so fewer bytes leave the device.
+  const { file: compressed } = await compressImageToLimit(file, { maxBytes: CDN_IMAGE_LIMIT });
+
   try {
-    const { file: compressed } = await compressImageToLimit(file, { maxBytes: CDN_IMAGE_LIMIT });
-    return await uploadToOwnStorage(compressed || file);
+    return await uploadToOwnStorage(compressed || file, onAttempt);
   } catch (error) {
     if (error?.message === 'يجب تسجيل الدخول كمدير.') throw error;
-    console.warn('Object storage unavailable; storing this image inline instead:', error);
+
+    // Falling back means inlining the image in the database — megabytes over a
+    // socket, on the very connection that just proved too slow for a 420KB
+    // HTTP upload. That turns a slow save into a failed one, which is what the
+    // "your internet is weak" dead end actually was. Only do it when storage is
+    // genuinely absent; a slow or flaky link is told the truth instead.
+    if (!STORAGE_ABSENT_CODES.has(error?.code)) {
+      throw new Error(
+        'ما قدرنا نرفع الصورة — الاتصال بطيء أو متقطع. الصورة والبيانات ما زالت مكتوبة، '
+        + 'جرّب الحفظ مرة ثانية، أو انقل الهاتف لمكان أقوى إشارة.'
+      );
+    }
+    console.warn('Object storage is not configured here; storing this image inline instead:', error);
   }
 
   if (uploadConfigured()) {
