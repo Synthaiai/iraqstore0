@@ -19,6 +19,28 @@ import { STORE_IMAGE_QUEUE, openStoreDB } from './db';
  * arrive when the network allows.
  */
 
+/**
+ * Ask the browser not to evict this data.
+ *
+ * Without it the outbox is "best-effort" storage, which a browser may clear
+ * when the disk gets tight. That outbox can hold a whole afternoon of a
+ * shopkeeper's work — photos for a hundred products that have been saved but
+ * whose pictures have not gone up yet — and losing it silently would be worse
+ * than never having queued them. Granted or not, everything still works; this
+ * only removes a way to lose work.
+ */
+let persistenceAsked = false;
+export async function keepQueueOnDisk() {
+  if (persistenceAsked || typeof navigator === 'undefined' || !navigator.storage?.persist) return null;
+  persistenceAsked = true;
+  try {
+    if (await navigator.storage.persisted()) return true;
+    return await navigator.storage.persist();
+  } catch {
+    return null;
+  }
+}
+
 const listeners = new Set();
 
 function notify() {

@@ -297,6 +297,9 @@ export default function ProductForm({ initial, onSave, onCancel }) {
   }, []);
   const [customSize, setCustomSize] = useState('');
   const [multiColorMode, setMultiColorMode] = useState(false);
+  /** Products added without closing the form — the only progress marker when
+      somebody is working through a long list. */
+  const [savedCount, setSavedCount] = useState(0);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -606,24 +609,38 @@ export default function ProductForm({ initial, onSave, onCancel }) {
     set('oldPrice', String(Math.round(currentPrice / (1 - pct / 100))));
   };
 
+  /**
+   * Clear only what must differ between two products.
+   *
+   * Somebody entering a hundred shoes one at a time is typing the same
+   * material, the same badge, the same stock count and the same specs over and
+   * over. Those carry over; the name, the prices and the photos — the fields
+   * that are wrong if they carry over — are the ones cleared.
+   *
+   * There is deliberately no `sortOrder`. An empty string used to be stored
+   * here, and every list sorts with `(a.sortOrder ?? 9999) - (...)`, where
+   * `'' - 9999` is -9999, so each product added this way jumped to the top.
+   */
   const resetForNextProduct = () => {
     setForm((f) => ({
-      ...empty,
-      type: f.type,
-      gender: f.gender,
-      category: f.category,
-      sub: f.sub,
-      colors: f.colors,
-      sizes: f.sizes,
-      // No `sortOrder` key at all. An empty string used to be stored here, and
-      // every list sorts with `(a.sortOrder ?? 9999) - (...)`, where `'' - 9999`
-      // is -9999 — so each product added this way jumped to the top of the shop.
+      ...f,
+      id: undefined,
+      name: '',
+      nameEn: '',
+      blurb: '',
+      blurbEn: '',
+      price: '',
+      oldPrice: '',
+      images: [],
+      imagesArePlaceholder: false,
+      sortOrder: undefined,
     }));
     setFiles([]);
     setCompressionStats(null);
     setCustomColorName('');
     setCustomSize('');
     setErr('');
+    setSavedCount((n) => n + 1);
   };
 
   // A split product arrives carrying only its thumbnail. Swap in the real
@@ -730,7 +747,11 @@ export default function ProductForm({ initial, onSave, onCancel }) {
         <header className="admin-modal__head">
           <div>
             <h2>{form.id ? 'تعديل المنتج' : 'إضافة منتج جديد'}</h2>
-            <span className="admin-modal__sub">توليد الترجمة وضغط الصور يتم تلقائياً ✨</span>
+            <span className="admin-modal__sub">
+              {savedCount > 0
+                ? `أضفت ${savedCount} منتج في هذه الجلسة · القسم والمقاسات والألوان محفوظة لك`
+                : 'توليد الترجمة وضغط الصور يتم تلقائياً ✨'}
+            </span>
           </div>
           <button type="button" className="admin-icon" onClick={onCancel} aria-label="إغلاق">✕</button>
         </header>

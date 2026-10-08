@@ -1,4 +1,4 @@
-import { listQueued, markAttempt, removeQueued, subscribeQueue } from './imageQueue';
+import { keepQueueOnDisk, listQueued, markAttempt, removeQueued, subscribeQueue } from './imageQueue';
 
 /**
  * Drains the photo outbox, for as long as it takes.
@@ -108,6 +108,7 @@ let wired = false;
 export function watchImageQueue() {
   if (wired || typeof window === 'undefined') return;
   wired = true;
+  keepQueueOnDisk();
   window.addEventListener('online', nudgeImageQueue);
   window.addEventListener('focus', nudgeImageQueue);
   document.addEventListener('visibilitychange', () => {

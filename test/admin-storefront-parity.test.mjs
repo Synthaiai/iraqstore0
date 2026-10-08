@@ -154,6 +154,32 @@ test('a slow connection is given time, not a dead end', async () => {
   assert.match(remote, /بياناتك ما زالت مكتوبة في الصفحة/);
 });
 
+test('entering many products one at a time does not mean retyping everything', async () => {
+  const form = await read('src/admin/ProductForm.jsx');
+  const queue = await read('src/data/imageQueue.js');
+  const runner = await read('src/data/imageQueueRunner.js');
+
+  // Only the fields that would be wrong if they carried over are cleared.
+  const start = form.indexOf('const resetForNextProduct');
+  const reset = form.slice(start, form.indexOf('};', start));
+  for (const cleared of ['name:', 'price:', 'oldPrice:', 'images:']) {
+    assert.ok(reset.includes(cleared), `${cleared} should be cleared between products`);
+  }
+  // Material, badge, stock, sizes, colours and the section all stay.
+  assert.match(reset, /\.\.\.f,/);
+  for (const kept of ['material', 'badge', 'stockQuantity', 'sizes', 'colors']) {
+    assert.ok(!new RegExp(`\b${kept}:`).test(reset), `${kept} should carry over`);
+  }
+  // Somebody working through a long list can see how far they have got.
+  assert.match(form, /أضفت \$\{savedCount\} منتج في هذه الجلسة/);
+
+  // A hundred products' photos can sit in the outbox for hours; best-effort
+  // storage lets a browser clear that under disk pressure.
+  assert.match(queue, /export async function keepQueueOnDisk/);
+  assert.match(queue, /navigator\.storage\.persist\(\)/);
+  assert.match(runner, /keepQueueOnDisk\(\);/);
+});
+
 test('a bulk import of 150 products cannot be lost by one dropped connection', async () => {
   const dashboard = await read('src/admin/Dashboard.jsx');
   const remote = await read('src/data/remote.js');
