@@ -595,7 +595,7 @@ function positionForNewProduct(current) {
   return Number.isFinite(min) ? min - 1 : 1;
 }
 
-export async function saveProduct(record) {
+export async function saveProduct(record, { queueImages = [] } = {}) {
   const { ref, set, db } = await firebaseAdminContext();
   // Opening the socket early is what makes the save fast; it is never a gate.
   warmUpRealtimeDatabase();
@@ -637,6 +637,24 @@ export async function saveProduct(record) {
   notifyStatus('online');
   productListeners.forEach((cb) => cb(updated));
 
+  // New photos go to the outbox rather than down the wire now. The product is
+  // already saved at this point, so a connection that dies here costs nothing:
+  // the queue survives the reload and finishes on its own.
+  if (queueImages.length) {
+    const { enqueueImage } = await import('./imageQueue');
+    const existing = Number(lean.imageCount) || 0;
+    for (let i = 0; i < queueImages.length; i += 1) {
+      await enqueueImage({
+        productId: record.id,
+        productName: record.name,
+        blob: queueImages[i],
+        index: existing + i,
+      });
+    }
+    const { nudgeImageQueue } = await import('./imageQueueRunner');
+    nudgeImageQueue();
+  }
+
   // Photos upload after the admin already has their confirmation. A null
   // gallery means the admin never touched the images, so there is nothing to write.
   if (images === null) return cached;
@@ -655,10 +673,64 @@ export async function saveProduct(record) {
   return cached;
 }
 
+/**
+ * Attach a photo that has finished uploading to the product it belongs to.
+ *
+ * Called by the outbox runner, possibly minutes or days after the product was
+ * saved, and possibly for one photo of four. It merges rather than replaces:
+ * the gallery is read, this image is placed at its own index, and the record's
+ * thumbnail and count are refreshed from the result. Two photos landing one
+ * after another therefore build the gallery up instead of overwriting it.
+ */
+export async function attachProductImage(productId, url, index) {
+  const { ref, set, update, db } = await firebaseAdminContext();
+  const id = String(productId);
+
+  const current = memoryProductsCache || (await getIDBProducts()) || [];
+  if (current.length && !current.some((p) => String(p.id) === id)) {
+    // The product was deleted while this photo was still queued.
+    throw Object.assign(new Error('المنتج لم يعد موجوداً.'), { code: 'PRODUCT_GONE' });
+  }
+
+  let stored = [];
+  try {
+    const response = await fetch(`${FIREBASE_REST_BASE}/${PRODUCT_IMAGES_PATH}/${encodeURIComponent(id)}.json`, {
+      signal: timeoutSignal(20000),
+    });
+    const body = response.ok ? await response.json() : null;
+    if (Array.isArray(body?.images)) stored = body.images.filter(Boolean);
+  } catch { /* treat an unreadable gallery as empty and rebuild from here */ }
+
+  const images = [...stored];
+  const slot = Number.isInteger(index) ? index : images.length;
+  images[slot] = url;
+  const compact = images.filter(Boolean).slice(0, 4);
+
+  await withTimeout(
+    set(ref(db, `${PRODUCT_IMAGES_PATH}/${id}`), { images: compact, updatedAt: Date.now() }),
+    60000,
+    'انتهت مهلة حفظ صور المنتج.'
+  );
+  await withTimeout(
+    update(ref(db, `products/${id}`), { thumb: compact[0], imageCount: compact.length }),
+    30000,
+    'انتهت مهلة تحديث سجل المنتج.'
+  );
+
+  galleryCache.set(id, Promise.resolve(compact));
+  const updated = current.map((p) => (String(p.id) === id
+    ? hydrateProduct({ ...p, thumb: compact[0], imageCount: compact.length, images: undefined, imagesArePlaceholder: undefined })
+    : p));
+  setLocalProducts(updated);
+  productListeners.forEach((cb) => cb(updated));
+  return compact;
+}
+
 export async function deleteProduct(id) {
   const { ref, remove, db } = await firebaseAdminContext();
   await withTimeout(remove(ref(db, `products/${id}`)), 20000, 'استغرق الحذف وقتاً أطول من المتوقع. حدّث الصفحة وتأكد.');
   galleryCache.delete(String(id));
+  import('./imageQueue').then((m) => m.discardQueuedFor(id)).catch(() => {});
   remove(ref(db, `${PRODUCT_IMAGES_PATH}/${id}`)).catch((error) => console.warn('Gallery cleanup failed:', error));
   try {
     await apiJson(`/api/inventory/${encodeURIComponent(id)}`, { admin: true, method: 'DELETE' });

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CATEGORIES, INITIAL_CATEGORIES, getFullCatalogTree, getSubcategories, useCatalogVersion } from '../data/catalog';
 import { formatPrice } from '../data/products';
-import { uploadImage } from '../data/upload';
+import { prepareImageForUpload } from '../data/upload';
 import { loadProductImages } from '../data/remote';
 import { formatBytes } from '../utils/imageCompressor';
 import { parseSmartPrice } from '../utils/smartPrice';
@@ -656,30 +656,25 @@ export default function ProductForm({ initial, onSave, onCancel }) {
     setStatusText('جارٍ ضغط وحفظ الصور…');
 
     try {
+      // Photos are prepared here but NOT waited on. A product record is about
+      // a kilobyte and will go through on almost any link; four images will
+      // not. So the compressed bytes go to an outbox that survives a reload,
+      // the product is saved immediately, and the photos follow when the
+      // network allows. A good connection still finishes within seconds — the
+      // difference only shows when the link is bad, and then it is the
+      // difference between a saved product and nothing at all.
       let images = form.images || [];
+      const toQueue = [];
       if (files.length) {
-        const uploaded = [];
         let originalBytes = 0;
         let storedBytes = 0;
         for (let i = 0; i < files.length; i += 1) {
-          setStatusText(`جارٍ ضغط ورفع الصورة ${i + 1} من ${files.length}…`);
-          // One compression pass per image. The picker used to compress every
-          // file a second time just to show a savings badge, which doubled the
-          // work on exactly the phones that could least afford it.
-          const stored = await uploadImage(files[i], {
-            // A retry on a weak connection can take two minutes. Saying so is
-            // the difference between "it is still working" and "it is stuck".
-            onAttempt(attempt, total) {
-              setStatusText(attempt === 1
-                ? `جارٍ رفع الصورة ${i + 1} من ${files.length}…`
-                : `الاتصال بطيء — إعادة المحاولة ${attempt} من ${total} للصورة ${i + 1}…`);
-            },
-          });
+          setStatusText(`جارٍ تجهيز الصورة ${i + 1} من ${files.length}…`);
+          const prepared = await prepareImageForUpload(files[i]);
           originalBytes += files[i].size;
-          if (typeof stored === 'string' && stored.startsWith('data:')) storedBytes += Math.round(stored.length * 0.75);
-          uploaded.push(stored);
+          storedBytes += prepared.size;
+          toQueue.push(prepared);
         }
-        images = [...images, ...uploaded.filter(Boolean)];
         if (originalBytes > 0 && storedBytes > 0) {
           setCompressionStats({
             original: formatBytes(originalBytes),
@@ -690,7 +685,7 @@ export default function ProductForm({ initial, onSave, onCancel }) {
       }
       images = images.slice(0, MAX_IMAGES);
 
-      if (!images.length) {
+      if (!images.length && !toQueue.length) {
         setBusy(false);
         return setErr('أضف صورة واحدة على الأقل للمنتج');
       }
@@ -713,7 +708,7 @@ export default function ProductForm({ initial, onSave, onCancel }) {
         images,
       };
 
-      await onSave(record, { keepOpen });
+      await onSave(record, { keepOpen, queueImages: toQueue });
       if (keepOpen) {
         resetForNextProduct();
         setStatusText('تم حفظ المنتج. أضف المنتج التالي…');

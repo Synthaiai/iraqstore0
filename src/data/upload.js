@@ -220,3 +220,30 @@ export async function relocateStoredImage(stored) {
   const file = new File([bytes], `migrated.${extension}`, { type });
   return uploadToOwnStorage(file);
 }
+
+/**
+ * Compress an image on the device, ready to be queued.
+ *
+ * The expensive part happens here, next to the camera roll, so the outbox
+ * holds bytes that are already the size they will be stored at and a retry
+ * never re-encodes anything.
+ */
+export async function prepareImageForUpload(file) {
+  assertImage(file);
+  const { file: compressed } = await compressImageToLimit(file, { maxBytes: CDN_IMAGE_LIMIT });
+  return compressed || file;
+}
+
+/**
+ * Upload a blob the outbox has been holding.
+ *
+ * The compression already happened before it was queued, so this is the bytes
+ * as they will be stored. The deadline ladder in `uploadToOwnStorage` applies,
+ * and the runner retries beyond that for as long as it takes.
+ */
+export async function uploadQueuedBlob(blob) {
+  const type = blob?.type || 'image/webp';
+  const extension = type === 'image/jpeg' ? 'jpg' : (type.split('/')[1] || 'webp');
+  const file = blob instanceof File ? blob : new File([blob], `queued.${extension}`, { type });
+  return uploadToOwnStorage(file);
+}

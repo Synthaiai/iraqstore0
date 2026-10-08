@@ -2237,3 +2237,15 @@
   background: rgba(239, 68, 68, 0.14);
   border-color: rgba(239, 68, 68, 0.6);
 }
+
+/* Photos still travelling to storage. Reassurance, not an error. */
+.admin-upload-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.admin-upload-note span {
+  line-height: var(--lh-body, 1.8);
+}

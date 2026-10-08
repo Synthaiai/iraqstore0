@@ -143,13 +143,55 @@ test('a slow connection is given time, not a dead end', async () => {
   assert.match(client, /if \(error\?\.message === 'يجب تسجيل الدخول كمدير\.'\) throw error;/);
   assert.match(client, /navigator\.onLine === false\) throw error;/);
 
-  // The admin sees the retry instead of a frozen button.
-  assert.match(form, /onAttempt\(attempt, total\)/);
-  assert.match(form, /إعادة المحاولة \$\{attempt\} من \$\{total\}/);
+  // The form no longer waits on the upload at all — it prepares the bytes and
+  // hands them to the outbox, so the save itself is a one-kilobyte write.
+  assert.match(form, /const prepared = await prepareImageForUpload\(files\[i\]\);/);
+  assert.match(form, /toQueue\.push\(prepared\)/);
+  assert.doesNotMatch(form, /await uploadImage\(/);
 
   // And a save that times out says what to do next, not just what went wrong.
   assert.match(remote, /اضغط «حفظ المنتج» مرة ثانية/);
   assert.match(remote, /بياناتك ما زالت مكتوبة في الصفحة/);
+});
+
+test('a product saves on a bad connection, and its photos follow', async () => {
+  const queue = await read('src/data/imageQueue.js');
+  const runner = await read('src/data/imageQueueRunner.js');
+  const remote = await read('src/data/remote.js');
+  const db = await read('src/data/db.js');
+  const dashboard = await read('src/admin/Dashboard.jsx');
+
+  // The outbox has to outlive the tab, or closing it loses the photos.
+  assert.match(db, /export const STORE_IMAGE_QUEUE = 'imageQueue';/);
+  assert.match(db, /const DB_VERSION = 2;/);
+  assert.match(queue, /export async function enqueueImage/);
+
+  // The record is written first and the photos are queued after, so a
+  // connection that dies mid-save still leaves the product in the shop.
+  assert.match(remote, /export async function saveProduct\(record, \{ queueImages = \[\] \} = \{\}\)/);
+  assert.match(remote, /const \{ enqueueImage \} = await import\('\.\/imageQueue'\);/);
+
+  // Serial, and it never abandons an image: the only exit is a stored photo or
+  // a product that no longer exists.
+  assert.match(runner, /if \(error\?\.code === 'PRODUCT_GONE'\)/);
+  assert.match(runner, /await waitFor\(item\.attempts \|\| 0\);/);
+  assert.match(runner, /Math\.min\(60_000, 2_000 \* 2 \*\* Math\.min\(attempts, 5\)\)/);
+  // It resumes by itself when the link or the tab comes back.
+  assert.match(runner, /window\.addEventListener\('online', nudgeImageQueue\)/);
+  assert.match(runner, /export function watchImageQueue/);
+
+  // Attaching merges into the gallery rather than replacing it, so photos
+  // landing one at a time build the product up.
+  assert.match(remote, /export async function attachProductImage/);
+  assert.match(remote, /images\[slot\] = url;/);
+  // Deleting a product drops anything still queued for it.
+  assert.match(remote, /discardQueuedFor\(id\)/);
+
+  // And the shopkeeper is told, because a product with no pictures yet looks
+  // exactly like a product that failed to save.
+  assert.match(dashboard, /uploads\.pending > 0/);
+  assert.match(dashboard, /صورة قيد الرفع/);
+  assert.match(dashboard, /منتجاتك محفوظة/);
 });
 
 test('the image migration writes the gallery before the record points at it', async () => {

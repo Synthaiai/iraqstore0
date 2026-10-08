@@ -4,9 +4,15 @@
  */
 
 const DB_NAME = 'iraqstore_db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_PRODUCTS = 'products';
 const STORE_CATALOG = 'catalog';
+/** Photos waiting to reach object storage. See `imageQueue.js`. */
+export const STORE_IMAGE_QUEUE = 'imageQueue';
+
+export function openStoreDB() {
+  return openDB();
+}
 
 function openDB() {
   return new Promise((resolve, reject) => {
@@ -23,6 +29,10 @@ function openDB() {
       }
       if (!db.objectStoreNames.contains(STORE_CATALOG)) {
         db.createObjectStore(STORE_CATALOG, { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains(STORE_IMAGE_QUEUE)) {
+        const queue = db.createObjectStore(STORE_IMAGE_QUEUE, { keyPath: 'key', autoIncrement: true });
+        queue.createIndex('productId', 'productId');
       }
     };
 

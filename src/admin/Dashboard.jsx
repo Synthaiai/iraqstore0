@@ -20,6 +20,7 @@ import {
   warmUpRealtimeDatabase,
 } from '../data/remote';
 import { objectStorageAvailable, uploadImage } from '../data/upload';
+import { nudgeImageQueue, subscribeUploadStatus, watchImageQueue } from '../data/imageQueueRunner';
 import AnalyticsPanel from './AnalyticsPanel';
 import CategoryTree from './CategoryTree';
 import DeliveryFeesPanel from './DeliveryFeesPanel';
@@ -84,7 +85,7 @@ function ProductsPanel({ products }) {
   }, [products, q, gender, stockFilter]);
 
   const save = async (record, options = {}) => {
-    await saveProduct(record);
+    await saveProduct(record, { queueImages: options.queueImages || [] });
     setEditing(options.keepOpen ? 'new' : null);
   };
 
@@ -807,6 +808,14 @@ export default function Dashboard() {
   const [syncWarnings, setSyncWarnings] = useState([]);
   const [dbReady, setDbReady] = useState(false);
   const [slowLink, setSlowLink] = useState(false);
+  // Photos still on their way to storage. A product is saved long before its
+  // pictures arrive on a bad connection, and silence there looks like failure.
+  const [uploads, setUploads] = useState({ pending: 0, running: false, current: null, lastError: null });
+
+  useEffect(() => {
+    watchImageQueue();
+    return subscribeUploadStatus(setUploads);
+  }, []);
 
   // Open the database connection now, not on the first save. Filling in a
   // product takes far longer than the handshake, so by the time the admin
@@ -913,6 +922,20 @@ export default function Dashboard() {
       </header>
 
       <main className="admin-main">
+        {uploads.pending > 0 && (
+          <div className="admin-note admin-note--ok admin-upload-note" role="status">
+            <span>
+              🖼️ <b>{uploads.pending}</b> صورة قيد الرفع
+              {uploads.current?.name ? <> — {uploads.current.name}</> : null}
+              {uploads.lastError
+                ? <> · الاتصال ضعيف، نعيد المحاولة تلقائياً. <b>منتجاتك محفوظة</b> والصور تُكمل لوحدها.</>
+                : <> · تقدر تكمل شغلك عادي، وحتى تسكّر الصفحة — يكمل الرفع لما تفتحها مرة ثانية.</>}
+            </span>
+            <button type="button" className="admin-btn admin-btn--sm admin-btn--ghost" onClick={nudgeImageQueue}>
+              إعادة المحاولة الآن
+            </button>
+          </div>
+        )}
         {slowLink && (
           <div className="admin-note admin-note--warn" role="status">
             📶 الإنترنت بطيء الآن. تكدر تحفظ عادي، بس الحفظ ممكن ياخذ وقت أطول.
