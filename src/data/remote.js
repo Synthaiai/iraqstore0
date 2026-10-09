@@ -868,11 +868,19 @@ export async function attachProductImage(productId, url, index) {
   }
 
   galleryCache.set(id, Promise.resolve(compact));
-  const updated = current.map((p) => (String(p.id) === id
-    ? hydrateProduct({ ...p, thumb: compact[0], imageCount: compact.length, images: undefined, imagesArePlaceholder: undefined })
-    : p));
-  setLocalProducts(updated);
-  productListeners.forEach((cb) => cb(updated));
+
+  // The photo is stored either way; this only refreshes what is on screen. If
+  // the local list does not have this product — the outbox can attach a photo
+  // after a reload, before the catalogue has been read back — then writing the
+  // mapped list would save a copy with the product missing from it. Leave it
+  // alone and let the next refresh bring it in.
+  if (current.some((p) => String(p.id) === id)) {
+    const updated = current.map((p) => (String(p.id) === id
+      ? hydrateProduct({ ...p, thumb: compact[0], imageCount: compact.length, images: undefined, imagesArePlaceholder: undefined })
+      : p));
+    setLocalProducts(updated);
+    productListeners.forEach((cb) => cb(updated));
+  }
   return compact;
 }
 
