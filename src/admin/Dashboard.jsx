@@ -414,6 +414,7 @@ function ProductsPanel({ products, settings }) {
           onSave={save}
           onCancel={() => setEditing(null)}
           settings={settings}
+          onSaveRate={(value) => saveSetting('usdRate', value)}
         />
       )}
     </div>

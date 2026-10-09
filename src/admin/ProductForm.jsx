@@ -242,11 +242,31 @@ const empty = {
   customSpecs: [],
 };
 
-export default function ProductForm({ initial, onSave, onCancel, settings }) {
+export default function ProductForm({ initial, onSave, onCancel, settings, onSaveRate }) {
   // Which currency the shopkeeper is typing in. Only dinars are ever stored;
   // this is about what is convenient to type, not what the shop sells in.
-  const rate = usdRate(settings);
   const [currency, setCurrency] = useState('IQD');
+  // The rate matters at exactly the moment a dollar price is being typed, so
+  // it is editable here rather than only in the settings tab. Sending somebody
+  // out of a half-filled form to change a number and come back is how the
+  // wrong rate gets used instead.
+  const [rateDraft, setRateDraft] = useState(null);
+  const [rateSaving, setRateSaving] = useState(false);
+  const rate = usdRate(settings);
+
+  const commitRate = async () => {
+    const value = Number(String(rateDraft).replace(/[^\d.]/g, ''));
+    if (!Number.isFinite(value) || value <= 0) { setRateDraft(null); return; }
+    setRateSaving(true);
+    try {
+      await onSaveRate?.(Math.round(value));
+      setRateDraft(null);
+    } catch (error) {
+      setErr(`ما قدرنا نحفظ سعر الصرف: ${error?.message || 'حاول مرة ثانية.'}`);
+    } finally {
+      setRateSaving(false);
+    }
+  };
   const [galleryLoading, setGalleryLoading] = useState(false);
   const [form, setForm] = useState(() => {
     const init = initial || {};
@@ -900,11 +920,44 @@ export default function ProductForm({ initial, onSave, onCancel, settings }) {
                 dir="ltr"
                 required
               />
-              {form.price && toDinars(form.price, currency, rate) > 0 && (
+              {form.price && toDinars(form.price, currency, rate) > 0 && currency !== 'USD' && (
                 <small className="admin-smart-price-badge">
-                  {currency === 'USD'
-                    ? `💵 ${formatDollars(form.price)} = ${formatPrice(toDinars(form.price, currency, rate))} (الصرف ${rate.toLocaleString('en-US')})`
-                    : `✨ تكملة الآلاف تلقائياً: ${formatPrice(toDinars(form.price, currency, rate))}`}
+                  ✨ تكملة الآلاف تلقائياً: {formatPrice(toDinars(form.price, currency, rate))}
+                </small>
+              )}
+              {currency === 'USD' && (
+                <small className="admin-smart-price-badge admin-rate-inline">
+                  {form.price && toDinars(form.price, currency, rate) > 0 && (
+                    <b>💵 {formatDollars(form.price)} = {formatPrice(toDinars(form.price, currency, rate))}</b>
+                  )}
+                  <span className="admin-rate-inline__edit">
+                    سعر الصرف:
+                    {rateDraft === null ? (
+                      <>
+                        <b>{rate.toLocaleString('en-US')}</b> د.ع
+                        <button type="button" className="admin-linklike" onClick={() => setRateDraft(String(rate))}>
+                          تغيير
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          dir="ltr"
+                          autoFocus
+                          value={rateDraft}
+                          onChange={(e) => setRateDraft(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commitRate(); } }}
+                          aria-label="سعر صرف الدولار بالدينار"
+                        />
+                        <button type="button" className="admin-linklike" onClick={commitRate} disabled={rateSaving}>
+                          {rateSaving ? 'جارٍ…' : 'حفظ'}
+                        </button>
+                        <button type="button" className="admin-linklike" onClick={() => setRateDraft(null)}>إلغاء</button>
+                      </>
+                    )}
+                  </span>
                 </small>
               )}
             </label>

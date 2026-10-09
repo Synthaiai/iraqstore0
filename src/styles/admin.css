@@ -2328,3 +2328,35 @@
 .admin-rate-row input {
   max-width: 10rem;
 }
+
+/* Exchange rate shown, and editable, right where a dollar price is typed. */
+.admin-rate-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.75rem;
+}
+.admin-rate-inline__edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--a-dim);
+}
+.admin-rate-inline__edit input {
+  width: 5.5rem;
+  padding: 0.2rem 0.45rem;
+  font-size: 0.86rem;
+}
+.admin-linklike {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--a-accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.admin-linklike:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

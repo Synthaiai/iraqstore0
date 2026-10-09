@@ -421,9 +421,13 @@ test('a price typed in dollars is stored as dinars, once', async () => {
   // currency, so it must compute in that currency too.
   assert.match(form, /const base = currency === 'USD' \? typed : currentPrice;/);
 
-  // The rate is the shop's to set, and changing it must not silently reprice
-  // everything already on the shelf.
+  // The rate is the shop's to set — from the settings tab, and from inside the
+  // product form, because that is the moment it matters. Sending somebody out
+  // of a half-filled form to change it is how the wrong rate gets used.
   assert.match(dashboard, /saveSetting\('usdRate', Math\.round\(value\)\)/);
+  assert.match(dashboard, /onSaveRate=\{\(value\) => saveSetting\('usdRate', value\)\}/);
+  assert.match(form, /const commitRate = async \(\) => \{/);
+  assert.match(form, /await onSaveRate\?\.\(Math\.round\(value\)\);/);
   assert.match(dashboard, /لا يغيّر أسعار المنتجات المحفوظة/);
   assert.match(currency, /export const DEFAULT_USD_RATE = 1320;/);
 });
