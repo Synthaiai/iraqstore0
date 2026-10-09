@@ -281,6 +281,26 @@ test('admin writes go through this site, not straight to Firebase', async () => 
   assert.match(route, /\?auth=\$\{encodeURIComponent\(bearer\(request\)\)\}/);
 });
 
+test('a photo takes the short path first and the outbox only on failure', async () => {
+  const remote = await read('src/data/remote.js');
+  const db = await read('src/data/db.js');
+
+  // The outbox put browser storage, a background runner and a separate write
+  // on the ordinary path to a product photo. Each is a place a photo can
+  // quietly fail to arrive, and each of them did. On a connection that can
+  // carry the photo there is now nothing in between: upload, attach, done.
+  assert.match(remote, /const url = await uploadQueuedBlob\(queueImages\[i\]\);/);
+  assert.match(remote, /await attachProductImage\(record\.id, url, existing \+ i\);/);
+  // Only what actually failed is queued.
+  assert.match(remote, /stillPending\.push\(\{ blob: queueImages\[i\], index: existing \+ i \}\)/);
+  assert.match(remote, /if \(stillPending\.length\) \{/);
+
+  // And a tab holding the old schema must not freeze every queue operation
+  // behind an open that never settles.
+  assert.match(db, /request\.onblocked = \(\) => reject\(new Error\('IDB_BLOCKED'\)\);/);
+  assert.match(db, /db\.onversionchange = \(\) => db\.close\(\);/);
+});
+
 test('an empty gallery is not written while photos are still queued', async () => {
   const remote = await read('src/data/remote.js');
   // A new product is saved with no images because its photos are in the
@@ -431,8 +451,21 @@ test('the migration counter counts only products that still need migrating', asy
   assert.match(dashboard, /function needsImageMigration\(product\)/);
   assert.match(dashboard, /if \(!product \|\| product\.imagesArePlaceholder\) return false;/);
   assert.match(dashboard, /products\.filter\(needsImageMigration\)/);
-  // Neither the badge nor the migration itself may use the old test.
-  assert.doesNotMatch(dashboard, /Array\.isArray\(p\.images\) && p\.images\.some/);
+  // Neither the badge nor the migration itself may use the old loose test.
+  // Scoped to the settings panel: detecting a product with no photo at all is
+  // a different question and legitimately looks at `images` directly.
+  const settings = dashboard.slice(dashboard.indexOf('function SettingsPanel'));
+  assert.doesNotMatch(settings, /Array\.isArray\(p\.images\) && p\.images\.some/);
+});
+
+test('a product that reached the shop without a photo is not left silent', async () => {
+  const dashboard = await read('src/admin/Dashboard.jsx');
+  // Every way a photo can go missing has so far been invisible: the product
+  // looks saved and the blank frame is found by a customer.
+  assert.match(dashboard, /function MissingPhotoNotice\(\{ products, onFix \}\)/);
+  assert.match(dashboard, /!p\.thumb && !\(Array\.isArray\(p\.images\) && p\.images\.some\(Boolean\)\)/);
+  assert.match(dashboard, /<MissingPhotoNotice products=\{products\} onFix=\{setEditing\} \/>/);
+  assert.match(dashboard, /أضف صورة/);
 });
 
 test('an unreachable orders service is reported, not shown as zero orders', async () => {

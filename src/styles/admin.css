@@ -2280,3 +2280,14 @@
   flex-wrap: wrap;
   margin-bottom: 0.6rem;
 }
+
+/* Products that reached the shop with no picture. */
+.admin-missing-photos {
+  display: grid;
+  gap: 0.7rem;
+}
+.admin-missing-photos__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}

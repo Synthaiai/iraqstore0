@@ -740,18 +740,42 @@ export async function saveProduct(record, { queueImages = [] } = {}) {
   // already saved at this point, so a connection that dies here costs nothing:
   // the queue survives the reload and finishes on its own.
   if (queueImages.length) {
-    const { enqueueImage } = await import('./imageQueue');
+    // Try to upload here and now, before falling back to the outbox.
+    //
+    // The outbox exists for connections that cannot finish an upload inside a
+    // save, and it is worth having. But it put browser storage, a background
+    // runner and a separate write on the ordinary path to a product photo, and
+    // every one of those is a place a photo can quietly fail to arrive —
+    // which is exactly what happened. On a connection that can carry the
+    // photo, this is the whole story: upload, attach, done, with nothing
+    // persisted in between and nothing to go wrong later.
+    const { uploadQueuedBlob } = await import('./upload');
     const existing = Number(lean.imageCount) || 0;
+    const stillPending = [];
+
     for (let i = 0; i < queueImages.length; i += 1) {
-      await enqueueImage({
-        productId: record.id,
-        productName: record.name,
-        blob: queueImages[i],
-        index: existing + i,
-      });
+      try {
+        const url = await uploadQueuedBlob(queueImages[i]);
+        await attachProductImage(record.id, url, existing + i);
+      } catch (error) {
+        console.warn('Photo did not upload during the save; queueing it:', error);
+        stillPending.push({ blob: queueImages[i], index: existing + i });
+      }
     }
-    const { nudgeImageQueue } = await import('./imageQueueRunner');
-    nudgeImageQueue();
+
+    if (stillPending.length) {
+      const { enqueueImage } = await import('./imageQueue');
+      for (const pending of stillPending) {
+        await enqueueImage({
+          productId: record.id,
+          productName: record.name,
+          blob: pending.blob,
+          index: pending.index,
+        });
+      }
+      const { nudgeImageQueue } = await import('./imageQueueRunner');
+      nudgeImageQueue();
+    }
   }
 
   // Photos upload after the admin already has their confirmation. A null

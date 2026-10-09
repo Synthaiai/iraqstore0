@@ -36,7 +36,16 @@ function openDB() {
       }
     };
 
-    request.onsuccess = () => resolve(request.result);
+    // A tab still holding the previous schema blocks the upgrade, and without
+    // this the open promise never settles — every queue operation behind it
+    // waits for ever, silently. Better to fail and let the caller carry on.
+    request.onblocked = () => reject(new Error('IDB_BLOCKED'));
+    request.onsuccess = () => {
+      const db = request.result;
+      // A newer tab asking for a later schema must not be stuck behind us.
+      db.onversionchange = () => db.close();
+      resolve(db);
+    };
     request.onerror = () => reject(request.error);
   });
 }

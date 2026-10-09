@@ -55,6 +55,37 @@ function ConnectionStatusBadge() {
   );
 }
 
+/**
+ * Products that reached the shop without a picture.
+ *
+ * A photo can be missing for more reasons than are worth enumerating, and
+ * every one of them has so far been invisible: the product looks saved, and
+ * nobody notices the blank frame until a customer does. Naming them at the top
+ * of the list turns an invisible failure into a two-click fix.
+ */
+function MissingPhotoNotice({ products, onFix }) {
+  const missing = useMemo(
+    () => products.filter((p) => !p.thumb && !(Array.isArray(p.images) && p.images.some(Boolean))),
+    [products]
+  );
+  if (!missing.length) return null;
+  return (
+    <div className="admin-note admin-note--warn admin-missing-photos" role="status">
+      <span>
+        🖼️ <b>{missing.length}</b> منتج بدون صورة — الزبون يشوفها فارغة.
+        {' '}اضغط «أضف صورة» واختر صورة المنتج.
+      </span>
+      <div className="admin-missing-photos__list">
+        {missing.slice(0, 6).map((p) => (
+          <button key={p.id} type="button" className="admin-btn admin-btn--sm" onClick={() => onFix(p)}>
+            أضف صورة: {p.name || p.id}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ProductsPanel({ products }) {
   const [q, setQ] = useState('');
   const [gender, setGender] = useState('');
@@ -208,6 +239,8 @@ function ProductsPanel({ products }) {
       </div>
 
       {/* Bulk actions header bar */}
+      <MissingPhotoNotice products={products} onFix={setEditing} />
+
       {selectedIds.length > 0 && (
         <div className="admin-bulk-bar">
           <span>تم تحديد <b>{selectedIds.length}</b> منتج</span>
