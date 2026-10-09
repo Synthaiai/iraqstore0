@@ -1058,6 +1058,63 @@ export async function migrateImagesToObjectStorage({ onProgress } = {}) {
   return report;
 }
 
+/**
+ * Re-price every dollar-pegged product at a new rate.
+ *
+ * Stock here is bought in dollars, so when the dollar moves the shelf prices
+ * move with it. A product entered in dollars keeps that figure, and this
+ * rebuilds its dinar price from the new rate — one small write per product,
+ * touching only the two price fields, so nothing else about the product can
+ * be disturbed by a re-price.
+ *
+ * Products entered in dinars have no dollar figure and are deliberately left
+ * alone: they were priced in dinars because that is what they are worth.
+ */
+export async function repriceUsdProducts(rate, { onProgress } = {}) {
+  await requireAdminSession();
+  const newRate = Number(rate);
+  if (!Number.isFinite(newRate) || newRate <= 0) throw new Error('سعر صرف غير صالح.');
+
+  const current = memoryProductsCache || (await getIDBProducts()) || [];
+  const pegged = current.filter((p) => Number(p?.priceUsd) > 0);
+  if (!pegged.length) return { updated: 0, total: 0 };
+
+  const updates = {};
+  const applied = [];
+  for (const product of pegged) {
+    const price = Math.round(Number(product.priceUsd) * newRate);
+    const oldPrice = Number(product.oldPriceUsd) > 0
+      ? Math.round(Number(product.oldPriceUsd) * newRate)
+      : null;
+    if (price === Number(product.price) && oldPrice === (product.oldPrice ?? null)) continue;
+    updates[`${product.id}/price`] = price;
+    updates[`${product.id}/oldPrice`] = oldPrice;
+    applied.push({ ...product, price, oldPrice });
+  }
+
+  const keys = Object.keys(updates);
+  if (!keys.length) return { updated: 0, total: pegged.length };
+
+  // Chunked, so a dropped connection costs one chunk rather than the lot.
+  const paths = Object.entries(updates);
+  for (let offset = 0; offset < paths.length; offset += 50) {
+    const slice = Object.fromEntries(paths.slice(offset, offset + 50));
+    // eslint-disable-next-line no-await-in-loop
+    if ((await writeThroughSite('products', 'PATCH', slice)) === null) {
+      const { ref, update, db } = await firebaseSdk();
+      // eslint-disable-next-line no-await-in-loop
+      await withTimeout(update(ref(db, 'products'), slice), 30000, 'انتهت مهلة تحديث الأسعار.');
+    }
+    if (onProgress) onProgress(Math.min(offset + 50, paths.length), paths.length);
+  }
+
+  const byId = new Map(applied.map((p) => [String(p.id), p]));
+  const merged = current.map((p) => byId.get(String(p.id)) || p);
+  setLocalProducts(merged);
+  productListeners.forEach((cb) => cb(merged));
+  return { updated: applied.length, total: pegged.length };
+}
+
 export async function seedProducts() {
   if (!SEED_PRODUCTS.length) return [];
   const records = SEED_PRODUCTS.map(toRecord);

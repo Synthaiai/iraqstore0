@@ -401,7 +401,7 @@ test('an empty section does not blame the filters a shopper never set', async ()
   assert.ok(strings.split('sectionEmpty:').length === 3);
 });
 
-test('a price typed in dollars is stored as dinars, once', async () => {
+test('a price typed in dollars stays pegged to the dollar', async () => {
   const currency = await read('src/data/currency.js');
   const form = await read('src/admin/ProductForm.jsx');
   const dashboard = await read('src/admin/Dashboard.jsx');
@@ -421,15 +421,41 @@ test('a price typed in dollars is stored as dinars, once', async () => {
   // currency, so it must compute in that currency too.
   assert.match(form, /const base = currency === 'USD' \? typed : currentPrice;/);
 
-  // The rate is the shop's to set — from the settings tab, and from inside the
-  // product form, because that is the moment it matters. Sending somebody out
-  // of a half-filled form to change it is how the wrong rate gets used.
-  assert.match(dashboard, /saveSetting\('usdRate', Math\.round\(value\)\)/);
+  // The dollar figure is kept, and it is what pegs the product: stock is
+  // bought in dollars, so when the dollar moves the shelf price moves too.
+  assert.match(form, /const priceUsd = currency === 'USD' \? dollars\(form\.price\) : null;/);
+  assert.match(form, /priceUsd,[\s\S]{0,30}?oldPriceUsd,/);
+  // Editing a pegged product shows the dollars it is pegged to, not today's
+  // conversion of them.
+  assert.match(form, /price: init\.priceUsd \? String\(init\.priceUsd\) : \(init\.price \?\? ''\)/);
+  assert.match(form, /useState\(\(\) => \(initial\?\.priceUsd \? 'USD' : 'IQD'\)\)/);
+
+  // The rate is the shop's to set — from the settings tab and from inside the
+  // product form, because that is the moment it matters.
+  assert.match(dashboard, /await saveSetting\('usdRate', next\);/);
   assert.match(dashboard, /onSaveRate=\{\(value\) => saveSetting\('usdRate', value\)\}/);
-  assert.match(form, /const commitRate = async \(\) => \{/);
   assert.match(form, /await onSaveRate\?\.\(Math\.round\(value\)\);/);
-  assert.match(dashboard, /لا يغيّر أسعار المنتجات المحفوظة/);
   assert.match(currency, /export const DEFAULT_USD_RATE = 1320;/);
+});
+
+test('changing the rate reprices every dollar-pegged product', async () => {
+  const remote = await read('src/data/remote.js');
+  const dashboard = await read('src/admin/Dashboard.jsx');
+
+  assert.match(remote, /export async function repriceUsdProducts\(rate, \{ onProgress \} = \{\}\)/);
+  // Only the two price fields are touched, so a re-price cannot disturb
+  // anything else about a product.
+  assert.match(remote, /updates\[`\$\{product\.id\}\/price`\] = price;/);
+  assert.match(remote, /updates\[`\$\{product\.id\}\/oldPrice`\] = oldPrice;/);
+  // Dinar-priced products have no peg and are left alone.
+  assert.match(remote, /const pegged = current\.filter\(\(p\) => Number\(p\?\.priceUsd\) > 0\);/);
+  // Chunked, so a dropped connection costs one chunk rather than the lot.
+  assert.match(remote, /offset \+= 50/);
+
+  // Saving the rate runs it, and says how many products it will move first.
+  assert.match(dashboard, /await repriceUsdProducts\(next/);
+  assert.match(dashboard, /سيُعاد حساب أسعار \$\{peggedCount\} منتج/);
+  assert.match(dashboard, /المنتجات المسعّرة بالدينار لا تتأثّر/);
 });
 
 test('the dashboard speaks to a shopkeeper, and keeps bulk tools out of reach', async () => {

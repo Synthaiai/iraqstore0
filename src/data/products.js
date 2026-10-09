@@ -1040,6 +1040,9 @@ export function normalizeProduct(raw) {
     blurbEn: raw.blurbEn || raw.blurb || '',
     price: Number(raw.price) || 0,
     oldPrice: raw.oldPrice ? Number(raw.oldPrice) : null,
+    // Kept so the editor can show the figure the price is pegged to.
+    priceUsd: raw.priceUsd ? Number(raw.priceUsd) : null,
+    oldPriceUsd: raw.oldPriceUsd ? Number(raw.oldPriceUsd) : null,
     rating: raw.rating != null ? Number(raw.rating) : DEFAULT_RATING,
     reviews: raw.reviews != null ? Number(raw.reviews) : 12,
     badge: raw.badge || null,

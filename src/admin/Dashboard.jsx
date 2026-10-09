@@ -14,6 +14,7 @@ import {
   saveProduct,
   migrateImagesToObjectStorage,
   saveProductsBatch,
+  repriceUsdProducts,
   saveSetting,
   subscribeConnectionStatus,
   subscribeImageSyncFailures,
@@ -562,6 +563,9 @@ function SettingsPanel({ productCount, products, settings }) {
   const [rateBusy, setRateBusy] = useState(false);
   const storedRate = usdRate(settings);
 
+  /** Products whose dinar price is pegged to a dollar figure. */
+  const peggedCount = useMemo(() => products.filter((p) => Number(p?.priceUsd) > 0).length, [products]);
+
   const saveRate = async (e) => {
     e.preventDefault();
     const value = Number(String(rateInput).replace(/[^\d.]/g, ''));
@@ -569,10 +573,29 @@ function SettingsPanel({ productCount, products, settings }) {
       setMsg('اكتب سعر صرف صحيح، مثل 1320');
       return;
     }
+    const next = Math.round(value);
+    if (peggedCount > 0 && !window.confirm(
+      `تغيير سعر الصرف إلى ${next.toLocaleString('en-US')} د.ع للدولار.
+
+`
+      + `سيُعاد حساب أسعار ${peggedCount} منتج مُسعّر بالدولار تلقائياً.
+`
+      + `المنتجات المسعّرة بالدينار لا تتغيّر.`
+    )) return;
+
     setRateBusy(true);
     try {
-      await saveSetting('usdRate', Math.round(value));
-      setMsg(`تم ضبط سعر الصرف على ${Math.round(value).toLocaleString('en-US')} د.ع للدولار ✅`);
+      await saveSetting('usdRate', next);
+      let repriced = { updated: 0 };
+      if (peggedCount > 0) {
+        setMsg('جارٍ تحديث أسعار المنتجات…');
+        repriced = await repriceUsdProducts(next, {
+          onProgress: (done, total) => setMsg(`تحديث الأسعار: ${done} من ${total}`),
+        });
+      }
+      setMsg(repriced.updated
+        ? `تم ضبط الصرف على ${next.toLocaleString('en-US')} وتحديث ${repriced.updated} منتج ✅`
+        : `تم ضبط سعر الصرف على ${next.toLocaleString('en-US')} د.ع للدولار ✅`);
       setRateInput('');
     } catch (error) {
       setMsg(`ما قدرنا نحفظ سعر الصرف: ${error?.message || 'حاول مرة ثانية.'}`);
@@ -807,6 +830,11 @@ function SettingsPanel({ productCount, products, settings }) {
           السعر الحالي: <b>{storedRate.toLocaleString('en-US')}</b> د.ع لكل دولار
           {!settings?.usdRate && <> (الافتراضي — غيّره لسعر السوق عندك)</>}
         </p>
+        <p>
+          {peggedCount > 0
+            ? <>🔗 <b>{peggedCount}</b> منتج مُسعّر بالدولار — أسعارهم تتحدّث تلقائياً عند تغيير الصرف.</>
+            : <>لا يوجد منتج مُسعّر بالدولار بعد. أي منتج تضيفه بالدولار سيُربط بهذا السعر.</>}
+        </p>
         <form onSubmit={saveRate} className="admin-rate-row">
           <input
             type="text"
@@ -822,7 +850,7 @@ function SettingsPanel({ productCount, products, settings }) {
           </button>
         </form>
         <small className="admin-help">
-          تغيير سعر الصرف لا يغيّر أسعار المنتجات المحفوظة — يؤثّر على ما تضيفه بعده فقط.
+          المنتجات المسعّرة بالدينار لا تتأثّر إطلاقاً — تتغيّر فقط المنتجات التي أدخلت سعرها بالدولار.
         </small>
       </div>
 

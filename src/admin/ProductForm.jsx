@@ -245,7 +245,7 @@ const empty = {
 export default function ProductForm({ initial, onSave, onCancel, settings, onSaveRate }) {
   // Which currency the shopkeeper is typing in. Only dinars are ever stored;
   // this is about what is convenient to type, not what the shop sells in.
-  const [currency, setCurrency] = useState('IQD');
+  const [currency, setCurrency] = useState(() => (initial?.priceUsd ? 'USD' : 'IQD'));
   // The rate matters at exactly the moment a dollar price is being typed, so
   // it is editable here rather than only in the settings tab. Sending somebody
   // out of a half-filled form to change a number and come back is how the
@@ -294,6 +294,10 @@ export default function ProductForm({ initial, onSave, onCancel, settings, onSav
     return {
       ...empty,
       ...init,
+      // A dollar-priced product is edited in dollars, showing the figure that
+      // is actually pegged rather than today's conversion of it.
+      price: init.priceUsd ? String(init.priceUsd) : (init.price ?? ''),
+      oldPrice: init.priceUsd && init.oldPriceUsd ? String(init.oldPriceUsd) : (init.oldPrice ?? ''),
       type: detectedType,
       sizes: Array.isArray(init.sizes) ? init.sizes : [],
       images: existingImages,
@@ -751,9 +755,19 @@ export default function ProductForm({ initial, onSave, onCancel, settings, onSav
       setStatusText('جارٍ حفظ البيانات…');
       const id = form.id || `p-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
-      // Converted once, here. The record only ever holds dinars.
+      // The dinar price is what the shop sells at and what every total is
+      // built from. A product priced in dollars also keeps the dollar figure,
+      // which is what pegs it: when the rate moves, its dinar price is
+      // recomputed from this. A product priced in dinars has no peg and never
+      // moves on its own.
       const parsedPrice = toDinars(form.price, currency, rate);
       const parsedOldPrice = form.oldPrice ? toDinars(form.oldPrice, currency, rate) : null;
+      const dollars = (value) => {
+        const n = Number(String(value ?? '').replace(/[^\d.]/g, ''));
+        return Number.isFinite(n) && n > 0 ? n : null;
+      };
+      const priceUsd = currency === 'USD' ? dollars(form.price) : null;
+      const oldPriceUsd = currency === 'USD' && form.oldPrice ? dollars(form.oldPrice) : null;
 
       const record = {
         ...form,
@@ -763,6 +777,8 @@ export default function ProductForm({ initial, onSave, onCancel, settings, onSav
         materialEn: form.materialEn || translateText(form.material || ''),
         price: Number(parsedPrice),
         oldPrice: parsedOldPrice ? Number(parsedOldPrice) : null,
+        priceUsd,
+        oldPriceUsd,
         sizes: form.sizes,
         images,
       };
