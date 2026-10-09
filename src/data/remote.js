@@ -757,6 +757,11 @@ export async function saveProduct(record, { queueImages = [] } = {}) {
   // Photos upload after the admin already has their confirmation. A null
   // gallery means the admin never touched the images, so there is nothing to write.
   if (images === null) return cached;
+  // And an EMPTY gallery with photos in the outbox is not "no photos" — it is
+  // "photos on their way". Writing it would send a delete for the very node
+  // the queue is about to fill, and on a slow link that delete can land after
+  // the photo does and wipe it.
+  if (!images.length && queueImages.length) return cached;
   saveProductGallery(lean, images).catch(async (error) => {
     console.error('Product gallery upload failed:', error);
     // Put the photos back into the product record rather than losing them.

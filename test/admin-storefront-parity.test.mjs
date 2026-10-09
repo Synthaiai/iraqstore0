@@ -217,9 +217,15 @@ test('the dashboard can say what is failing on the device it is failing on', asy
 
   // Each thing a save depends on is checked separately, so a report names the
   // broken part instead of describing the symptom.
-  for (const key of ['site', 'write', 'auth', 'firebase']) {
+  for (const key of ['site', 'write', 'auth', 'photo', 'queue', 'firebase']) {
     assert.ok(diag.includes(`key: '${key}'`), `the ${key} check is missing`);
   }
+  // The photo check walks the real pipeline — compress, upload, read back —
+  // rather than asserting that a route exists.
+  assert.match(diag, /const \{ prepareImageForUpload, uploadQueuedBlob \} = await import\('\.\.\/data\/upload'\);/);
+  assert.match(diag, /if \(!check\.ok\) throw new Error/);
+  // And the queue check reports what is actually stuck, with its last error.
+  assert.match(diag, /worst\.attempts \|\| 0/);
   // The direct database connection is informational: saving no longer needs it.
   assert.match(diag, /optional: true/);
   // A build stamp, because "the same problem" on two different builds is not
@@ -273,6 +279,15 @@ test('admin writes go through this site, not straight to Firebase', async () => 
   assert.match(route, /const WRITABLE = \[/);
   assert.match(route, /if \(!WRITABLE\.some\(\(pattern\) => pattern\.test\(path\)\)\)/);
   assert.match(route, /\?auth=\$\{encodeURIComponent\(bearer\(request\)\)\}/);
+});
+
+test('an empty gallery is not written while photos are still queued', async () => {
+  const remote = await read('src/data/remote.js');
+  // A new product is saved with no images because its photos are in the
+  // outbox. Writing that empty gallery sends a delete for the very node the
+  // queue is about to fill, and on a slow link that delete can arrive after
+  // the photo and wipe it.
+  assert.match(remote, /if \(!images\.length && queueImages\.length\) return cached;/);
 });
 
 test('a product saves on a bad connection, and its photos follow', async () => {

@@ -21,6 +21,18 @@ async function timed(run) {
   }
 }
 
+/** A tiny real image, so the photo check exercises the actual pipeline. */
+async function sampleImage() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 64;
+  canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#6b0f1a';
+  ctx.fillRect(0, 0, 64, 64);
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.8));
+  return new File([blob], 'diagnostic.jpg', { type: 'image/jpeg' });
+}
+
 const CHECKS = [
   {
     key: 'site',
@@ -61,6 +73,33 @@ const CHECKS = [
       if (!auth.currentUser) throw new Error('لست مسجّل الدخول');
       await auth.currentUser.getIdToken(true);
       return auth.currentUser.email || 'سليمة';
+    }),
+  },
+  {
+    key: 'photo',
+    label: 'رفع صورة',
+    note: 'الطريق الكامل الذي تمشي به صور المنتجات',
+    run: () => timed(async () => {
+      const { prepareImageForUpload, uploadQueuedBlob } = await import('../data/upload');
+      const prepared = await prepareImageForUpload(await sampleImage());
+      const url = await uploadQueuedBlob(prepared);
+      if (!String(url).startsWith('/img/')) throw new Error(`رد غير متوقع: ${String(url).slice(0, 40)}`);
+      const check = await fetch(url, { cache: 'no-store' });
+      if (!check.ok) throw new Error(`رُفعت لكن لا تُقرأ (${check.status})`);
+      return 'الصورة رُفعت وقُرئت بنجاح';
+    }),
+  },
+  {
+    key: 'queue',
+    label: 'طابور الصور',
+    note: 'الصور التي ما زالت تنتظر الرفع',
+    run: () => timed(async () => {
+      const { listQueued } = await import('../data/imageQueue');
+      const items = await listQueued();
+      if (!items.length) return 'فارغ — لا صور معلّقة';
+      const worst = items.reduce((a, b) => ((b.attempts || 0) > (a.attempts || 0) ? b : a));
+      return `${items.length} صورة معلّقة · أكثرها محاولات: ${worst.productName || worst.productId}`
+        + ` (${worst.attempts || 0} محاولة${worst.lastError ? ` · ${String(worst.lastError).slice(0, 50)}` : ''})`;
     }),
   },
   {
