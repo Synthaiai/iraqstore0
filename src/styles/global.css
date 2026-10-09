@@ -3728,3 +3728,25 @@ main {
    `text-wrap: balance` is Safari 17.4; unbalanced headings are fine.
    `inset` longhands and `-webkit-backdrop-filter` are emitted inline above.
    ========================================================================== */
+
+/* ============================================================
+   Dollar-priced products
+   The shop buys in dollars, so some items are quoted in dollars and move with
+   the rate. The dinar figure stays visible because that is what is charged.
+   ============================================================ */
+.price--usd {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+.price__in-dinars {
+  font-size: 0.86em;
+  font-weight: 600;
+  color: var(--ink-400);
+  white-space: nowrap;
+}
+.price__rate-note {
+  margin: 0.5rem 0 0;
+  font-size: 0.84rem;
+  line-height: var(--lh-body);
+  color: var(--ink-400);
+}

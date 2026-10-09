@@ -248,3 +248,9 @@
     display: none !important;
   }
 }
+
+/* Dollar pricing stays readable on the dark theme. */
+:root[data-theme='dark'] .price__in-dinars,
+:root[data-theme='dark'] .price__rate-note {
+  color: #a8abb5;
+}

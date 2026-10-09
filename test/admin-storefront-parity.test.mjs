@@ -438,6 +438,33 @@ test('a price typed in dollars stays pegged to the dollar', async () => {
   assert.match(currency, /export const DEFAULT_USD_RATE = 1320;/);
 });
 
+test('a dollar-priced product shows its dollars to the shopper', async () => {
+  const price = await read('src/components/Price.jsx');
+  const card = await read('src/components/ProductCard.jsx');
+  const page = await read('src/pages/ProductPage.jsx');
+
+  // Which currency a product is quoted in is a real difference — a dollar
+  // product moves with the rate and a dinar one does not — so the shopper
+  // sees it.
+  assert.match(price, /const pegged = Number\(product\?\.priceUsd\) > 0;/);
+  assert.match(price, /formatDollars\(product\.priceUsd\)/);
+  // The dinar figure is always alongside: it is what the customer is charged,
+  // and the cart, the delivery fee and the receipt are all in dinars.
+  assert.match(price, /className="price__in-dinars"/);
+  // A dinar-priced product is rendered exactly as before.
+  assert.match(price, /if \(!pegged\) \{/);
+
+  // One component, so the card and the product page cannot disagree.
+  assert.match(card, /<Price product=\{product\} lang=\{lang\} \/>/);
+  assert.match(page, /<Price product=\{product\} lang=\{lang\} size="lg" \/>/);
+
+  // The rate is explained once, on the product page, not twenty times in a
+  // grid — and it is the rate the shop set, not a constant.
+  assert.match(price, /export function PriceRateNote/);
+  assert.match(page, /<PriceRateNote product=\{product\} rate=\{usdRate\(settings\)\} lang=\{lang\} \/>/);
+  assert.doesNotMatch(card, /PriceRateNote/);
+});
+
 test('changing the rate reprices every dollar-pegged product', async () => {
   const remote = await read('src/data/remote.js');
   const dashboard = await read('src/admin/Dashboard.jsx');

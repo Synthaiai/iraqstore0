@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
 import { getCategory, getGender, getSubcategory } from '../data/catalog';
 import { formatPrice, getProduct, relatedProducts } from '../data/products';
+import Price, { PriceRateNote } from '../components/Price';
+import { usdRate } from '../data/currency';
 import { translateTextSync } from '../utils/translator';
 import { useStore } from '../store/StoreContext';
 import { usePrefs } from '../store/PrefsContext';
@@ -19,7 +21,7 @@ const BADGE_KEY = { new: 'badgeNew', sale: 'badgeSale', best: 'badgeBest' };
 
 export default function ProductPage() {
   const { id } = useParams();
-  const { loaded, status } = useLiveData();
+  const { loaded, status, settings } = useLiveData();
   const product = getProduct(id);
 
   const { addToCart, openCart, toast, isFavorite, toggleFavorite } = useStore();
@@ -220,17 +222,15 @@ export default function ProductPage() {
             <p className="pdp__desc">{tf(product, 'blurb')}</p>
 
             <div className="pdp__priceline">
-              <span className="price price--lg">{formatPrice(product.price, lang)}</span>
+              <Price product={product} lang={lang} size="lg" />
               {product.oldPrice && (
-                <>
-                  <span className="price price--old">{formatPrice(product.oldPrice, lang)}</span>
-                  <span className="badge badge--sale">
-                    {t('save')} {discount}
-                    {pct}
-                  </span>
-                </>
+                <span className="badge badge--sale">
+                  {t('save')} {discount}
+                  {pct}
+                </span>
               )}
             </div>
+            <PriceRateNote product={product} rate={usdRate(settings)} lang={lang} />
 
             <div className="pdp__divider" />
 

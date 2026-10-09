@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useStore } from '../store/StoreContext';
 import { usePrefs } from '../store/PrefsContext';
 import { formatPrice } from '../data/products';
+import Price from './Price';
 import Img from './Img';
 import QuickAdd from './QuickAdd';
 import { Bag, Heart } from './Icons';
@@ -134,8 +135,7 @@ export default function ProductCard({ product, index = 0 }) {
         <p className="pcard__desc">{tf(product, 'blurb')}</p>
 
         <div className="pcard__foot">
-          <span className="price">{formatPrice(product.price, lang)}</span>
-          {product.oldPrice && <span className="price price--old">{formatPrice(product.oldPrice, lang)}</span>}
+          <Price product={product} lang={lang} />
           <span className="swatches" style={{ marginInlineStart: 'auto' }}>
             {(product.colors || []).slice(0, 4).map((c) => (
               <span key={c.name} className="swatch" style={{ background: c.hex }} title={tf(c, 'name')} />
