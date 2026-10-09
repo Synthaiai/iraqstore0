@@ -9,6 +9,7 @@ import {
   getConnectionStatus,
   listenCatalog,
   listenOrders,
+  listenSettings,
   listenProducts,
   saveProduct,
   migrateImagesToObjectStorage,
@@ -20,6 +21,7 @@ import {
   warmUpRealtimeDatabase,
 } from '../data/remote';
 import { objectStorageAvailable, prepareImageForUpload, uploadImage } from '../data/upload';
+import { DEFAULT_USD_RATE, usdRate } from '../data/currency';
 import { nudgeImageQueue, subscribeUploadStatus, watchImageQueue } from '../data/imageQueueRunner';
 import AnalyticsPanel from './AnalyticsPanel';
 import Diagnostics from './Diagnostics';
@@ -86,7 +88,7 @@ function MissingPhotoNotice({ products, onFix }) {
   );
 }
 
-function ProductsPanel({ products }) {
+function ProductsPanel({ products, settings }) {
   const [q, setQ] = useState('');
   const [gender, setGender] = useState('');
   const [stockFilter, setStockFilter] = useState(''); // '' | 'low' | 'draft' | 'active'
@@ -411,6 +413,7 @@ function ProductsPanel({ products }) {
           initial={editing === 'new' ? null : editing}
           onSave={save}
           onCancel={() => setEditing(null)}
+          settings={settings}
         />
       )}
     </div>
@@ -545,7 +548,7 @@ function needsImageMigration(product) {
     && product.images.some((image) => typeof image === 'string' && image.startsWith('data:'));
 }
 
-function SettingsPanel({ productCount, products }) {
+function SettingsPanel({ productCount, products, settings }) {
   const [msg, setMsg] = useState('');
   const [logoBusy, setLogoBusy] = useState(false);
   const [importImageFiles, setImportImageFiles] = useState([]);
@@ -554,6 +557,28 @@ function SettingsPanel({ productCount, products }) {
   const [relocating, setRelocating] = useState(false);
   const [relocateReport, setRelocateReport] = useState(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [rateInput, setRateInput] = useState('');
+  const [rateBusy, setRateBusy] = useState(false);
+  const storedRate = usdRate(settings);
+
+  const saveRate = async (e) => {
+    e.preventDefault();
+    const value = Number(String(rateInput).replace(/[^\d.]/g, ''));
+    if (!Number.isFinite(value) || value <= 0) {
+      setMsg('اكتب سعر صرف صحيح، مثل 1320');
+      return;
+    }
+    setRateBusy(true);
+    try {
+      await saveSetting('usdRate', Math.round(value));
+      setMsg(`تم ضبط سعر الصرف على ${Math.round(value).toLocaleString('en-US')} د.ع للدولار ✅`);
+      setRateInput('');
+    } catch (error) {
+      setMsg(`ما قدرنا نحفظ سعر الصرف: ${error?.message || 'حاول مرة ثانية.'}`);
+    } finally {
+      setRateBusy(false);
+    }
+  };
 
   useEffect(() => { objectStorageAvailable().then(setStorageReady); }, []);
 
@@ -772,6 +797,35 @@ function SettingsPanel({ productCount, products }) {
       </div>
 
       <div className="admin-card">
+        <h3>سعر صرف الدولار</h3>
+        <p>
+          عند إضافة منتج تقدر تكتب السعر بالدولار بدل الدينار، ويتحوّل تلقائياً بهذا السعر.
+          السعر المخزَّن في المتجر يبقى بالدينار دائماً.
+        </p>
+        <p>
+          السعر الحالي: <b>{storedRate.toLocaleString('en-US')}</b> د.ع لكل دولار
+          {!settings?.usdRate && <> (الافتراضي — غيّره لسعر السوق عندك)</>}
+        </p>
+        <form onSubmit={saveRate} className="admin-rate-row">
+          <input
+            type="text"
+            inputMode="decimal"
+            dir="ltr"
+            value={rateInput}
+            onChange={(e) => setRateInput(e.target.value)}
+            placeholder={String(DEFAULT_USD_RATE)}
+            aria-label="سعر صرف الدولار بالدينار"
+          />
+          <button className="admin-btn admin-btn--primary" type="submit" disabled={rateBusy}>
+            {rateBusy ? 'جارٍ الحفظ…' : 'حفظ السعر'}
+          </button>
+        </form>
+        <small className="admin-help">
+          تغيير سعر الصرف لا يغيّر أسعار المنتجات المحفوظة — يؤثّر على ما تضيفه بعده فقط.
+        </small>
+      </div>
+
+      <div className="admin-card">
         <h3>نسخة احتياطية</h3>
         <p>
           احفظ نسخة من منتجاتك على جهازك. ينزل ملف واحد تقدر ترجع له لو صار شي.
@@ -864,6 +918,7 @@ export default function Dashboard() {
   const { user, logout } = useAuth();
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [settings, setSettings] = useState({});
   const [tab, setTab] = useState('products');
   // A product can save while its photos or its stock mirror do not. Those used
   // to be console-only warnings, so the admin saw a success they did not get.
@@ -905,12 +960,14 @@ export default function Dashboard() {
 
   useEffect(() => {
     const unsubP = listenProducts(setProducts, { includeDrafts: true });
+    const unsubS = listenSettings((next) => setSettings(next || {}));
     const unsubO = listenOrders(setOrders);
     const unsubC = listenCatalog((tree) => {
       if (tree) updateCatalogStore(tree);
     });
     return () => {
       unsubP();
+      unsubS();
       unsubO();
       unsubC();
     };
@@ -1017,14 +1074,14 @@ export default function Dashboard() {
             <button className="admin-btn admin-btn--sm admin-btn--ghost" onClick={() => dismissWarning(warning.id)}>إخفاء</button>
           </div>
         ))}
-        {tab === 'products' && <ProductsPanel products={products} />}
+        {tab === 'products' && <ProductsPanel products={products} settings={settings} />}
         {tab === 'reorder' && <ProductReorderPanel products={products} />}
         {tab === 'orders' && <OrdersPanel orders={orders} />}
         {tab === 'analytics' && <AnalyticsPanel products={products} orders={orders} />}
         {tab === 'tree' && <CategoryTree products={products} />}
         {tab === 'delivery' && <DeliveryFeesPanel />}
         {tab === 'settings' && (
-          <SettingsPanel productCount={products.length} products={products} />
+          <SettingsPanel productCount={products.length} products={products} settings={settings} />
         )}
       </main>
     </div>

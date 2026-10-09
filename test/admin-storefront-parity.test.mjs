@@ -401,6 +401,33 @@ test('an empty section does not blame the filters a shopper never set', async ()
   assert.ok(strings.split('sectionEmpty:').length === 3);
 });
 
+test('a price typed in dollars is stored as dinars, once', async () => {
+  const currency = await read('src/data/currency.js');
+  const form = await read('src/admin/ProductForm.jsx');
+  const dashboard = await read('src/admin/Dashboard.jsx');
+
+  // The shorthand that reads "19" as 19,000 is right for dinars and ruinous
+  // for dollars: it would price an $85 shoe at sixty thousand dollars.
+  assert.match(currency, /export function toDinars\(entered, currency, rate\)/);
+  assert.match(currency, /if \(currency === 'USD'\)/);
+  assert.match(currency, /return parseSmartPrice\(entered\);/);
+
+  // Only dinars are stored, and the conversion happens once, at save.
+  assert.match(form, /const parsedPrice = toDinars\(form\.price, currency, rate\);/);
+  assert.match(form, /const parsedOldPrice = form\.oldPrice \? toDinars\(form\.oldPrice, currency, rate\) : null;/);
+  assert.ok(!form.includes("import { parseSmartPrice }"), 'the form must read prices through toDinars');
+
+  // The quick-discount button writes into a field read in the selected
+  // currency, so it must compute in that currency too.
+  assert.match(form, /const base = currency === 'USD' \? typed : currentPrice;/);
+
+  // The rate is the shop's to set, and changing it must not silently reprice
+  // everything already on the shelf.
+  assert.match(dashboard, /saveSetting\('usdRate', Math\.round\(value\)\)/);
+  assert.match(dashboard, /لا يغيّر أسعار المنتجات المحفوظة/);
+  assert.match(currency, /export const DEFAULT_USD_RATE = 1320;/);
+});
+
 test('the dashboard speaks to a shopkeeper, and keeps bulk tools out of reach', async () => {
   const dashboard = await read('src/admin/Dashboard.jsx');
   const css = await read('src/styles/admin.css');

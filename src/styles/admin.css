@@ -2291,3 +2291,40 @@
   flex-wrap: wrap;
   gap: 0.5rem;
 }
+
+/* Currency switch beside the price field. */
+.admin-currency-switch {
+  display: inline-flex;
+  gap: 2px;
+  margin-inline-start: 0.5rem;
+  padding: 2px;
+  background: var(--a-surface-2);
+  border: 1px solid var(--a-line);
+  border-radius: var(--a-radius-sm);
+  vertical-align: middle;
+}
+.admin-currency-switch__btn {
+  border: 0;
+  background: none;
+  color: var(--a-dim);
+  font: inherit;
+  font-weight: 700;
+  min-width: 2.4rem;
+  padding: 0.18rem 0.4rem;
+  border-radius: calc(var(--a-radius-sm) - 2px);
+  cursor: pointer;
+}
+.admin-currency-switch__btn.is-on {
+  background: var(--a-accent);
+  color: #fff;
+}
+
+.admin-rate-row {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.admin-rate-row input {
+  max-width: 10rem;
+}

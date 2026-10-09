@@ -4,7 +4,7 @@ import { formatPrice } from '../data/products';
 import { prepareImageForUpload } from '../data/upload';
 import { loadProductImages } from '../data/remote';
 import { formatBytes } from '../utils/imageCompressor';
-import { parseSmartPrice } from '../utils/smartPrice';
+import { CURRENCIES, formatDollars, toDinars, toDollars, usdRate } from '../data/currency';
 import { autoTranslateProduct, translateArabicAsync, translateText } from '../utils/translator';
 
 const PRODUCT_TYPES = [
@@ -242,7 +242,11 @@ const empty = {
   customSpecs: [],
 };
 
-export default function ProductForm({ initial, onSave, onCancel }) {
+export default function ProductForm({ initial, onSave, onCancel, settings }) {
+  // Which currency the shopkeeper is typing in. Only dinars are ever stored;
+  // this is about what is convenient to type, not what the shop sells in.
+  const rate = usdRate(settings);
+  const [currency, setCurrency] = useState('IQD');
   const [galleryLoading, setGalleryLoading] = useState(false);
   const [form, setForm] = useState(() => {
     const init = initial || {};
@@ -597,16 +601,29 @@ export default function ProductForm({ initial, onSave, onCancel }) {
   const previews = useMemo(() => files.map((f) => URL.createObjectURL(f)), [files]);
   useEffect(() => () => previews.forEach((url) => URL.revokeObjectURL(url)), [previews]);
 
-  const currentPrice = parseSmartPrice(form.price);
-  const currentOldPrice = parseSmartPrice(form.oldPrice);
+  // Everything below works in dinars, whatever was typed.
+  const currentPrice = toDinars(form.price, currency, rate);
+  const currentOldPrice = toDinars(form.oldPrice, currency, rate);
 
   const discount =
     currentOldPrice && currentPrice ? Math.round((1 - currentPrice / currentOldPrice) * 100) : 0;
 
+  /**
+   * Fill in the "before" price that produces this discount.
+   *
+   * Written in whatever currency is selected, because that is how the field
+   * beside it is read. Computing it in dinars and typing it into a field being
+   * read as dollars would price the product about thirteen hundred times too
+   * high.
+   */
   const applyDiscount = (pct) => {
     if (!currentPrice) return setErr('أدخل السعر أولًا');
     setErr('');
-    set('oldPrice', String(Math.round(currentPrice / (1 - pct / 100))));
+    const typed = Number(String(form.price).replace(/[^\d.]/g, ''));
+    const base = currency === 'USD' ? typed : currentPrice;
+    if (!Number.isFinite(base) || base <= 0) return;
+    const before = base / (1 - pct / 100);
+    set('oldPrice', currency === 'USD' ? String(Math.round(before * 100) / 100) : String(Math.round(before)));
   };
 
   /**
@@ -665,8 +682,12 @@ export default function ProductForm({ initial, onSave, onCancel }) {
     if (!form.name.trim()) return setErr('اسم المنتج مطلوب');
     // A price that does not parse used to be stored as 0, so the product went
     // live priced at nothing. Reject it here instead.
-    if (!parseSmartPrice(form.price)) return setErr('أدخل سعراً صحيحاً للمنتج (مثال: 25 أو 25000)');
-    if (form.oldPrice && !parseSmartPrice(form.oldPrice)) return setErr('السعر القديم غير صحيح. اتركه فارغاً أو أدخل رقماً.');
+    if (!toDinars(form.price, currency, rate)) {
+      return setErr(currency === 'USD'
+        ? 'أدخل سعراً صحيحاً بالدولار (مثال: 85)'
+        : 'أدخل سعراً صحيحاً بالدينار (مثال: 25 أو 25000)');
+    }
+    if (form.oldPrice && !toDinars(form.oldPrice, currency, rate)) return setErr('السعر القديم غير صحيح. اتركه فارغاً أو أدخل رقماً.');
     if (galleryLoading) return setErr('جارٍ تحميل صور المنتج… انتظر لحظة ثم احفظ.');
     setBusy(true);
     setErr('');
@@ -710,8 +731,9 @@ export default function ProductForm({ initial, onSave, onCancel }) {
       setStatusText('جارٍ حفظ البيانات…');
       const id = form.id || `p-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
-      const parsedPrice = parseSmartPrice(form.price);
-      const parsedOldPrice = form.oldPrice ? parseSmartPrice(form.oldPrice) : null;
+      // Converted once, here. The record only ever holds dinars.
+      const parsedPrice = toDinars(form.price, currency, rate);
+      const parsedOldPrice = form.oldPrice ? toDinars(form.oldPrice, currency, rate) : null;
 
       const record = {
         ...form,
@@ -854,48 +876,54 @@ export default function ProductForm({ initial, onSave, onCancel }) {
           {/* STEP 4: Pricing, Inventory & Badges */}
           <div className="admin-grid3">
             <label className="admin-field">
-              <span>السعر النهائي (د.ع) *</span>
+              <span>
+                السعر النهائي *
+                <span className="admin-currency-switch" role="group" aria-label="عملة الإدخال">
+                  {Object.values(CURRENCIES).map((c) => (
+                    <button
+                      type="button"
+                      key={c.code}
+                      className={`admin-currency-switch__btn ${currency === c.code ? 'is-on' : ''}`}
+                      onClick={() => setCurrency(c.code)}
+                    >
+                      {c.symbol}
+                    </button>
+                  ))}
+                </span>
+              </span>
               <input
                 type="text"
                 inputMode="decimal"
                 value={form.price}
                 onChange={(e) => set('price', e.target.value)}
-                onBlur={() => {
-                  if (form.price) {
-                    const parsed = parseSmartPrice(form.price);
-                    if (parsed) set('price', String(parsed));
-                  }
-                }}
-                placeholder="مثال: 19 أو 19.5 أو 19000"
+                placeholder={currency === 'USD' ? 'مثال: 85 أو 85.5' : 'مثال: 19 أو 19.5 أو 19000'}
                 dir="ltr"
                 required
               />
-              {form.price && parseSmartPrice(form.price) > 0 && (
+              {form.price && toDinars(form.price, currency, rate) > 0 && (
                 <small className="admin-smart-price-badge">
-                  ✨ تكملة الآلاف تلقائياً: {formatPrice(parseSmartPrice(form.price))}
+                  {currency === 'USD'
+                    ? `💵 ${formatDollars(form.price)} = ${formatPrice(toDinars(form.price, currency, rate))} (الصرف ${rate.toLocaleString('en-US')})`
+                    : `✨ تكملة الآلاف تلقائياً: ${formatPrice(toDinars(form.price, currency, rate))}`}
                 </small>
               )}
             </label>
 
             <label className="admin-field">
-              <span>السعر قبل التخفيض (اختياري)</span>
+              <span>السعر قبل التخفيض (اختياري) — بنفس العملة المختارة</span>
               <input
                 type="text"
                 inputMode="decimal"
                 value={form.oldPrice}
                 onChange={(e) => set('oldPrice', e.target.value)}
-                onBlur={() => {
-                  if (form.oldPrice) {
-                    const parsed = parseSmartPrice(form.oldPrice);
-                    if (parsed) set('oldPrice', String(parsed));
-                  }
-                }}
-                placeholder="مثال: 25 أو 25000"
+                placeholder={currency === 'USD' ? 'مثال: 120' : 'مثال: 25 أو 25000'}
                 dir="ltr"
               />
-              {form.oldPrice && parseSmartPrice(form.oldPrice) > 0 && (
+              {form.oldPrice && toDinars(form.oldPrice, currency, rate) > 0 && (
                 <small className="admin-smart-price-badge">
-                  ✨ تكملة الآلاف تلقائياً: {formatPrice(parseSmartPrice(form.oldPrice))}
+                  {currency === 'USD'
+                    ? `💵 ${formatDollars(form.oldPrice)} = ${formatPrice(toDinars(form.oldPrice, currency, rate))}`
+                    : `✨ تكملة الآلاف تلقائياً: ${formatPrice(toDinars(form.oldPrice, currency, rate))}`}
                 </small>
               )}
             </label>
@@ -1436,11 +1464,11 @@ export default function ProductForm({ initial, onSave, onCancel }) {
           </div>
 
           {err && <p className="admin-auth__error">{err}</p>}
-          {form.price && parseSmartPrice(form.price) > 0 && (
+          {currentPrice > 0 && (
             <p className="admin-preview-price">
-              السعر المعروض للزبون: <b>{formatPrice(parseSmartPrice(form.price))}</b>
-              {form.oldPrice && parseSmartPrice(form.oldPrice) > 0 && (
-                <s style={{ marginInlineStart: 8, opacity: 0.6 }}>{formatPrice(parseSmartPrice(form.oldPrice))}</s>
+              السعر المعروض للزبون: <b>{formatPrice(currentPrice)}</b>
+              {currentOldPrice > 0 && (
+                <s style={{ marginInlineStart: 8, opacity: 0.6 }}>{formatPrice(currentOldPrice)}</s>
               )}
             </p>
           )}
