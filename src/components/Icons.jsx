@@ -102,14 +102,6 @@ export const Truck = (p) => (
   </svg>
 );
 
-export const Instagram = (p) => (
-  <svg {...base} {...p}>
-    <rect x="4" y="4" width="16" height="16" rx="4.5" />
-    <circle cx="12" cy="12" r="3.4" />
-    <circle cx="16.6" cy="7.4" r="0.9" fill="currentColor" stroke="none" />
-  </svg>
-);
-
 export const Card = (p) => (
   <svg {...base} {...p}>
     <rect x="3" y="5.5" width="18" height="13" rx="2.5" />
@@ -124,15 +116,3 @@ export const Phone = (p) => (
   </svg>
 );
 
-export const Facebook = (p) => (
-  <svg {...base} {...p}>
-    <path d="M14.5 8.5H16V5.8h-2.2c-2 0-3.3 1.3-3.3 3.4v1.5H8.5V13h2v6h2.7v-6h2.1l.4-2.3h-2.5V9.5c0-.7.3-1 1.3-1Z" />
-  </svg>
-);
-
-export const Whatsapp = (p) => (
-  <svg {...base} {...p}>
-    <path d="M4 20l1.3-4A7.5 7.5 0 1 1 8 18.7L4 20Z" />
-    <path d="M9.2 9.4c-.2 1 .4 2.2 1.3 3.1.9.9 2.1 1.5 3.1 1.3l.9-1 1.6.9-.3 1.1c-1.7.7-4-.4-5.6-2s-2.7-3.9-2-5.6l1.1-.3.9 1.6-1 .9Z" />
-  </svg>
-);

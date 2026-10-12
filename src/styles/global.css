@@ -455,24 +455,29 @@ h4 {
   gap: 0.35rem;
 }
 
+/* The marks bring their own colour and their own disc, so there is no pill to
+   draw behind them and nothing for a hover tint to change. Dimming them
+   slightly at rest keeps three saturated logos from shouting over the store's
+   own name, and full strength on hover says they are live links. */
 .topbar__socials a {
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   display: grid;
   place-items: center;
   border-radius: 50%;
-  color: rgba(255, 255, 255, 0.85);
-  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+  opacity: 0.88;
+  transition: opacity var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
 }
 
 .topbar__socials a:hover {
-  background: rgba(255, 255, 255, 0.14);
-  color: #fff;
+  opacity: 1;
+  transform: translateY(-1px);
 }
 
 .topbar__socials svg {
-  width: 17px;
-  height: 17px;
+  width: 22px;
+  height: 22px;
+  display: block;
 }
 
 /* On dark theme the strip stays dark — just soften the border below it. */
@@ -655,6 +660,11 @@ h4 {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
+  /* The drawer now ends in a contact block, so on a short phone in landscape
+     its content can be taller than the screen. Without this it is simply cut
+     off and the phone number is unreachable. */
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   transform: translateY(-100%);
   visibility: hidden;
   transition: transform var(--dur-slow) var(--ease-out-expo),
@@ -680,6 +690,87 @@ h4 {
 .mobile-nav__link:hover {
   color: var(--burgundy-700);
   padding-inline-start: 0.6rem;
+}
+
+/* Contact block, pinned to the foot of the drawer.
+   margin-top:auto rather than a fixed gap: the drawer is full height and the
+   nav above it grows when a section is added, so anchoring to the bottom is
+   the only placement that stays put. */
+.mobile-nav__contact {
+  margin-top: auto;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--line);
+}
+
+.mobile-nav__contact-title {
+  font-family: var(--font-display);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-400);
+  margin-bottom: 0.85rem;
+}
+
+.mobile-nav__socials {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.6rem;
+}
+
+.social-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.85rem 0.4rem;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  color: var(--ink-900);
+  font-size: 0.78rem;
+  font-weight: 600;
+  transition: border-color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+}
+
+.social-chip:hover {
+  border-color: var(--burgundy-700);
+  transform: translateY(-2px);
+}
+
+.social-chip svg {
+  width: 30px;
+  height: 30px;
+  display: block;
+}
+
+.mobile-nav__call {
+  margin-top: 0.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  height: 52px;
+  border-radius: var(--radius);
+  background: var(--burgundy-700);
+  color: #fff;
+  font-size: 0.98rem;
+  font-weight: 600;
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.mobile-nav__call:hover {
+  background: var(--burgundy-600);
+}
+
+.mobile-nav__call svg {
+  width: 19px;
+  height: 19px;
+}
+
+.mobile-nav__call b {
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
 /* ============================================================
@@ -2440,18 +2531,19 @@ h4 {
   display: grid;
   place-items: center;
   border-radius: var(--radius);
-  color: rgba(255, 255, 255, 0.6);
-  transition: all var(--dur-fast) var(--ease);
+  opacity: 0.85;
+  transition: opacity var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
 }
 
 .footer__socials a:hover {
-  background: var(--burgundy-700);
-  color: #fff;
+  opacity: 1;
+  transform: translateY(-2px);
 }
 
 .footer__socials svg {
-  width: 18px;
-  height: 18px;
+  width: 26px;
+  height: 26px;
+  display: block;
 }
 
 /* ============================================================

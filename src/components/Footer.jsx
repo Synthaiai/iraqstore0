@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { usePrefs } from '../store/PrefsContext';
 import Logo from './Logo';
-import { Facebook, Instagram, Whatsapp } from './Icons';
+import { FacebookMark, InstagramMark, WhatsappMark } from './BrandIcons';
 import { STORE_CONTACT } from '../data/contact';
 
 export default function Footer() {
@@ -72,13 +72,13 @@ export default function Footer() {
           </span>
           <div className="footer__socials">
             <a href={STORE_CONTACT.instagram} target="_blank" rel="noopener noreferrer" aria-label="Instagram">
-              <Instagram />
+              <InstagramMark />
             </a>
             <a href={STORE_CONTACT.facebook} target="_blank" rel="noopener noreferrer" aria-label="Facebook">
-              <Facebook />
+              <FacebookMark />
             </a>
             <a href={STORE_CONTACT.whatsappUrl} target="_blank" rel="noopener noreferrer" aria-label="WhatsApp">
-              <Whatsapp />
+              <WhatsappMark />
             </a>
           </div>
         </div>

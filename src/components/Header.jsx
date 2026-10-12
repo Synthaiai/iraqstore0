@@ -5,7 +5,8 @@ import { usePrefs } from '../store/PrefsContext';
 import { formatPrice, searchProducts } from '../data/products';
 import { STORE_CONTACT } from '../data/contact';
 import Logo from './Logo';
-import { Bag, Close, Facebook, Heart, Instagram, Menu, Moon, Phone, Search, Sun, Whatsapp } from './Icons';
+import { Bag, Close, Heart, Menu, Moon, Phone, Search, Sun } from './Icons';
+import { FacebookMark, InstagramMark, WhatsappMark } from './BrandIcons';
 
 export default function Header() {
   const { cartCount, openCart, favorites } = useStore();
@@ -95,13 +96,13 @@ export default function Header() {
             <span className="topbar__slogan">{lang === 'en' ? STORE_CONTACT.sloganEn : STORE_CONTACT.slogan}</span>
             <div className="topbar__socials">
               <a href={STORE_CONTACT.whatsappUrl} target="_blank" rel="noopener noreferrer" aria-label="WhatsApp">
-                <Whatsapp />
+                <WhatsappMark />
               </a>
               <a href={STORE_CONTACT.instagram} target="_blank" rel="noopener noreferrer" aria-label="Instagram">
-                <Instagram />
+                <InstagramMark />
               </a>
               <a href={STORE_CONTACT.facebook} target="_blank" rel="noopener noreferrer" aria-label="Facebook">
-                <Facebook />
+                <FacebookMark />
               </a>
             </div>
           </div>
@@ -227,6 +228,47 @@ export default function Header() {
         <div className="mobile-nav__prefs">
           <ThemeToggle className="pref-btn pref-btn--wide" />
           <LangToggle className="pref-btn pref-btn--lang pref-btn--wide" isDrawer />
+        </div>
+
+        {/* Every way of reaching the shop, in the one place a phone customer
+            can see them all at once. The drawer is where they land when they
+            want a person rather than a product. */}
+        <div className="mobile-nav__contact">
+          <div className="mobile-nav__contact-title">{t('contactUs')}</div>
+          <div className="mobile-nav__socials">
+            <a
+              href={STORE_CONTACT.whatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="social-chip"
+            >
+              <WhatsappMark />
+              <span>WhatsApp</span>
+            </a>
+            <a
+              href={STORE_CONTACT.instagram}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="social-chip"
+            >
+              <InstagramMark />
+              <span>Instagram</span>
+            </a>
+            <a
+              href={STORE_CONTACT.facebook}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="social-chip"
+            >
+              <FacebookMark />
+              <span>Facebook</span>
+            </a>
+          </div>
+          <a className="mobile-nav__call" href={`tel:${STORE_CONTACT.phone}`}>
+            <Phone />
+            <span>{t('callStore')}</span>
+            <b dir="ltr">{STORE_CONTACT.phone}</b>
+          </a>
         </div>
       </div>
     </>

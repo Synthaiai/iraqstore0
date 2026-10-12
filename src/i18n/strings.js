@@ -26,6 +26,8 @@ export const STRINGS = {
     toggleTheme: 'الوضع الليلي / النهاري',
     toggleLang: 'العربية / English',
     langShort: 'EN',
+    contactUs: 'للتواصل معنا',
+    callStore: 'اتصل بنا',
 
     // Search
     searchPlaceholder: 'ابحث عن حذاء، معطف، ساعة…',
@@ -236,6 +238,8 @@ export const STRINGS = {
     toggleTheme: 'Dark / light mode',
     toggleLang: 'العربية / English',
     langShort: 'ع',
+    contactUs: 'Contact us',
+    callStore: 'Call us',
 
     searchPlaceholder: 'Search shoes, coats, watches…',
     searchNoResults: 'No results for',
