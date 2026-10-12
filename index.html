@@ -20,10 +20,25 @@
       href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link
-      rel="icon"
-      href="/brand-logo.jpg"
-    />
+    <link rel="icon" href="/brand-logo.jpg" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+
+    <!--
+      Added to a phone's home screen, the store should look like an app the
+      shop owns. Without a manifest and an apple-touch-icon the phone has
+      nothing to draw, so it screenshots the page and uses that: customers were
+      getting a thumbnail of the header where the logo should be.
+
+      apple-touch-icon is separate on purpose — iOS reads that link and ignores
+      the manifest's icons entirely.
+    -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-title" content="عراقي ستور" />
+    <meta name="application-name" content="عراقي ستور" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="IRAQI STORE | عراقي ستور" />
     <meta property="og:description" content="ملابس وأحذية وإكسسوارات للرجال والنساء مع توصيل إلى جميع محافظات العراق." />
