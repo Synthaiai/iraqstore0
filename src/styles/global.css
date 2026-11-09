@@ -2783,6 +2783,10 @@ h4 {
   overflow-x: auto;
   scrollbar-width: none;
   padding-bottom: 0.15rem;
+  /* The active chip is slid to the middle of this row on every pick, so a
+     dragged row shouldn't also trigger the browser's back-swipe. */
+  overscroll-behavior-inline: contain;
+  scroll-padding-inline: 1rem;
 }
 
 .secnav__row--subs::-webkit-scrollbar {

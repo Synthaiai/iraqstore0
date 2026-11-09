@@ -41,7 +41,9 @@ export default function QuickAdd({ product, onClose }) {
 
   const confirm = () => {
     if (isOutOfStock) return;
-    if (!size) {
+    // An item with no sizes at all has nothing to pick — only a sized item is
+    // held back until the customer has actually chosen one.
+    if (sizes.length > 0 && !size) {
       setErr(true);
       return;
     }
@@ -101,12 +103,16 @@ export default function QuickAdd({ product, onClose }) {
         )}
 
         {/* Size */}
+        {sizes.length > 0 && (
         <div className="qa__group">
           <div className="qa__label">
             <span>
               {t('size')}
               {err && <span className="qa__req"> — {t('pleasePickSize')}</span>}
             </span>
+            {/* The chosen size spelled out, so a one-size item can't be added
+                without the customer having read which size it is. */}
+            {size && <span className="qa__hint">{localSize(size)}</span>}
           </div>
           <div className={`qa__row ${err ? 'opt-row--error' : ''}`}>
             {sizes.map((sz) => (
@@ -125,6 +131,7 @@ export default function QuickAdd({ product, onClose }) {
             ))}
           </div>
         </div>
+        )}
 
         <button
           type="button"

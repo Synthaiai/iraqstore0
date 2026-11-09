@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { CATEGORIES, GENDERS, getSubcategories } from '../data/catalog';
 import { usePrefs } from '../store/PrefsContext';
@@ -9,6 +10,41 @@ import { usePrefs } from '../store/PrefsContext';
  * category → subcategory). With it, every gender, category and subcategory is
  * one click away from wherever you already are.
  */
+
+/**
+ * Slide a scrolling chip row so the active chip sits in the middle of it.
+ *
+ * The subcategory row is wider than a phone, and every pick reloads the page
+ * with the row back at its start — so choosing a second subcategory meant
+ * scrolling the whole row again by hand. Centring the chosen chip leaves its
+ * neighbours showing on both sides, one tap away.
+ *
+ * Measured with rects and moved with a relative scrollBy, so it behaves the
+ * same in Arabic (RTL) as in English.
+ */
+function useCenterActiveChip(deps) {
+  const rowRef = useRef(null);
+
+  useEffect(() => {
+    const row = rowRef.current;
+    if (!row) return;
+    const active = row.querySelector('.is-active');
+    if (!active) return;
+    // Nothing to slide when the whole row already fits on screen.
+    if (row.scrollWidth <= row.clientWidth + 1) return;
+
+    const rowBox = row.getBoundingClientRect();
+    const chipBox = active.getBoundingClientRect();
+    const delta = (chipBox.left + chipBox.width / 2) - (rowBox.left + rowBox.width / 2);
+    if (Math.abs(delta) < 2) return;
+
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    row.scrollBy({ left: delta, behavior: reduced ? 'auto' : 'smooth' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps);
+
+  return rowRef;
+}
 export default function SectionNav(props) {
   const { t, lang } = usePrefs();
   const name = (item) => (lang === 'en' ? item.latin : item.title);
@@ -21,6 +57,9 @@ export default function SectionNav(props) {
 
   const categories = CATEGORIES[gender] || [];
   const subs = category ? getSubcategories(gender, category) : [];
+
+  const catsRef = useCenterActiveChip([gender, category, categories.length]);
+  const subsRef = useCenterActiveChip([gender, category, sub, subs.length]);
 
   // "كل المنتجات" is active only on the gender-wide all page (/g/:gender/all).
   const { pathname } = useLocation();
@@ -41,7 +80,7 @@ export default function SectionNav(props) {
           ))}
         </div>
 
-        <div className="secnav__row" role="list">
+        <div className="secnav__row secnav__row--cats" role="list" ref={catsRef}>
           <Link
             to={`/g/${gender}/all`}
             className={`secnav__link ${onAll ? 'is-active' : ''}`}
@@ -62,7 +101,7 @@ export default function SectionNav(props) {
         </div>
 
         {subs.length > 0 && (
-          <div className="secnav__row secnav__row--subs" role="list">
+          <div className="secnav__row secnav__row--subs" role="list" ref={subsRef}>
             {subs.map((s) => (
               <Link
                 key={s.slug}

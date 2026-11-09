@@ -25,17 +25,20 @@ export default function ProductCard({ product, index = 0 }) {
   const isOutOfStock = stock <= 0;
   const isLowStock = stock > 0 && stock <= 3;
 
-  // A choice of size or colour → open the quick picker so the order carries the
-  // customer's selection. A truly single-variant item adds straight away.
+  // The card never shows which size an item comes in, so adding straight from
+  // the grid used to drop a size the customer had never seen into the cart.
+  // Any item that has a size or a colour at all now opens the quick picker:
+  // the single size is shown, pre-selected, and the customer confirms it or
+  // backs out. Only an item with no options whatsoever skips the sheet.
   const onAdd = () => {
     if (isOutOfStock) return;
     const sizes = product.sizes || [];
     const colors = product.colors || [];
-    const needsChoice = sizes.length > 1 || colors.length > 1;
-    if (needsChoice) {
+    const hasOptions = sizes.length > 0 || colors.length > 0;
+    if (hasOptions) {
       setPicking(true);
     } else {
-      addToCart(product, { size: sizes[0], color: colors[0]?.name, silent: true });
+      addToCart(product, { silent: true });
       openCart();
     }
   };
